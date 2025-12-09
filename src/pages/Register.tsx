@@ -1,25 +1,45 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
-import { Mail, Lock, User, BadgeCheck, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, User, BadgeCheck, ArrowLeft, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Get pre-filled data from URL params (after payment)
+  const prefilledEmail = searchParams.get("email") || "";
+  const plan = searchParams.get("plan");
+  const sessionId = searchParams.get("session_id");
+  const isPaidUser = !!sessionId && !!plan;
+
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    email: prefilledEmail,
     password: "",
     cro: "",
   });
+
+  useEffect(() => {
+    if (prefilledEmail) {
+      setFormData(prev => ({ ...prev, email: prefilledEmail }));
+    }
+  }, [prefilledEmail]);
+
+  const planNames: Record<string, string> = {
+    por_caso: "Por Caso",
+    mensal: "Mensal",
+    anual: "Anual",
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,20 +64,68 @@ export default function Register() {
       return;
     }
 
-    // Update profile with CRO if provided
-    if (formData.cro) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({ cro: formData.cro, name: formData.name })
-          .eq("user_id", user.id);
+    // Update profile with CRO and plan info if provided
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const updateData: Record<string, string | null> = { 
+        name: formData.name 
+      };
+      if (formData.cro) {
+        updateData.cro = formData.cro;
       }
+      
+      await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("user_id", user.id);
     }
 
     toast.success("Conta criada com sucesso!");
     navigate("/dashboard");
   };
+
+  // If user is not coming from payment, redirect to plans
+  if (!isPaidUser) {
+    return (
+      <div className="min-h-screen bg-muted flex flex-col">
+        <header className="p-4">
+          <Button variant="ghost" onClick={() => navigate("/")} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+        </header>
+        <div className="flex-1 flex items-center justify-center px-4 py-8">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <Logo size="lg" />
+              </div>
+              <CardTitle className="text-2xl">Cadastro Requer Pagamento</CardTitle>
+              <CardDescription>
+                Para criar sua conta, você precisa primeiro escolher um plano e realizar o pagamento.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                variant="hero"
+                size="lg"
+                className="w-full"
+                onClick={() => navigate("/plans")}
+              >
+                Ver Planos e Preços
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Já tem uma conta?{" "}
+                <Link to="/login" className="text-primary font-medium hover:underline">
+                  Entrar
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted flex flex-col">
@@ -76,9 +144,18 @@ export default function Register() {
             <div className="flex justify-center mb-4">
               <Logo size="lg" />
             </div>
-            <CardTitle className="text-2xl">Crie sua conta</CardTitle>
+            
+            {/* Payment confirmed badge */}
+            <div className="flex items-center justify-center gap-2 mb-4 p-2 rounded-lg bg-success/10 text-success">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                Plano {plan ? planNames[plan] : ""} confirmado!
+              </span>
+            </div>
+
+            <CardTitle className="text-2xl">Complete seu Cadastro</CardTitle>
             <CardDescription>
-              Comece a usar o OdontoVision AI Pro
+              Preencha seus dados para finalizar a criação da conta
             </CardDescription>
           </CardHeader>
 
@@ -121,8 +198,14 @@ export default function Register() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
+                    disabled={!!prefilledEmail}
                   />
                 </div>
+                {prefilledEmail && (
+                  <p className="text-xs text-muted-foreground">
+                    E-mail vinculado ao pagamento
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -173,7 +256,7 @@ export default function Register() {
                     Criando conta...
                   </>
                 ) : (
-                  "Criar Conta"
+                  "Finalizar Cadastro"
                 )}
               </Button>
             </form>

@@ -54,7 +54,7 @@ export default function Welcome() {
             variant="success"
             size="xl"
             className="flex-1"
-            onClick={() => navigate("/register")}
+            onClick={() => navigate("/plans")}
           >
             Criar Conta
             <ArrowRight className="w-5 h-5" />
