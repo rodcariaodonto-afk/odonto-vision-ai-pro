@@ -60,32 +60,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+    let mounted = true;
+
+    // FIRST check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-
-        // Check subscription status after auth change
+        
         if (session) {
-          setTimeout(() => {
-            checkSubscription();
-          }, 0);
-        } else {
-          setSubscription(null);
+          checkSubscription();
+        }
+      }
+    });
+
+    // Set up auth state listener for ACTUAL auth changes only
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        // Only update if there's an actual auth change (not just visibility)
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (mounted) {
+            setSession(newSession);
+            setUser(newSession?.user ?? null);
+            setLoading(false);
+
+            if (newSession && event === 'SIGNED_IN') {
+              setTimeout(() => {
+                checkSubscription();
+              }, 0);
+            } else if (event === 'SIGNED_OUT') {
+              setSubscription(null);
+            }
+          }
         }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => authSubscription.unsubscribe();
+    return () => {
+      mounted = false;
+      authSubscription.unsubscribe();
+    };
   }, []);
 
   // Periodically check subscription (every 60 seconds)
