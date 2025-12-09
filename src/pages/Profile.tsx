@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,29 +6,91 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { User, Mail, BadgeCheck, CreditCard, HelpCircle, LogOut, Edit2, Save, Loader2, Crown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
+interface ProfileData {
+  name: string | null;
+  email: string | null;
+  cro: string | null;
+}
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [userData, setUserData] = useState({
-    name: "Dr. João Silva",
-    email: "joao.silva@email.com",
-    cro: "CRO-SP 12345",
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<ProfileData>({
+    name: "",
+    email: "",
+    cro: "",
   });
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setUserData({
+        name: data?.name || user?.user_metadata?.name || "",
+        email: data?.email || user?.email || "",
+        cro: data?.cro || "",
+      });
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    setIsEditing(false);
-    toast.success("Dados atualizados com sucesso!");
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: userData.name,
+          cro: userData.cro,
+        })
+        .eq("user_id", user?.id);
+
+      if (error) throw error;
+
+      toast.success("Dados atualizados com sucesso!");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      toast.error("Erro ao atualizar dados");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     toast.success("Você foi desconectado.");
     navigate("/");
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
@@ -72,11 +134,11 @@ export default function Profile() {
             </label>
             {isEditing ? (
               <Input
-                value={userData.name}
+                value={userData.name || ""}
                 onChange={(e) => setUserData({ ...userData, name: e.target.value })}
               />
             ) : (
-              <p className="text-foreground py-2">{userData.name}</p>
+              <p className="text-foreground py-2">{userData.name || "Não informado"}</p>
             )}
           </div>
 
@@ -85,15 +147,7 @@ export default function Profile() {
               <Mail className="w-4 h-4 text-muted-foreground" />
               E-mail
             </label>
-            {isEditing ? (
-              <Input
-                type="email"
-                value={userData.email}
-                onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-              />
-            ) : (
-              <p className="text-foreground py-2">{userData.email}</p>
-            )}
+            <p className="text-foreground py-2">{userData.email}</p>
           </div>
 
           <div className="space-y-2">
@@ -103,11 +157,12 @@ export default function Profile() {
             </label>
             {isEditing ? (
               <Input
-                value={userData.cro}
+                value={userData.cro || ""}
                 onChange={(e) => setUserData({ ...userData, cro: e.target.value })}
+                placeholder="CRO-SP 12345"
               />
             ) : (
-              <p className="text-foreground py-2">{userData.cro}</p>
+              <p className="text-foreground py-2">{userData.cro || "Não informado"}</p>
             )}
           </div>
         </CardContent>
@@ -128,11 +183,11 @@ export default function Profile() {
                 <Crown className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="font-semibold text-foreground">Plano Mensal</p>
-                <p className="text-sm text-muted-foreground">15 de 20 análises restantes</p>
+                <p className="font-semibold text-foreground">Plano Gratuito</p>
+                <p className="text-sm text-muted-foreground">Faça upgrade para mais análises</p>
               </div>
             </div>
-            <Badge variant="default">Ativo</Badge>
+            <Badge variant="secondary">Ativo</Badge>
           </div>
 
           <Button variant="outline" className="w-full mt-4" onClick={() => navigate("/plans")}>

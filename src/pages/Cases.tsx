@@ -1,93 +1,121 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, FileImage, FileText, Download, Calendar, Clock, CheckCircle, Loader2, Eye } from "lucide-react";
+import { Search, FileImage, FileText, Download, Calendar, CheckCircle, Loader2, Eye, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+
+interface AnalysisResult {
+  identificacao?: string;
+  achados?: string[];
+  interpretacao?: string;
+  diagnosticos?: string[];
+  riscos?: string[];
+  condutas?: string[];
+  observacoes?: string;
+}
 
 interface Case {
   id: string;
   name: string;
-  type: string;
-  date: string;
-  status: "completed" | "analyzing";
-  result?: {
-    achados: string[];
-    diagnosticos: string[];
-    condutas: string[];
-  };
+  exam_type: string;
+  file_name: string | null;
+  file_type: string | null;
+  status: string;
+  analysis: AnalysisResult | null;
+  raw_content: string | null;
+  created_at: string;
 }
 
-const mockCases: Case[] = [
-  {
-    id: "1",
-    name: "Radiografia Periapical - Elemento 46",
-    type: "Periapical",
-    date: "09/12/2024",
-    status: "completed",
-    result: {
-      achados: ["Lesão radiolúcida periapical", "Restauração com infiltração"],
-      diagnosticos: ["Periodontite apical crônica", "Cárie secundária"],
-      condutas: ["Tratamento endodôntico", "Nova restauração"],
-    },
-  },
-  {
-    id: "2",
-    name: "Panorâmica - Avaliação Geral",
-    type: "Panorâmica",
-    date: "08/12/2024",
-    status: "completed",
-    result: {
-      achados: ["Terceiros molares impactados", "Perda óssea leve"],
-      diagnosticos: ["Impactação dentária", "Doença periodontal inicial"],
-      condutas: ["Avaliação cirúrgica", "Terapia periodontal"],
-    },
-  },
-  {
-    id: "3",
-    name: "Tomografia - Implante região 36",
-    type: "Tomografia",
-    date: "07/12/2024",
-    status: "completed",
-    result: {
-      achados: ["Altura óssea adequada", "Largura vestíbulo-lingual satisfatória"],
-      diagnosticos: ["Condição favorável para implante"],
-      condutas: ["Planejamento cirúrgico", "Guia cirúrgico"],
-    },
-  },
-  {
-    id: "4",
-    name: "Bitewing - Cáries Interproximais",
-    type: "Bitewing",
-    date: "06/12/2024",
-    status: "analyzing",
-  },
-];
-
 export default function Cases() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [cases, setCases] = useState<Case[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  const filteredCases = mockCases.filter(
+  useEffect(() => {
+    if (user) {
+      fetchCases();
+    }
+  }, [user]);
+
+  const fetchCases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cases")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      // Type assertion for the analysis field
+      const typedCases = (data || []).map(c => ({
+        ...c,
+        analysis: c.analysis as AnalysisResult | null
+      }));
+      
+      setCases(typedCases);
+    } catch (error) {
+      console.error("Erro ao carregar casos:", error);
+      toast.error("Erro ao carregar casos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleting(id);
+    try {
+      const { error } = await supabase.from("cases").delete().eq("id", id);
+      if (error) throw error;
+      setCases(cases.filter((c) => c.id !== id));
+      toast.success("Caso excluído com sucesso");
+    } catch (error) {
+      console.error("Erro ao excluir:", error);
+      toast.error("Erro ao excluir caso");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const filteredCases = cases.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.type.toLowerCase().includes(search.toLowerCase())
+      c.exam_type.toLowerCase().includes(search.toLowerCase())
   );
 
   const getTypeIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "periapical":
-      case "panorâmica":
-      case "bitewing":
-        return <FileImage className="w-5 h-5" />;
-      case "tomografia":
-        return <FileText className="w-5 h-5" />;
-      default:
-        return <FileImage className="w-5 h-5" />;
+    if (type.toLowerCase().includes("pdf")) {
+      return <FileText className="w-5 h-5" />;
     }
+    return <FileImage className="w-5 h-5" />;
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -111,68 +139,75 @@ export default function Cases() {
 
       {/* Cases List */}
       <div className="space-y-3">
-        {filteredCases.map((c) => (
-          <Card
-            key={c.id}
-            variant="interactive"
-            onClick={() => c.status === "completed" && setSelectedCase(c)}
-            className={cn(c.status === "analyzing" && "opacity-70 cursor-default")}
-          >
-            <CardContent className="py-4">
-              <div className="flex items-center gap-4">
-                <div
-                  className={cn(
-                    "p-3 rounded-xl",
-                    c.status === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {getTypeIcon(c.type)}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground truncate">
-                    {c.name}
-                  </h3>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {c.date}
-                    </span>
-                    <Badge variant={c.status === "completed" ? "default" : "secondary"}>
-                      {c.type}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {c.status === "completed" ? (
-                    <>
-                      <span className="flex items-center gap-1 text-sm text-success">
-                        <CheckCircle className="w-4 h-4" />
-                        Concluído
-                      </span>
-                      <Button variant="ghost" size="icon">
-                        <Eye className="w-5 h-5" />
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Em análise
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {filteredCases.length === 0 && (
+        {filteredCases.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">Nenhum caso encontrado.</p>
+              <p className="text-muted-foreground">
+                {cases.length === 0
+                  ? "Nenhum caso salvo ainda. Envie um exame para análise!"
+                  : "Nenhum caso encontrado."}
+              </p>
             </CardContent>
           </Card>
+        ) : (
+          filteredCases.map((c) => (
+            <Card key={c.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={cn(
+                      "p-3 rounded-xl",
+                      c.status === "completed"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {getTypeIcon(c.exam_type)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">
+                      {c.name}
+                    </h3>
+                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {formatDate(c.created_at)}
+                      </span>
+                      <Badge variant="default">{c.exam_type}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-sm text-success">
+                      <CheckCircle className="w-4 h-4" />
+                      Concluído
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedCase(c)}
+                    >
+                      <Eye className="w-5 h-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(c.id)}
+                      disabled={deleting === c.id}
+                    >
+                      {deleting === c.id ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-5 h-5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
 
@@ -187,57 +222,110 @@ export default function Cases() {
                   {selectedCase.name}
                 </DialogTitle>
                 <DialogDescription>
-                  {selectedCase.type} • {selectedCase.date}
+                  {selectedCase.exam_type} • {formatDate(selectedCase.created_at)}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 mt-4">
-                {selectedCase.result && (
+                {selectedCase.analysis && (
                   <>
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-2">Achados Clínicos</h4>
-                      <ul className="space-y-1">
-                        {selectedCase.result.achados.map((a, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
-                            {a}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {selectedCase.analysis.identificacao && (
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">
+                          Identificação
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedCase.analysis.identificacao}
+                        </p>
+                      </div>
+                    )}
 
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-2">Diagnósticos</h4>
-                      <ul className="space-y-1">
-                        {selectedCase.result.diagnosticos.map((d, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-success mt-2" />
-                            {d}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {selectedCase.analysis.achados &&
+                      selectedCase.analysis.achados.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-2">
+                            Achados Clínicos
+                          </h4>
+                          <ul className="space-y-1">
+                            {selectedCase.analysis.achados.map((a, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                                {a}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-2">Condutas Sugeridas</h4>
-                      <ul className="space-y-1">
-                        {selectedCase.result.condutas.map((c, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
-                            {c}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {selectedCase.analysis.interpretacao && (
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">
+                          Interpretação
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedCase.analysis.interpretacao}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedCase.analysis.diagnosticos &&
+                      selectedCase.analysis.diagnosticos.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-2">
+                            Diagnósticos
+                          </h4>
+                          <ul className="space-y-1">
+                            {selectedCase.analysis.diagnosticos.map((d, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-success mt-2" />
+                                {d}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {selectedCase.analysis.condutas &&
+                      selectedCase.analysis.condutas.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-2">
+                            Condutas Sugeridas
+                          </h4>
+                          <ul className="space-y-1">
+                            {selectedCase.analysis.condutas.map((c, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                                {c}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {selectedCase.analysis.observacoes && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <h4 className="font-semibold text-foreground mb-1">
+                          Observações
+                        </h4>
+                        <p className="text-sm text-muted-foreground italic">
+                          {selectedCase.analysis.observacoes}
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
 
                 <div className="flex gap-3 pt-4">
-                  <Button variant="success" className="flex-1">
-                    <Download className="w-4 h-4 mr-2" />
-                    Baixar PDF
-                  </Button>
-                  <Button variant="outline" onClick={() => setSelectedCase(null)}>
+                  <Button variant="outline" onClick={() => setSelectedCase(null)} className="flex-1">
                     Fechar
                   </Button>
                 </div>
