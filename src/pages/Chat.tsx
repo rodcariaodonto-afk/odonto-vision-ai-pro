@@ -2,8 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot, User, Sparkles, ImagePlus, Loader2 } from "lucide-react";
+import { Send, Bot, User, Sparkles, ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -25,7 +27,10 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,50 +40,150 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Por favor, selecione uma imagem.");
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !selectedImage) || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: input || (selectedImage ? `[Imagem: ${selectedImage.name}]` : ""),
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
     setIsLoading(true);
 
-    // Simulated API call to https://api.odonto-vision.ai/chat
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      // Build messages history for API
+      const apiMessages = messages
+        .filter((m) => m.id !== "1") // Exclude initial welcome message
+        .map((m) => ({ role: m.role, content: m.content }));
+      apiMessages.push({ role: "user", content: currentInput || "Analise esta imagem" });
 
-    const responses: Record<string, string> = {
-      default: `Entendi sua pergunta sobre "${input}". 
+      // Convert image to base64 if present
+      let imageBase64: string | undefined;
+      if (selectedImage) {
+        const reader = new FileReader();
+        imageBase64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(selectedImage);
+        });
+      }
 
-Com base no contexto clínico, posso oferecer as seguintes considerações:
+      clearImage();
 
-**Aspectos a considerar:**
-• Avaliação clínica completa é fundamental
-• Correlação com exames de imagem quando disponíveis
-• Histórico do paciente deve ser considerado
+      // Call the edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/odonto-chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: apiMessages,
+            imageBase64,
+          }),
+        }
+      );
 
-**Recomendações:**
-1. Realizar exame clínico detalhado
-2. Solicitar exames complementares se necessário
-3. Documentar todos os achados
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erro ao processar mensagem");
+      }
 
-Posso ajudar com mais detalhes sobre algum aspecto específico?`,
-    };
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Streaming não suportado");
 
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: responses.default,
-      timestamp: new Date(),
-    };
+      const decoder = new TextDecoder();
+      let assistantContent = "";
 
-    setMessages((prev) => [...prev, assistantMessage]);
-    setIsLoading(false);
+      // Create assistant message placeholder
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        // Process line-by-line
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessage.id
+                    ? { ...m, content: assistantContent }
+                    : m
+                )
+              );
+            }
+          } catch {
+            // Incomplete JSON, put back and wait
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erro no chat:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar mensagem");
+      // Remove the user message on error
+      setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -147,9 +252,7 @@ Posso ajudar com mais detalhes sobre algum aspecto específico?`,
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">
                   {message.content.split(/(\*\*.*?\*\*)/).map((part, i) => {
                     if (part.startsWith("**") && part.endsWith("**")) {
-                      return (
-                        <strong key={i}>{part.slice(2, -2)}</strong>
-                      );
+                      return <strong key={i}>{part.slice(2, -2)}</strong>;
                     }
                     return part;
                   })}
@@ -169,7 +272,7 @@ Posso ajudar com mais detalhes sobre algum aspecto específico?`,
             </div>
           ))}
 
-          {isLoading && (
+          {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex gap-3 animate-fade-in">
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
                 <Bot className="w-5 h-5 text-primary-foreground" />
@@ -188,10 +291,43 @@ Posso ajudar com mais detalhes sobre algum aspecto específico?`,
           <div ref={messagesEndRef} />
         </CardContent>
 
+        {/* Image Preview */}
+        {imagePreview && (
+          <div className="px-4 pb-2">
+            <div className="relative inline-block">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="h-20 rounded-lg object-cover"
+              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute -top-2 -right-2 w-6 h-6"
+                onClick={clearImage}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-4 border-t border-border bg-card">
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" className="flex-shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageSelect}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <ImagePlus className="w-5 h-5" />
             </Button>
             <Input
@@ -206,7 +342,7 @@ Posso ajudar com mais detalhes sobre algum aspecto específico?`,
               variant="hero"
               size="icon"
               onClick={handleSend}
-              disabled={!input.trim() || isLoading}
+              disabled={(!input.trim() && !selectedImage) || isLoading}
             >
               <Send className="w-5 h-5" />
             </Button>
