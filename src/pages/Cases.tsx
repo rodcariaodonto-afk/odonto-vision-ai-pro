@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 interface AnalysisResult {
   identificacao?: string;
@@ -84,6 +85,88 @@ export default function Cases() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  const generatePDF = (caseData: Case) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPos = 20;
+
+    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont("helvetica", isBold ? "bold" : "normal");
+      const lines = doc.splitTextToSize(text, maxWidth);
+      lines.forEach((line: string) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(line, margin, yPos);
+        yPos += fontSize * 0.5;
+      });
+      yPos += 5;
+    };
+
+    const addSection = (title: string, content: string | string[] | undefined) => {
+      if (!content || (Array.isArray(content) && content.length === 0)) return;
+      addText(title, 12, true);
+      if (Array.isArray(content)) {
+        content.forEach((item) => addText("• " + item));
+      } else {
+        addText(content);
+      }
+      yPos += 5;
+    };
+
+    // Header
+    doc.setFillColor(63, 140, 255);
+    doc.rect(0, 0, pageWidth, 40, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("OdontoVision AI Pro", margin, 25);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Relatorio de Analise", margin, 33);
+    
+    yPos = 55;
+    doc.setTextColor(0, 0, 0);
+
+    // Case Info
+    addText(caseData.name, 14, true);
+    addText(`Tipo: ${caseData.exam_type} | Data: ${formatDate(caseData.created_at)}`, 10);
+    yPos += 5;
+
+    // Analysis Content
+    if (caseData.analysis) {
+      addSection("Identificacao", caseData.analysis.identificacao);
+      addSection("Achados Clinicos", caseData.analysis.achados);
+      addSection("Interpretacao", caseData.analysis.interpretacao);
+      addSection("Diagnosticos", caseData.analysis.diagnosticos);
+      addSection("Riscos", caseData.analysis.riscos);
+      addSection("Condutas Sugeridas", caseData.analysis.condutas);
+      addSection("Observacoes", caseData.analysis.observacoes);
+    }
+
+    // Disclaimer
+    yPos += 10;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin - 5, yPos - 5, maxWidth + 10, 25, "F");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    const disclaimer = "Este relatorio e uma ferramenta de suporte tecnico e nao substitui a avaliacao profissional. A analise final deve ser realizada pelo cirurgiao-dentista responsavel.";
+    const disclaimerLines = doc.splitTextToSize(disclaimer, maxWidth);
+    disclaimerLines.forEach((line: string) => {
+      doc.text(line, margin, yPos);
+      yPos += 4;
+    });
+
+    // Save
+    const fileName = `odontovision-${caseData.name.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`;
+    doc.save(fileName);
+    toast.success("PDF baixado com sucesso!");
   };
 
   const filteredCases = cases.filter(
@@ -325,6 +408,14 @@ export default function Cases() {
                 )}
 
                 <div className="flex gap-3 pt-4">
+                  <Button 
+                    variant="default" 
+                    onClick={() => generatePDF(selectedCase)} 
+                    className="flex-1"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar PDF
+                  </Button>
                   <Button variant="outline" onClick={() => setSelectedCase(null)} className="flex-1">
                     Fechar
                   </Button>
