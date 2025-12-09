@@ -42,9 +42,9 @@ function LoadingSpinner() {
 // Protected Route component - requires login AND active subscription
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, subscription, subscriptionLoading } = useAuth();
-  const { isAdmin } = useAdminRole();
+  const { isAdmin, loading: adminLoading } = useAdminRole();
 
-  if (loading || subscriptionLoading) {
+  if (loading || subscriptionLoading || adminLoading) {
     return <LoadingSpinner />;
   }
 
@@ -122,9 +122,9 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 // Public Route that redirects authenticated users with subscription
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, subscription, subscriptionLoading } = useAuth();
-  const { isAdmin } = useAdminRole();
+  const { isAdmin, loading: adminLoading } = useAdminRole();
 
-  if (loading) {
+  if (loading || adminLoading) {
     return <LoadingSpinner />;
   }
 
