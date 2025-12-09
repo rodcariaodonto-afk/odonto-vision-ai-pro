@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ interface PatientData {
   dataLaudo: string;
 }
 
+const STORAGE_KEY = "odontovision_draft";
+
 // Helper to format today's date as DD/MM/AAAA
 const getTodayFormatted = (): string => {
   const today = new Date();
@@ -41,6 +43,46 @@ const getTodayFormatted = (): string => {
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const year = today.getFullYear();
   return `${day}/${month}/${year}`;
+};
+
+// Helper to capitalize each word in a name
+const capitalizeFullName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+// Load draft from localStorage
+const loadDraft = (): PatientData | null => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error("Erro ao carregar rascunho:", e);
+  }
+  return null;
+};
+
+// Save draft to localStorage
+const saveDraft = (data: PatientData): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("Erro ao salvar rascunho:", e);
+  }
+};
+
+// Clear draft from localStorage
+const clearDraft = (): void => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.error("Erro ao limpar rascunho:", e);
+  }
 };
 
 export default function Upload() {
@@ -56,12 +98,20 @@ export default function Upload() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
   
-  // Patient data state
-  const [patientData, setPatientData] = useState<PatientData>({
-    nome: "",
-    dataNascimento: "",
-    dataLaudo: getTodayFormatted(),
+  // Patient data state - load from draft or use defaults
+  const [patientData, setPatientData] = useState<PatientData>(() => {
+    const draft = loadDraft();
+    return draft || {
+      nome: "",
+      dataNascimento: "",
+      dataLaudo: getTodayFormatted(),
+    };
   });
+
+  // Auto-save draft when patient data changes
+  useEffect(() => {
+    saveDraft(patientData);
+  }, [patientData]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -153,6 +203,9 @@ export default function Upload() {
 
       const imageBase64 = await base64Promise;
 
+      // Format patient name with proper capitalization
+      const formattedName = capitalizeFullName(patientData.nome);
+      
       // Call the edge function with patient data
       const { data, error } = await supabase.functions.invoke("analyze-exam", {
         body: {
@@ -160,7 +213,7 @@ export default function Upload() {
           imageType: selectedFile.type,
           fileName: selectedFile.name,
           patientData: {
-            nome: patientData.nome,
+            nome: formattedName,
             dataNascimento: patientData.dataNascimento,
             dataLaudo: patientData.dataLaudo,
           },
@@ -253,7 +306,7 @@ export default function Upload() {
     yPosition += 7;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    doc.text(`• Nome: ${result.identificacao_paciente?.nome || patientData.nome}`, margin, yPosition);
+    doc.text(`• Nome: ${capitalizeFullName(result.identificacao_paciente?.nome || patientData.nome)}`, margin, yPosition);
     yPosition += 6;
     doc.text(`• Data de Nascimento: ${formatDate(result.identificacao_paciente?.data_nascimento || patientData.dataNascimento)}`, margin, yPosition);
     yPosition += 6;
@@ -427,6 +480,12 @@ export default function Upload() {
     setResult(null);
     setRawContent(null);
     setReportGenerated(false);
+    clearDraft();
+    setPatientData({
+      nome: "",
+      dataNascimento: "",
+      dataLaudo: getTodayFormatted(),
+    });
   };
 
   const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo;

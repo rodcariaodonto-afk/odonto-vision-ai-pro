@@ -64,6 +64,13 @@ Siga rigorosamente esse formato, sem adicionar títulos novos, sem remover seç�
 Nunca ofereça tratamentos específicos.
 Sempre mantenha linguagem clínica, técnica, objetiva e profissional.
 
+CRÍTICO - ORTOGRAFIA E GRAMÁTICA:
+- NÃO cometa erros de português. Revise sua resposta antes de enviar.
+- Use acentuação correta em todas as palavras.
+- O nome do paciente deve sempre ter as iniciais maiúsculas (ex: "João Silva", não "joao silva").
+- Use vocabulário técnico odontológico correto.
+- Evite anglicismos desnecessários.
+
 IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutura:
 {
   "identificacao_paciente": {
