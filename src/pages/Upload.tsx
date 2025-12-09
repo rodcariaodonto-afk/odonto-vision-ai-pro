@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AnalysisResult {
+  identificacao: string;
   achados: string[];
   interpretacao: string;
   diagnosticos: string[];
+  riscos: string[];
   condutas: string[];
   observacoes: string;
 }
@@ -16,6 +19,7 @@ interface AnalysisResult {
 export default function Upload() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
@@ -45,8 +49,23 @@ export default function Upload() {
       toast.error("Formato não suportado. Use JPG, PNG ou PDF.");
       return;
     }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 20MB.");
+      return;
+    }
     setSelectedFile(file);
     setResult(null);
+
+    // Create preview for images
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPreviewUrl(null);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -54,40 +73,47 @@ export default function Upload() {
 
     setIsAnalyzing(true);
 
-    // Simulated API call to https://api.odonto-vision.ai/analyze
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
 
-    // Simulated result
-    const mockResult: AnalysisResult = {
-      achados: [
-        "Lesão radiolúcida periapical em elemento 46",
-        "Restauração deficiente com infiltração marginal",
-        "Perda óssea horizontal leve na região posterior",
-      ],
-      interpretacao:
-        "A radiografia periapical apresenta alterações compatíveis com processo inflamatório periapical crônico no dente 46. A lesão apresenta margens bem definidas e halo radiolúcido característico de granuloma periapical.",
-      diagnosticos: [
-        "Periodontite apical crônica (Granuloma periapical)",
-        "Cárie secundária sob restauração",
-        "Doença periodontal localizada - estágio I",
-      ],
-      condutas: [
-        "Tratamento endodôntico do elemento 46",
-        "Remoção da restauração e avaliação da extensão da cárie",
-        "Proservação periodontal e orientação de higiene",
-        "Radiografia de controle em 6 meses",
-      ],
-      observacoes:
-        "Recomenda-se correlação clínica para confirmação diagnóstica. Considerar tomografia de feixe cônico para melhor avaliação da extensão da lesão periapical se necessário.",
-    };
+      const imageBase64 = await base64Promise;
 
-    setResult(mockResult);
-    setIsAnalyzing(false);
-    toast.success("Análise concluída com sucesso!");
+      // Call the edge function
+      const { data, error } = await supabase.functions.invoke("analyze-exam", {
+        body: {
+          imageBase64,
+          imageType: selectedFile.type,
+          fileName: selectedFile.name,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setResult(data.analysis);
+      toast.success("Análise concluída com sucesso!");
+    } catch (error) {
+      console.error("Erro na análise:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao processar análise");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const clearFile = () => {
     setSelectedFile(null);
+    setPreviewUrl(null);
     setResult(null);
   };
 
@@ -151,11 +177,18 @@ export default function Upload() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-muted rounded-xl">
-                {selectedFile.type.startsWith("image/") ? (
-                  <FileImage className="w-10 h-10 text-primary" />
+              {/* File Preview */}
+              <div className="flex items-start gap-4 p-4 bg-muted rounded-xl">
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-24 h-24 object-cover rounded-lg"
+                  />
+                ) : selectedFile.type.startsWith("image/") ? (
+                  <FileImage className="w-12 h-12 text-primary" />
                 ) : (
-                  <FileText className="w-10 h-10 text-primary" />
+                  <FileText className="w-12 h-12 text-primary" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground truncate">
@@ -163,6 +196,9 @@ export default function Upload() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedFile.type}
                   </p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={clearFile}>
@@ -205,18 +241,32 @@ export default function Upload() {
           </h2>
 
           <div className="grid gap-4">
-            <ResultCard
-              title="Achados Clínicos"
-              items={result.achados}
-              icon={<AlertCircle className="w-5 h-5" />}
-              color="text-primary"
-            />
+            {/* Identificação */}
+            <Card className="bg-muted/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Identificação do Exame</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground leading-relaxed">{result.identificacao}</p>
+              </CardContent>
+            </Card>
 
+            {/* Achados */}
+            {result.achados.length > 0 && (
+              <ResultCard
+                title="Achados Clínicos"
+                items={result.achados}
+                icon={<AlertCircle className="w-5 h-5" />}
+                color="text-primary"
+              />
+            )}
+
+            {/* Interpretação */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary" />
-                  Interpretação Radiológica
+                  Interpretação Radiológica / Clínica
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -224,26 +274,43 @@ export default function Upload() {
               </CardContent>
             </Card>
 
-            <ResultCard
-              title="Prováveis Diagnósticos"
-              items={result.diagnosticos}
-              icon={<Sparkles className="w-5 h-5" />}
-              color="text-success"
-            />
+            {/* Diagnósticos */}
+            {result.diagnosticos.length > 0 && (
+              <ResultCard
+                title="Diagnósticos Prováveis / Diferenciais"
+                items={result.diagnosticos}
+                icon={<Sparkles className="w-5 h-5" />}
+                color="text-success"
+              />
+            )}
 
-            <ResultCard
-              title="Possíveis Condutas"
-              items={result.condutas}
-              icon={<CheckCircle className="w-5 h-5" />}
-              color="text-primary"
-            />
+            {/* Riscos */}
+            {result.riscos.length > 0 && (
+              <ResultCard
+                title="Riscos ou Complicações Potenciais"
+                items={result.riscos}
+                icon={<AlertCircle className="w-5 h-5" />}
+                color="text-destructive"
+              />
+            )}
 
-            <Card className="bg-muted/50">
+            {/* Condutas */}
+            {result.condutas.length > 0 && (
+              <ResultCard
+                title="Recomendações e Condutas Possíveis"
+                items={result.condutas}
+                icon={<CheckCircle className="w-5 h-5" />}
+                color="text-primary"
+              />
+            )}
+
+            {/* Observações */}
+            <Card className="bg-muted/50 border-l-4 border-l-primary">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Observações Adicionais</CardTitle>
+                <CardTitle className="text-lg">Observações Importantes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">{result.observacoes}</p>
+                <p className="text-muted-foreground leading-relaxed italic">{result.observacoes}</p>
               </CardContent>
             </Card>
           </div>
@@ -285,7 +352,10 @@ function ResultCard({
         <ul className="space-y-2">
           {items.map((item, index) => (
             <li key={index} className="flex items-start gap-3">
-              <span className={cn("mt-1.5 w-2 h-2 rounded-full flex-shrink-0", color === "text-success" ? "bg-success" : "bg-primary")} />
+              <span className={cn("mt-1.5 w-2 h-2 rounded-full flex-shrink-0", 
+                color === "text-success" ? "bg-success" : 
+                color === "text-destructive" ? "bg-destructive" : "bg-primary"
+              )} />
               <span className="text-foreground">{item}</span>
             </li>
           ))}
