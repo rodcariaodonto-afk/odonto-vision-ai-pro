@@ -17,6 +17,7 @@ import Chat from "./pages/Chat";
 import Cases from "./pages/Cases";
 import Plans from "./pages/Plans";
 import Profile from "./pages/Profile";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -102,6 +103,7 @@ function AppRoutes() {
       <Route path="/welcome" element={<PublicRoute><Welcome /></PublicRoute>} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/payment-success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
       
       {/* Protected Routes with Layout */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>

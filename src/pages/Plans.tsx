@@ -4,16 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Building2, Zap, Crown, Star, Users, Loader2 } from "lucide-react";
+import { Check, Sparkles, Building2, Zap, Crown, Star, Users, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface Plan {
   id: string;
+  stripeId: string;
   name: string;
   subtitle: string;
   price: string;
   period?: string;
+  installments?: string;
   features: string[];
   highlighted?: boolean;
   badge?: string;
@@ -24,7 +29,8 @@ interface Plan {
 
 const plans: Plan[] = [
   {
-    id: "per-case",
+    id: "por_caso",
+    stripeId: "price_1ScTIi0eNFT13oWK1LSDWRDi",
     name: "Por Caso",
     subtitle: "Pague por análise",
     price: "R$ 15",
@@ -40,7 +46,8 @@ const plans: Plan[] = [
     buttonVariant: "outline",
   },
   {
-    id: "monthly",
+    id: "mensal",
+    stripeId: "price_1ScTKL0eNFT13oWKYevlGEsp",
     name: "Mensal",
     subtitle: "Profissional Autônomo",
     price: "R$ 97",
@@ -57,11 +64,13 @@ const plans: Plan[] = [
     buttonVariant: "default",
   },
   {
-    id: "annual",
+    id: "anual",
+    stripeId: "price_1ScTZ40eNFT13oWK4pBt8hDT",
     name: "Anual",
     subtitle: "Profissional Premium",
-    price: "R$ 497",
+    price: "R$ 897",
     period: "/ano",
+    installments: "ou 10x de R$ 89,70",
     features: [
       "Até 200 exames por ano",
       "Chat ilimitado com IA",
@@ -78,6 +87,7 @@ const plans: Plan[] = [
   },
   {
     id: "enterprise",
+    stripeId: "",
     name: "Enterprise",
     subtitle: "Para Clínicas",
     price: "Personalizado",
@@ -98,6 +108,9 @@ const plans: Plan[] = [
 export default function Plans() {
   const [showEnterprise, setShowEnterprise] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     clinicName: "",
     cnpj: "",
@@ -106,11 +119,41 @@ export default function Plans() {
     email: "",
   });
 
-  const handlePlanClick = (plan: Plan) => {
+  const handlePlanClick = async (plan: Plan) => {
     if (plan.id === "enterprise") {
       setShowEnterprise(true);
-    } else {
-      toast.success(`Redirecionando para pagamento do plano ${plan.name}...`);
+      return;
+    }
+
+    if (!user) {
+      toast.error("Você precisa estar logado para assinar um plano.");
+      navigate("/login");
+      return;
+    }
+
+    setLoadingPlan(plan.id);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { planId: plan.id },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.url) {
+        // Open checkout in new tab
+        window.open(data.url, "_blank");
+        toast.success("Abrindo página de pagamento...");
+      } else {
+        throw new Error("URL de checkout não retornada");
+      }
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("Erro ao iniciar checkout. Tente novamente.");
+    } finally {
+      setLoadingPlan(null);
     }
   };
 
@@ -169,6 +212,12 @@ export default function Plans() {
                 {plan.period && (
                   <span className="text-muted-foreground">{plan.period}</span>
                 )}
+                {plan.installments && (
+                  <p className="text-sm text-primary mt-1 font-medium">
+                    <CreditCard className="w-3 h-3 inline mr-1" />
+                    {plan.installments}
+                  </p>
+                )}
               </div>
 
               <ul className="space-y-3 flex-1">
@@ -185,8 +234,16 @@ export default function Plans() {
                 size="lg"
                 className="w-full mt-6"
                 onClick={() => handlePlanClick(plan)}
+                disabled={loadingPlan === plan.id}
               >
-                {plan.buttonText}
+                {loadingPlan === plan.id ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  plan.buttonText
+                )}
               </Button>
             </CardContent>
           </Card>
