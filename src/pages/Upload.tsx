@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Calendar } from "lucide-react";
+import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,15 @@ interface PatientData {
   dataLaudo: string;
 }
 
+// Helper to format today's date as DD/MM/AAAA
+const getTodayFormatted = (): string => {
+  const today = new Date();
+  const day = String(today.getDate()).padStart(2, '0');
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const year = today.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export default function Upload() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +60,7 @@ export default function Upload() {
   const [patientData, setPatientData] = useState<PatientData>({
     nome: "",
     dataNascimento: "",
-    dataLaudo: new Date().toISOString().split("T")[0],
+    dataLaudo: getTodayFormatted(),
   });
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -192,8 +201,14 @@ export default function Upload() {
 
   const formatDate = (dateStr: string): string => {
     if (!dateStr) return "";
+    // If already in DD/MM/YYYY format, return as is
+    if (dateStr.includes("/")) return dateStr;
+    // If in YYYY-MM-DD format, convert
     const [year, month, day] = dateStr.split("-");
-    return `${day}/${month}/${year}`;
+    if (year && month && day) {
+      return `${day}/${month}/${year}`;
+    }
+    return dateStr;
   };
 
   const handleDownloadPDF = () => {
@@ -450,29 +465,25 @@ export default function Upload() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="dataNascimento">Data de Nascimento *</Label>
-              <div className="relative">
-                <Input
-                  id="dataNascimento"
-                  type="date"
-                  value={patientData.dataNascimento}
-                  onChange={(e) => setPatientData({ ...patientData, dataNascimento: e.target.value })}
-                  className="w-full"
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              </div>
+              <Input
+                id="dataNascimento"
+                type="text"
+                placeholder="DD/MM/AAAA"
+                value={patientData.dataNascimento}
+                onChange={(e) => setPatientData({ ...patientData, dataNascimento: e.target.value })}
+                className="w-full"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="dataLaudo">Data do Laudo *</Label>
-              <div className="relative">
-                <Input
-                  id="dataLaudo"
-                  type="date"
-                  value={patientData.dataLaudo}
-                  onChange={(e) => setPatientData({ ...patientData, dataLaudo: e.target.value })}
-                  className="w-full"
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              </div>
+              <Input
+                id="dataLaudo"
+                type="text"
+                placeholder="DD/MM/AAAA"
+                value={patientData.dataLaudo}
+                onChange={(e) => setPatientData({ ...patientData, dataLaudo: e.target.value })}
+                className="w-full"
+              />
             </div>
           </div>
         </CardContent>
