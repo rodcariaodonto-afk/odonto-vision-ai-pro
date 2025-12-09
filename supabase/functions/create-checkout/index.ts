@@ -94,17 +94,7 @@ serve(async (req) => {
       },
     };
 
-    // For annual plan, enable installments (10x)
-    if (planId === "anual") {
-      sessionConfig.payment_method_options = {
-        card: {
-          installments: {
-            enabled: true,
-          },
-        },
-      };
-      logStep("Installments enabled for annual plan");
-    }
+    // Annual plan is single payment only (no installments)
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
