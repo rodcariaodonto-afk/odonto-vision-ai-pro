@@ -5,6 +5,7 @@ import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, Ale
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -144,7 +145,7 @@ export default function Upload() {
         file_name: selectedFile.name,
         file_type: selectedFile.type,
         status: "completed",
-        analysis: result as unknown as Record<string, unknown>,
+        analysis: JSON.parse(JSON.stringify(result)) as Json,
         raw_content: rawContent,
       }]);
 
