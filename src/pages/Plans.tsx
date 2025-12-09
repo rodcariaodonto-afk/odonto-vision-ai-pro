@@ -71,7 +71,6 @@ const plans: Plan[] = [
     subtitle: "Profissional Premium",
     price: "R$ 897",
     period: "/ano",
-    installments: "ou 10x de R$ 89,70",
     features: [
       "Até 200 exames por ano",
       "Chat ilimitado com IA",
