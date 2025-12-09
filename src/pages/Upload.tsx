@@ -1,13 +1,14 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save } from "lucide-react";
+import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
 
 interface AnalysisResult {
   identificacao: string;
@@ -27,6 +28,8 @@ export default function Upload() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportGenerated, setReportGenerated] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
 
@@ -130,32 +133,202 @@ export default function Upload() {
     }
   };
 
+  const handleGenerateReport = async () => {
+    if (!result) return;
+    
+    setIsGeneratingReport(true);
+    
+    // Simulate brief processing for UX
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setReportGenerated(true);
+    setIsGeneratingReport(false);
+    toast.success("Laudo gerado com sucesso!");
+  };
+
+  const handleDownloadPDF = () => {
+    if (!result || !selectedFile) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPosition = 20;
+
+    // Helper function to add text with word wrap
+    const addWrappedText = (text: string, y: number, fontSize: number = 11): number => {
+      doc.setFontSize(fontSize);
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, margin, y);
+      return y + (lines.length * fontSize * 0.4) + 5;
+    };
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("OdontoVision AI Pro - Laudo", pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 15;
+
+    // Date and file info
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Arquivo: ${selectedFile.name}`, margin, yPosition);
+    yPosition += 10;
+
+    // Separator line
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 10;
+
+    // Identificação
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Identificação do Exame", margin, yPosition);
+    yPosition += 7;
+    doc.setFont("helvetica", "normal");
+    yPosition = addWrappedText(result.identificacao, yPosition);
+
+    // Achados
+    if (result.achados?.length > 0) {
+      yPosition += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Achados Clínicos", margin, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "normal");
+      result.achados.forEach((item) => {
+        yPosition = addWrappedText(`• ${item}`, yPosition);
+      });
+    }
+
+    // Interpretação
+    if (result.interpretacao) {
+      yPosition += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Interpretação", margin, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "normal");
+      yPosition = addWrappedText(result.interpretacao, yPosition);
+    }
+
+    // Diagnósticos
+    if (result.diagnosticos?.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      yPosition += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Diagnósticos Prováveis", margin, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "normal");
+      result.diagnosticos.forEach((item) => {
+        yPosition = addWrappedText(`• ${item}`, yPosition);
+      });
+    }
+
+    // Riscos
+    if (result.riscos?.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      yPosition += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Riscos ou Complicações", margin, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "normal");
+      result.riscos.forEach((item) => {
+        yPosition = addWrappedText(`• ${item}`, yPosition);
+      });
+    }
+
+    // Condutas
+    if (result.condutas?.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      yPosition += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Recomendações e Condutas", margin, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "normal");
+      result.condutas.forEach((item) => {
+        yPosition = addWrappedText(`• ${item}`, yPosition);
+      });
+    }
+
+    // Observações
+    if (result.observacoes) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      yPosition += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Observações Importantes", margin, yPosition);
+      yPosition += 7;
+      doc.setFont("helvetica", "italic");
+      yPosition = addWrappedText(result.observacoes, yPosition);
+    }
+
+    // Footer disclaimer
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(128, 128, 128);
+    const disclaimer = "Este laudo é um suporte técnico gerado por IA. A análise final deve ser realizada pelo profissional responsável.";
+    const disclaimerLines = doc.splitTextToSize(disclaimer, maxWidth);
+    doc.text(disclaimerLines, margin, 280);
+
+    // Download
+    doc.save(`laudo-${selectedFile.name.replace(/\.[^/.]+$/, "")}-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("PDF baixado com sucesso!");
+  };
+
   const handleSaveCase = async () => {
-    if (!result || !selectedFile || !user) return;
+    if (!result || !selectedFile || !user) {
+      console.error("Missing data:", { result: !!result, selectedFile: !!selectedFile, user: !!user });
+      toast.error("Dados incompletos para salvar o caso");
+      return;
+    }
 
     setIsSaving(true);
 
     try {
       const examType = getExamType(selectedFile.name, selectedFile.type);
       
-      const { error } = await supabase.from("cases").insert([{
+      console.log("Saving case with user_id:", user.id);
+      
+      const { data, error } = await supabase.from("cases").insert([{
         user_id: user.id,
         name: `${examType} - ${selectedFile.name}`,
         exam_type: examType,
         file_name: selectedFile.name,
         file_type: selectedFile.type,
         status: "completed",
-        analysis: JSON.parse(JSON.stringify(result)) as Json,
+        analysis: result as unknown as Json,
         raw_content: rawContent,
-      }]);
+      }]).select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
 
+      console.log("Case saved successfully:", data);
       toast.success("Caso salvo com sucesso!");
       navigate("/cases");
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      toast.error("Erro ao salvar o caso");
+      toast.error("Erro ao salvar o caso. Verifique o console para detalhes.");
     } finally {
       setIsSaving(false);
     }
@@ -166,6 +339,7 @@ export default function Upload() {
     setPreviewUrl(null);
     setResult(null);
     setRawContent(null);
+    setReportGenerated(false);
   };
 
   return (
@@ -372,28 +546,67 @@ export default function Upload() {
             )}
           </div>
 
-          <div className="flex gap-4">
-            <Button 
-              variant="success" 
-              className="flex-1"
-              onClick={handleSaveCase}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Salvar Caso
-                </>
-              )}
-            </Button>
-            <Button variant="outline" onClick={clearFile}>
-              Nova Análise
-            </Button>
+          <div className="flex flex-col gap-4">
+            {/* Botões de Laudo */}
+            <div className="flex gap-4">
+              <Button 
+                variant="hero"
+                className="flex-1"
+                onClick={handleGenerateReport}
+                disabled={isGeneratingReport || reportGenerated}
+              >
+                {isGeneratingReport ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Gerando Laudo...
+                  </>
+                ) : reportGenerated ? (
+                  <>
+                    <FileCheck className="w-4 h-4" />
+                    Laudo Gerado
+                  </>
+                ) : (
+                  <>
+                    <FileCheck className="w-4 h-4" />
+                    Gerar Laudo
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex-1"
+                onClick={handleDownloadPDF}
+                disabled={!reportGenerated}
+              >
+                <Download className="w-4 h-4" />
+                Baixar PDF
+              </Button>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex gap-4">
+              <Button 
+                variant="success" 
+                className="flex-1"
+                onClick={handleSaveCase}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Salvar Caso
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" onClick={clearFile}>
+                Nova Análise
+              </Button>
+            </div>
           </div>
         </div>
       )}
