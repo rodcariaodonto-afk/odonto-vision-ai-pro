@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,13 +13,25 @@ import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 
 interface AnalysisResult {
-  identificacao: string;
-  achados: string[];
-  interpretacao: string;
-  diagnosticos: string[];
-  riscos: string[];
-  condutas: string[];
+  identificacao_paciente: {
+    nome: string;
+    data_nascimento: string;
+    data_analise: string;
+  };
+  tipo_exame: string;
+  qualidade_imagem: string;
+  achados_radiograficos: string[];
+  interpretacao_clinica: string;
+  diagnosticos_diferenciais: string[];
+  riscos_alertas: string[];
+  recomendacoes_clinicas: string[];
   observacoes: string;
+}
+
+interface PatientData {
+  nome: string;
+  dataNascimento: string;
+  dataLaudo: string;
 }
 
 export default function Upload() {
@@ -32,6 +46,13 @@ export default function Upload() {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
+  
+  // Patient data state
+  const [patientData, setPatientData] = useState<PatientData>({
+    nome: "",
+    dataNascimento: "",
+    dataLaudo: new Date().toISOString().split("T")[0],
+  });
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -89,8 +110,26 @@ export default function Upload() {
     }
   };
 
+  const validatePatientData = (): boolean => {
+    if (!patientData.nome.trim()) {
+      toast.error("Por favor, informe o nome do paciente.");
+      return false;
+    }
+    if (!patientData.dataNascimento) {
+      toast.error("Por favor, informe a data de nascimento do paciente.");
+      return false;
+    }
+    if (!patientData.dataLaudo) {
+      toast.error("Por favor, informe a data do laudo.");
+      return false;
+    }
+    return true;
+  };
+
   const handleAnalyze = async () => {
     if (!selectedFile) return;
+    
+    if (!validatePatientData()) return;
 
     setIsAnalyzing(true);
 
@@ -105,12 +144,17 @@ export default function Upload() {
 
       const imageBase64 = await base64Promise;
 
-      // Call the edge function
+      // Call the edge function with patient data
       const { data, error } = await supabase.functions.invoke("analyze-exam", {
         body: {
           imageBase64,
           imageType: selectedFile.type,
           fileName: selectedFile.name,
+          patientData: {
+            nome: patientData.nome,
+            dataNascimento: patientData.dataNascimento,
+            dataLaudo: patientData.dataLaudo,
+          },
         },
       });
 
@@ -146,6 +190,12 @@ export default function Upload() {
     toast.success("Laudo gerado com sucesso!");
   };
 
+  const formatDate = (dateStr: string): string => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
   const handleDownloadPDF = () => {
     if (!result || !selectedFile) return;
 
@@ -163,133 +213,155 @@ export default function Upload() {
       return y + (lines.length * fontSize * 0.4) + 5;
     };
 
-    // Title
-    doc.setFontSize(18);
+    const checkPageBreak = (requiredSpace: number) => {
+      if (yPosition + requiredSpace > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+    };
+
+    // Header
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("OdontoVision AI Pro - Laudo", pageWidth / 2, yPosition, { align: "center" });
-    yPosition += 15;
+    doc.text("LAUDO RADIOLÓGICO – ODONTOVISION AI PRO", pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 12;
 
-    // Date and file info
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, margin, yPosition);
-    yPosition += 6;
-    doc.text(`Arquivo: ${selectedFile.name}`, margin, yPosition);
-    yPosition += 10;
-
-    // Separator line
-    doc.setDrawColor(200, 200, 200);
+    // Separator
+    doc.setDrawColor(100, 100, 100);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 10;
 
-    // Identificação
+    // 1) Identificação do Paciente
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("Identificação do Exame", margin, yPosition);
+    doc.text("1) Identificação do Paciente", margin, yPosition);
     yPosition += 7;
     doc.setFont("helvetica", "normal");
-    yPosition = addWrappedText(result.identificacao, yPosition);
+    doc.setFontSize(11);
+    doc.text(`• Nome: ${result.identificacao_paciente?.nome || patientData.nome}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`• Data de Nascimento: ${formatDate(result.identificacao_paciente?.data_nascimento || patientData.dataNascimento)}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`• Data da Análise: ${formatDate(result.identificacao_paciente?.data_analise || patientData.dataLaudo)}`, margin, yPosition);
+    yPosition += 10;
 
-    // Achados
-    if (result.achados?.length > 0) {
-      yPosition += 5;
+    // 2) Tipo de Exame
+    checkPageBreak(25);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("2) Tipo de Exame", margin, yPosition);
+    yPosition += 7;
+    doc.setFont("helvetica", "normal");
+    yPosition = addWrappedText(result.tipo_exame || "Não identificado", yPosition);
+
+    // 3) Qualidade da Imagem
+    checkPageBreak(25);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("3) Qualidade da Imagem", margin, yPosition);
+    yPosition += 7;
+    doc.setFont("helvetica", "normal");
+    yPosition = addWrappedText(result.qualidade_imagem || "Não avaliada", yPosition);
+
+    // 4) Achados Radiográficos
+    if (result.achados_radiograficos?.length > 0) {
+      checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Achados Clínicos", margin, yPosition);
+      doc.text("4) Achados Radiográficos", margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
-      result.achados.forEach((item) => {
+      result.achados_radiograficos.forEach((item) => {
+        checkPageBreak(15);
         yPosition = addWrappedText(`• ${item}`, yPosition);
       });
     }
 
-    // Interpretação
-    if (result.interpretacao) {
-      yPosition += 5;
+    // 5) Interpretação Clínica / Radiológica
+    if (result.interpretacao_clinica) {
+      checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Interpretação", margin, yPosition);
+      doc.text("5) Interpretação Clínica / Radiológica", margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
-      yPosition = addWrappedText(result.interpretacao, yPosition);
+      yPosition = addWrappedText(result.interpretacao_clinica, yPosition);
     }
 
-    // Diagnósticos
-    if (result.diagnosticos?.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      yPosition += 5;
+    // 6) Diagnósticos Diferenciais
+    if (result.diagnosticos_diferenciais?.length > 0) {
+      checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Diagnósticos Prováveis", margin, yPosition);
+      doc.text("6) Diagnósticos Diferenciais", margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
-      result.diagnosticos.forEach((item) => {
+      result.diagnosticos_diferenciais.forEach((item) => {
+        checkPageBreak(15);
         yPosition = addWrappedText(`• ${item}`, yPosition);
       });
     }
 
-    // Riscos
-    if (result.riscos?.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      yPosition += 5;
+    // 7) Riscos, Alertas e Pontos de Atenção
+    if (result.riscos_alertas?.length > 0) {
+      checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Riscos ou Complicações", margin, yPosition);
+      doc.text("7) Riscos, Alertas e Pontos de Atenção", margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
-      result.riscos.forEach((item) => {
+      result.riscos_alertas.forEach((item) => {
+        checkPageBreak(15);
         yPosition = addWrappedText(`• ${item}`, yPosition);
       });
     }
 
-    // Condutas
-    if (result.condutas?.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      yPosition += 5;
+    // 8) Recomendações Clínicas
+    if (result.recomendacoes_clinicas?.length > 0) {
+      checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Recomendações e Condutas", margin, yPosition);
+      doc.text("8) Recomendações Clínicas", margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
-      result.condutas.forEach((item) => {
+      result.recomendacoes_clinicas.forEach((item) => {
+        checkPageBreak(15);
         yPosition = addWrappedText(`• ${item}`, yPosition);
       });
     }
 
-    // Observações
+    // 9) Observações
     if (result.observacoes) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      yPosition += 5;
+      checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Observações Importantes", margin, yPosition);
+      doc.text("9) Observações", margin, yPosition);
       yPosition += 7;
-      doc.setFont("helvetica", "italic");
+      doc.setFont("helvetica", "normal");
       yPosition = addWrappedText(result.observacoes, yPosition);
     }
 
     // Footer disclaimer
+    checkPageBreak(30);
+    yPosition += 5;
+    doc.setDrawColor(100, 100, 100);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 8;
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("⚠️ Aviso Legal e Ético", margin, yPosition);
+    yPosition += 6;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(128, 128, 128);
-    const disclaimer = "Este laudo é um suporte técnico gerado por IA. A análise final deve ser realizada pelo profissional responsável.";
+    doc.setTextColor(80, 80, 80);
+    const disclaimer = "Este laudo é gerado automaticamente por inteligência artificial como ferramenta de apoio ao cirurgião-dentista. Ele NÃO substitui exame clínico, diagnóstico presencial ou julgamento profissional. A interpretação final é sempre responsabilidade do dentista responsável.";
     const disclaimerLines = doc.splitTextToSize(disclaimer, maxWidth);
-    doc.text(disclaimerLines, margin, 280);
+    doc.text(disclaimerLines, margin, yPosition);
 
     // Download
-    doc.save(`laudo-${selectedFile.name.replace(/\.[^/.]+$/, "")}-${new Date().toISOString().split("T")[0]}.pdf`);
+    const patientNameClean = patientData.nome.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
+    doc.save(`laudo-${patientNameClean}-${patientData.dataLaudo}.pdf`);
     toast.success("PDF baixado com sucesso!");
   };
 
@@ -309,7 +381,7 @@ export default function Upload() {
       
       const { data, error } = await supabase.from("cases").insert([{
         user_id: user.id,
-        name: `${examType} - ${selectedFile.name}`,
+        name: `${patientData.nome} - ${examType}`,
         exam_type: examType,
         file_name: selectedFile.name,
         file_type: selectedFile.type,
@@ -342,14 +414,69 @@ export default function Upload() {
     setReportGenerated(false);
   };
 
+  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Enviar Exame</h1>
         <p className="text-muted-foreground mt-1">
-          Faça upload do exame para análise da IA
+          Preencha os dados do paciente e faça upload do exame para análise
         </p>
       </div>
+
+      {/* Patient Data Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5 text-primary" />
+            Dados do Paciente
+          </CardTitle>
+          <CardDescription>
+            Informe os dados do paciente antes de enviar o exame
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome do Paciente *</Label>
+              <Input
+                id="nome"
+                placeholder="Nome completo do paciente"
+                value={patientData.nome}
+                onChange={(e) => setPatientData({ ...patientData, nome: e.target.value })}
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dataNascimento">Data de Nascimento *</Label>
+              <div className="relative">
+                <Input
+                  id="dataNascimento"
+                  type="date"
+                  value={patientData.dataNascimento}
+                  onChange={(e) => setPatientData({ ...patientData, dataNascimento: e.target.value })}
+                  className="w-full"
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dataLaudo">Data do Laudo *</Label>
+              <div className="relative">
+                <Input
+                  id="dataLaudo"
+                  type="date"
+                  value={patientData.dataLaudo}
+                  onChange={(e) => setPatientData({ ...patientData, dataLaudo: e.target.value })}
+                  className="w-full"
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Upload Area */}
       <Card>
@@ -439,7 +566,7 @@ export default function Upload() {
                   size="lg"
                   className="w-full"
                   onClick={handleAnalyze}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || !isFormValid}
                 >
                   {isAnalyzing ? (
                     <>
@@ -453,6 +580,12 @@ export default function Upload() {
                     </>
                   )}
                 </Button>
+              )}
+
+              {!isFormValid && !result && (
+                <p className="text-sm text-muted-foreground text-center">
+                  Preencha todos os dados do paciente para enviar o exame
+                </p>
               )}
             </div>
           )}
@@ -468,66 +601,92 @@ export default function Upload() {
           </h2>
 
           <div className="grid gap-4">
-            {/* Identificação */}
+            {/* Identificação do Paciente */}
             <Card className="bg-muted/50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Identificação do Exame</CardTitle>
+                <CardTitle className="text-lg">1) Identificação do Paciente</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-foreground leading-relaxed">{result.identificacao}</p>
+              <CardContent className="space-y-1">
+                <p className="text-foreground">• Nome: {result.identificacao_paciente?.nome || patientData.nome}</p>
+                <p className="text-foreground">• Data de Nascimento: {formatDate(result.identificacao_paciente?.data_nascimento || patientData.dataNascimento)}</p>
+                <p className="text-foreground">• Data da Análise: {formatDate(result.identificacao_paciente?.data_analise || patientData.dataLaudo)}</p>
               </CardContent>
             </Card>
 
-            {/* Achados */}
-            {result.achados && result.achados.length > 0 && (
+            {/* Tipo de Exame */}
+            {result.tipo_exame && (
+              <Card className="bg-muted/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">2) Tipo de Exame</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-foreground leading-relaxed">{result.tipo_exame}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Qualidade da Imagem */}
+            {result.qualidade_imagem && (
+              <Card className="bg-muted/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">3) Qualidade da Imagem</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-foreground leading-relaxed">{result.qualidade_imagem}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Achados Radiográficos */}
+            {result.achados_radiograficos && result.achados_radiograficos.length > 0 && (
               <ResultCard
-                title="Achados Clínicos"
-                items={result.achados}
+                title="4) Achados Radiográficos"
+                items={result.achados_radiograficos}
                 icon={<AlertCircle className="w-5 h-5" />}
                 color="text-primary"
               />
             )}
 
-            {/* Interpretação */}
-            {result.interpretacao && (
+            {/* Interpretação Clínica */}
+            {result.interpretacao_clinica && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
-                    Interpretação Radiológica / Clínica
+                    5) Interpretação Clínica / Radiológica
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-foreground leading-relaxed">{result.interpretacao}</p>
+                  <p className="text-foreground leading-relaxed">{result.interpretacao_clinica}</p>
                 </CardContent>
               </Card>
             )}
 
-            {/* Diagnósticos */}
-            {result.diagnosticos && result.diagnosticos.length > 0 && (
+            {/* Diagnósticos Diferenciais */}
+            {result.diagnosticos_diferenciais && result.diagnosticos_diferenciais.length > 0 && (
               <ResultCard
-                title="Diagnósticos Prováveis / Diferenciais"
-                items={result.diagnosticos}
+                title="6) Diagnósticos Diferenciais"
+                items={result.diagnosticos_diferenciais}
                 icon={<Sparkles className="w-5 h-5" />}
                 color="text-success"
               />
             )}
 
-            {/* Riscos */}
-            {result.riscos && result.riscos.length > 0 && (
+            {/* Riscos e Alertas */}
+            {result.riscos_alertas && result.riscos_alertas.length > 0 && (
               <ResultCard
-                title="Riscos ou Complicações Potenciais"
-                items={result.riscos}
+                title="7) Riscos, Alertas e Pontos de Atenção"
+                items={result.riscos_alertas}
                 icon={<AlertCircle className="w-5 h-5" />}
                 color="text-destructive"
               />
             )}
 
-            {/* Condutas */}
-            {result.condutas && result.condutas.length > 0 && (
+            {/* Recomendações Clínicas */}
+            {result.recomendacoes_clinicas && result.recomendacoes_clinicas.length > 0 && (
               <ResultCard
-                title="Recomendações e Condutas Possíveis"
-                items={result.condutas}
+                title="8) Recomendações Clínicas"
+                items={result.recomendacoes_clinicas}
                 icon={<CheckCircle className="w-5 h-5" />}
                 color="text-primary"
               />
@@ -537,13 +696,30 @@ export default function Upload() {
             {result.observacoes && (
               <Card className="bg-muted/50 border-l-4 border-l-primary">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Observações Importantes</CardTitle>
+                  <CardTitle className="text-lg">9) Observações</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground leading-relaxed italic">{result.observacoes}</p>
                 </CardContent>
               </Card>
             )}
+
+            {/* Aviso Legal */}
+            <Card className="bg-destructive/5 border-destructive/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  ⚠️ Aviso Legal e Ético
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Este laudo é gerado automaticamente por inteligência artificial como ferramenta de apoio ao cirurgião-dentista. 
+                  Ele <strong>não substitui exame clínico, diagnóstico presencial ou julgamento profissional</strong>. 
+                  A interpretação final é sempre responsabilidade do dentista responsável.
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="flex flex-col gap-4">
