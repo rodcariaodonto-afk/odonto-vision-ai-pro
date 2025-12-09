@@ -3,36 +3,32 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
-  Upload,
+  Users,
+  FileText,
   MessageSquare,
-  FolderOpen,
-  CreditCard,
-  User,
+  Settings,
   LogOut,
   Menu,
   X,
-  Shield,
+  ArrowLeft,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdminRole } from "@/hooks/useAdminRole";
 import { toast } from "sonner";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: Upload, label: "Enviar Exame", path: "/upload" },
-  { icon: MessageSquare, label: "Chat IA", path: "/chat" },
-  { icon: FolderOpen, label: "Meus Casos", path: "/cases" },
-  { icon: CreditCard, label: "Planos", path: "/plans" },
-  { icon: User, label: "Perfil", path: "/profile" },
+const adminNavItems = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
+  { icon: Users, label: "Usuários", path: "/admin/users" },
+  { icon: FileText, label: "Casos", path: "/admin/cases" },
+  { icon: MessageSquare, label: "Suporte", path: "/admin/support" },
+  { icon: Settings, label: "Configurações", path: "/admin/settings" },
 ];
 
-export default function Layout() {
+export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
-  const { isAdmin } = useAdminRole();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -47,10 +43,11 @@ export default function Layout() {
       <aside className="hidden lg:flex flex-col w-64 bg-card border-r border-border">
         <div className="p-6">
           <Logo size="md" />
+          <p className="text-xs text-muted-foreground mt-2 uppercase tracking-wider">Painel Admin</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
-          {navItems.map((item) => (
+          {adminNavItems.map((item) => (
             <Button
               key={item.path}
               variant={location.pathname === item.path ? "default" : "ghost"}
@@ -64,21 +61,13 @@ export default function Layout() {
               {item.label}
             </Button>
           ))}
-          
-          {/* Admin Link - Only for admins */}
-          {isAdmin && (
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-primary hover:text-primary"
-              onClick={() => navigate("/admin")}
-            >
-              <Shield className="w-5 h-5" />
-              Administração
-            </Button>
-          )}
         </nav>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-1">
+          <Button variant="ghost" className="w-full justify-start gap-3" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="w-5 h-5" />
+            Voltar ao App
+          </Button>
           <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
             <LogOut className="w-5 h-5" />
             Sair
@@ -88,7 +77,10 @@ export default function Layout() {
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-        <Logo size="sm" />
+        <div>
+          <Logo size="sm" />
+          <p className="text-xs text-muted-foreground">Admin</p>
+        </div>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </Button>
@@ -99,7 +91,7 @@ export default function Layout() {
         <div className="lg:hidden fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}>
           <div className="absolute right-0 top-14 bottom-0 w-64 bg-card border-l border-border animate-slide-in-right" onClick={(e) => e.stopPropagation()}>
             <nav className="p-4 space-y-1">
-              {navItems.map((item) => (
+              {adminNavItems.map((item) => (
                 <Button
                   key={item.path}
                   variant={location.pathname === item.path ? "default" : "ghost"}
@@ -113,26 +105,16 @@ export default function Layout() {
                   {item.label}
                 </Button>
               ))}
-              
-              {/* Admin Link - Only for admins */}
-              {isAdmin && (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-3 text-primary hover:text-primary"
-                  onClick={() => {
-                    navigate("/admin");
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  <Shield className="w-5 h-5" />
-                  Administração
+              <div className="pt-4 border-t border-border space-y-1">
+                <Button variant="ghost" className="w-full justify-start gap-3" onClick={() => navigate("/dashboard")}>
+                  <ArrowLeft className="w-5 h-5" />
+                  Voltar ao App
                 </Button>
-              )}
-              
-              <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive" onClick={handleLogout}>
-                <LogOut className="w-5 h-5" />
-                Sair
-              </Button>
+                <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:text-destructive" onClick={handleLogout}>
+                  <LogOut className="w-5 h-5" />
+                  Sair
+                </Button>
+              </div>
             </nav>
           </div>
         </div>
