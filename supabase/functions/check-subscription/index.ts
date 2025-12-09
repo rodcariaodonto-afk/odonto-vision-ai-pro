@@ -47,6 +47,21 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Admin has full access without payment
+    const ADMIN_EMAIL = "rodcaria.odonto@gmail.com";
+    if (user.email === ADMIN_EMAIL) {
+      logStep("Admin user detected - granting full access");
+      return new Response(JSON.stringify({
+        subscribed: true,
+        plan: "admin",
+        plan_end: null,
+        analyses_remaining: -1, // unlimited
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     
     // Find customer by email
