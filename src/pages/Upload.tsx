@@ -734,39 +734,15 @@ export default function Upload() {
           </div>
 
           <div className="flex flex-col gap-4">
-            {/* Botões de Laudo */}
+            {/* Botão de Download PDF */}
             <div className="flex gap-4">
               <Button 
                 variant="hero"
                 className="flex-1"
-                onClick={handleGenerateReport}
-                disabled={isGeneratingReport || reportGenerated}
-              >
-                {isGeneratingReport ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Gerando Laudo...
-                  </>
-                ) : reportGenerated ? (
-                  <>
-                    <FileCheck className="w-4 h-4" />
-                    Laudo Gerado
-                  </>
-                ) : (
-                  <>
-                    <FileCheck className="w-4 h-4" />
-                    Gerar Laudo
-                  </>
-                )}
-              </Button>
-              <Button 
-                variant="outline"
-                className="flex-1"
                 onClick={handleDownloadPDF}
-                disabled={!reportGenerated}
               >
                 <Download className="w-4 h-4" />
-                Baixar PDF
+                Baixar PDF do Laudo
               </Button>
             </div>
 
