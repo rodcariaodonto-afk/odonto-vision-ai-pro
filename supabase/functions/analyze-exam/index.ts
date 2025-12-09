@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -102,9 +103,9 @@ serve(async (req) => {
       throw new Error("Imagem não fornecida");
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY não configurada");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY não configurada");
     }
 
     console.log("Analisando exame:", fileName, "Tipo:", imageType);
@@ -128,21 +129,22 @@ serve(async (req) => {
       }
     ];
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "gpt-4.1-2025-04-14",
         messages,
+        max_completion_tokens: 4096,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Erro da API:", response.status, errorText);
+      console.error("Erro da API OpenAI:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -150,13 +152,13 @@ serve(async (req) => {
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 401) {
         return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Por favor, adicione créditos à sua conta." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Erro de autenticação ou créditos insuficientes na API OpenAI." }),
+          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`Erro na API: ${response.status}`);
+      throw new Error(`Erro na API OpenAI: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
