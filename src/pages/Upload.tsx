@@ -1,10 +1,12 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles } from "lucide-react";
+import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface AnalysisResult {
   identificacao: string;
@@ -17,11 +19,15 @@ interface AnalysisResult {
 }
 
 export default function Upload() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isDragActive, setIsDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [rawContent, setRawContent] = useState<string | null>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -43,6 +49,16 @@ export default function Upload() {
     }
   }, []);
 
+  const getExamType = (fileName: string, fileType: string): string => {
+    const lowerName = fileName.toLowerCase();
+    if (lowerName.includes("periapical")) return "Periapical";
+    if (lowerName.includes("panoram")) return "Panorâmica";
+    if (lowerName.includes("bitewing")) return "Bitewing";
+    if (lowerName.includes("tomo")) return "Tomografia";
+    if (fileType === "application/pdf") return "PDF/Laudo";
+    return "Radiografia";
+  };
+
   const handleFile = (file: File) => {
     const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!validTypes.includes(file.type)) {
@@ -55,6 +71,7 @@ export default function Upload() {
     }
     setSelectedFile(file);
     setResult(null);
+    setRawContent(null);
 
     // Create preview for images
     if (file.type.startsWith("image/")) {
@@ -102,6 +119,7 @@ export default function Upload() {
       }
 
       setResult(data.analysis);
+      setRawContent(data.rawContent);
       toast.success("Análise concluída com sucesso!");
     } catch (error) {
       console.error("Erro na análise:", error);
@@ -111,10 +129,42 @@ export default function Upload() {
     }
   };
 
+  const handleSaveCase = async () => {
+    if (!result || !selectedFile || !user) return;
+
+    setIsSaving(true);
+
+    try {
+      const examType = getExamType(selectedFile.name, selectedFile.type);
+      
+      const { error } = await supabase.from("cases").insert([{
+        user_id: user.id,
+        name: `${examType} - ${selectedFile.name}`,
+        exam_type: examType,
+        file_name: selectedFile.name,
+        file_type: selectedFile.type,
+        status: "completed",
+        analysis: result as unknown as Record<string, unknown>,
+        raw_content: rawContent,
+      }]);
+
+      if (error) throw error;
+
+      toast.success("Caso salvo com sucesso!");
+      navigate("/cases");
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      toast.error("Erro ao salvar o caso");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const clearFile = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
     setResult(null);
+    setRawContent(null);
   };
 
   return (
@@ -134,7 +184,7 @@ export default function Upload() {
             Upload de Arquivo
           </CardTitle>
           <CardDescription>
-            Arraste e solte ou clique para selecionar. Suportamos radiografias, panorâmicas, tomografias e PDFs de laudos.
+            Arraste e solte ou clique para selecionar. Suportamos radiografias, panorâmicas, tomografias, PDFs de laudos e fotos clínicas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -185,10 +235,12 @@ export default function Upload() {
                     alt="Preview"
                     className="w-24 h-24 object-cover rounded-lg"
                   />
-                ) : selectedFile.type.startsWith("image/") ? (
-                  <FileImage className="w-12 h-12 text-primary" />
+                ) : selectedFile.type === "application/pdf" ? (
+                  <div className="w-24 h-24 bg-destructive/10 rounded-lg flex items-center justify-center">
+                    <FileText className="w-12 h-12 text-destructive" />
+                  </div>
                 ) : (
-                  <FileText className="w-12 h-12 text-primary" />
+                  <FileImage className="w-12 h-12 text-primary" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground truncate">
@@ -198,7 +250,7 @@ export default function Upload() {
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {selectedFile.type}
+                    {selectedFile.type === "application/pdf" ? "Documento PDF" : selectedFile.type}
                   </p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={clearFile}>
@@ -217,7 +269,7 @@ export default function Upload() {
                   {isAnalyzing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Analisando com IA...
+                      {selectedFile.type === "application/pdf" ? "Analisando PDF..." : "Analisando com IA..."}
                     </>
                   ) : (
                     <>
@@ -252,7 +304,7 @@ export default function Upload() {
             </Card>
 
             {/* Achados */}
-            {result.achados.length > 0 && (
+            {result.achados && result.achados.length > 0 && (
               <ResultCard
                 title="Achados Clínicos"
                 items={result.achados}
@@ -262,20 +314,22 @@ export default function Upload() {
             )}
 
             {/* Interpretação */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Interpretação Radiológica / Clínica
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground leading-relaxed">{result.interpretacao}</p>
-              </CardContent>
-            </Card>
+            {result.interpretacao && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Interpretação Radiológica / Clínica
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-foreground leading-relaxed">{result.interpretacao}</p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Diagnósticos */}
-            {result.diagnosticos.length > 0 && (
+            {result.diagnosticos && result.diagnosticos.length > 0 && (
               <ResultCard
                 title="Diagnósticos Prováveis / Diferenciais"
                 items={result.diagnosticos}
@@ -285,7 +339,7 @@ export default function Upload() {
             )}
 
             {/* Riscos */}
-            {result.riscos.length > 0 && (
+            {result.riscos && result.riscos.length > 0 && (
               <ResultCard
                 title="Riscos ou Complicações Potenciais"
                 items={result.riscos}
@@ -295,7 +349,7 @@ export default function Upload() {
             )}
 
             {/* Condutas */}
-            {result.condutas.length > 0 && (
+            {result.condutas && result.condutas.length > 0 && (
               <ResultCard
                 title="Recomendações e Condutas Possíveis"
                 items={result.condutas}
@@ -305,19 +359,36 @@ export default function Upload() {
             )}
 
             {/* Observações */}
-            <Card className="bg-muted/50 border-l-4 border-l-primary">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Observações Importantes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground leading-relaxed italic">{result.observacoes}</p>
-              </CardContent>
-            </Card>
+            {result.observacoes && (
+              <Card className="bg-muted/50 border-l-4 border-l-primary">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Observações Importantes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed italic">{result.observacoes}</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="flex gap-4">
-            <Button variant="success" className="flex-1">
-              Salvar Caso
+            <Button 
+              variant="success" 
+              className="flex-1"
+              onClick={handleSaveCase}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Salvar Caso
+                </>
+              )}
             </Button>
             <Button variant="outline" onClick={clearFile}>
               Nova Análise

@@ -4,12 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
-import { Mail, Lock, User, BadgeCheck, ArrowLeft, Loader2 } from "lucide-react";
+import { Mail, Lock, User, BadgeCheck, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Register() {
   const navigate = useNavigate();
+  const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -20,13 +24,39 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    // Simulated registration
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (formData.password.length < 6) {
+      setError("A senha deve ter pelo menos 6 caracteres");
+      setIsLoading(false);
+      return;
+    }
+
+    const { error } = await signUp(formData.email, formData.password, formData.name);
     
+    if (error) {
+      if (error.message.includes("already registered")) {
+        setError("Este e-mail já está cadastrado. Faça login.");
+      } else {
+        setError(error.message);
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    // Update profile with CRO if provided
+    if (formData.cro) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ cro: formData.cro, name: formData.name })
+          .eq("user_id", user.id);
+      }
+    }
+
     toast.success("Conta criada com sucesso!");
     navigate("/dashboard");
-    setIsLoading(false);
   };
 
   return (
@@ -53,6 +83,13 @@ export default function Register() {
           </CardHeader>
 
           <CardContent>
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -101,8 +138,10 @@ export default function Register() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
+                    minLength={6}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">Mínimo 6 caracteres</p>
               </div>
 
               <div className="space-y-2">

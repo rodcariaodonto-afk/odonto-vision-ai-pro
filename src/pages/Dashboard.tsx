@@ -1,14 +1,55 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, MessageSquare, FolderOpen, CreditCard, Sparkles, TrendingUp, Clock, FileCheck } from "lucide-react";
+import { Upload, MessageSquare, FolderOpen, CreditCard, Sparkles, TrendingUp, Clock, FileCheck, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [stats, setStats] = useState({ totalCases: 0, loading: true });
+  const [userName, setUserName] = useState("");
 
-  const stats = [
-    { icon: FileCheck, label: "Exames Analisados", value: "24", color: "text-primary" },
-    { icon: Clock, label: "Tempo Médio", value: "8s", color: "text-success" },
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchStats = async () => {
+    try {
+      const { count } = await supabase
+        .from("cases")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user?.id);
+
+      setStats({ totalCases: count || 0, loading: false });
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas:", error);
+      setStats({ totalCases: 0, loading: false });
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+
+      setUserName(data?.name || user?.user_metadata?.name || "Doutor(a)");
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
+    }
+  };
+
+  const statsData = [
+    { icon: FileCheck, label: "Exames Analisados", value: stats.loading ? "-" : stats.totalCases.toString(), color: "text-primary" },
+    { icon: Clock, label: "Tempo Médio", value: "~10s", color: "text-success" },
     { icon: TrendingUp, label: "Precisão IA", value: "97%", color: "text-primary" },
   ];
 
@@ -16,7 +57,7 @@ export default function Dashboard() {
     {
       icon: Upload,
       title: "Enviar Exame",
-      description: "Analise radiografias, panorâmicas e tomografias",
+      description: "Analise radiografias, panorâmicas, PDFs e tomografias",
       path: "/upload",
       variant: "hero" as const,
     },
@@ -48,7 +89,7 @@ export default function Dashboard() {
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Olá, Dr. João!</h1>
+          <h1 className="text-3xl font-bold text-foreground">Olá, {userName}!</h1>
           <p className="text-muted-foreground mt-1">
             Bem-vindo ao OdontoVision AI Pro
           </p>
@@ -68,14 +109,16 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {stats.map((stat) => (
+        {statsData.map((stat) => (
           <Card key={stat.label} variant="glass">
             <CardContent className="py-6 flex items-center gap-4">
               <div className={`p-3 rounded-xl bg-muted ${stat.color}`}>
                 <stat.icon className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.loading ? <Loader2 className="w-6 h-6 animate-spin" /> : stat.value}
+                </p>
                 <p className="text-sm text-muted-foreground">{stat.label}</p>
               </div>
             </CardContent>
@@ -107,36 +150,6 @@ export default function Dashboard() {
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div>
-        <h2 className="text-xl font-semibold text-foreground mb-4">Atividade Recente</h2>
-        <Card>
-          <CardContent className="py-6">
-            <div className="space-y-4">
-              {[
-                { type: "Radiografia Periapical", date: "Hoje, 14:30", status: "Concluído" },
-                { type: "Panorâmica", date: "Ontem, 09:15", status: "Concluído" },
-                { type: "Tomografia", date: "07/12/2024", status: "Concluído" },
-              ].map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between py-3 border-b border-border last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-success" />
-                    <div>
-                      <p className="font-medium text-foreground">{item.type}</p>
-                      <p className="text-sm text-muted-foreground">{item.date}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm text-success font-medium">{item.status}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
