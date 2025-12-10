@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot, User, Sparkles, ImagePlus, Loader2, X } from "lucide-react";
+import { Send, Bot, User, Sparkles, ImagePlus, Loader2, X, Download, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 interface Message {
   id: string;
@@ -193,6 +194,110 @@ export default function Chat() {
     }
   };
 
+  const formatChatForExport = () => {
+    return messages
+      .filter((m) => m.id !== "1") // Exclude welcome message
+      .map((m) => {
+        const role = m.role === "user" ? "Você" : "OdontoVision IA";
+        const time = m.timestamp.toLocaleString("pt-BR");
+        const content = m.content.replace(/\*\*/g, ""); // Remove markdown bold
+        return `[${time}] ${role}:\n${content}`;
+      })
+      .join("\n\n---\n\n");
+  };
+
+  const handleCopyChat = () => {
+    const text = formatChatForExport();
+    if (!text.trim()) {
+      toast.error("Nenhuma conversa para copiar");
+      return;
+    }
+    navigator.clipboard.writeText(text);
+    toast.success("Conversa copiada para a área de transferência!");
+  };
+
+  const handleDownloadPDF = () => {
+    const chatMessages = messages.filter((m) => m.id !== "1");
+    if (chatMessages.length === 0) {
+      toast.error("Nenhuma conversa para exportar");
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPosition = 20;
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("OdontoVision IA - Histórico de Conversa", margin, yPosition);
+    yPosition += 10;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Exportado em: ${new Date().toLocaleString("pt-BR")}`, margin, yPosition);
+    yPosition += 15;
+
+    // Separator
+    doc.setDrawColor(200);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 10;
+
+    // Messages
+    chatMessages.forEach((message) => {
+      const role = message.role === "user" ? "Você" : "OdontoVision IA";
+      const time = message.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const content = message.content.replace(/\*\*/g, "");
+
+      // Check if we need a new page
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      // Role and time
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(message.role === "user" ? 59 : 37, message.role === "user" ? 130 : 99, message.role === "user" ? 246 : 235);
+      doc.text(`${role} - ${time}`, margin, yPosition);
+      yPosition += 6;
+
+      // Content
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      const lines = doc.splitTextToSize(content, maxWidth);
+      lines.forEach((line: string) => {
+        if (yPosition > 280) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        doc.text(line, margin, yPosition);
+        yPosition += 5;
+      });
+
+      yPosition += 8;
+    });
+
+    // Footer disclaimer
+    if (yPosition > 260) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    yPosition += 5;
+    doc.setDrawColor(200);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 8;
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("Este documento é apenas para fins informativos. Consulte sempre um profissional qualificado.", margin, yPosition);
+
+    doc.save(`odontovision-chat-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("PDF baixado com sucesso!");
+  };
+
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col animate-fade-in">
       {/* Header */}
@@ -209,6 +314,40 @@ export default function Chat() {
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyChat}
+                className="hidden sm:flex items-center gap-1"
+              >
+                <Copy className="w-4 h-4" />
+                <span className="hidden md:inline">Copiar</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="hidden sm:flex items-center gap-1"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden md:inline">PDF</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyChat}
+                className="sm:hidden"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleDownloadPDF}
+                className="sm:hidden"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
               <span className="text-sm text-success">Ativo</span>
             </div>
