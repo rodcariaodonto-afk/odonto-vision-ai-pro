@@ -243,13 +243,13 @@ export default function Chat() {
               </div>
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-3",
+                  "max-w-[80%] rounded-2xl px-4 py-3 break-words overflow-hidden",
                   message.role === "assistant"
                     ? "bg-muted text-foreground rounded-tl-md"
                     : "bg-primary text-primary-foreground rounded-tr-md"
                 )}
               >
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                   {message.content.split(/(\*\*.*?\*\*)/).map((part, i) => {
                     if (part.startsWith("**") && part.endsWith("**")) {
                       return <strong key={i}>{part.slice(2, -2)}</strong>;
