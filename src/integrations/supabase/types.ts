@@ -56,6 +56,30 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_comparisons: {
+        Row: {
+          case_ids: string[]
+          comparison_result: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          case_ids: string[]
+          comparison_result: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          case_ids?: string[]
+          comparison_result?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
