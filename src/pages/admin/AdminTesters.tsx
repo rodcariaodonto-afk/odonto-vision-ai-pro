@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { UserPlus, Search, Calendar, BarChart3, Loader2, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
+import { UserPlus, Search, Calendar, BarChart3, Loader2, ToggleLeft, ToggleRight, Trash2, Eye, EyeOff, Copy, CheckCircle } from "lucide-react";
 
 interface TestUser {
   id: string;
@@ -20,6 +20,12 @@ interface TestUser {
   expires_at: string;
 }
 
+interface CreatedCredentials {
+  email: string;
+  password: string;
+  expiresAt: string;
+}
+
 export default function AdminTesters() {
   const [testUsers, setTestUsers] = useState<TestUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +33,14 @@ export default function AdminTesters() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchTestUsers();
@@ -49,33 +62,95 @@ export default function AdminTesters() {
     setLoading(false);
   };
 
+  const getPasswordStrength = (password: string) => {
+    if (password.length === 0) return { label: "", color: "", width: "0%" };
+    if (password.length < 6) return { label: "Muito fraca", color: "bg-destructive", width: "20%" };
+    if (password.length < 8) return { label: "Fraca", color: "bg-warning", width: "40%" };
+    
+    const hasNumber = /\d/.test(password);
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    if (hasNumber && hasLetter && hasSpecial && password.length >= 10) {
+      return { label: "Forte", color: "bg-success", width: "100%" };
+    }
+    if ((hasNumber && hasLetter) || password.length >= 10) {
+      return { label: "Média", color: "bg-primary", width: "70%" };
+    }
+    return { label: "Fraca", color: "bg-warning", width: "40%" };
+  };
+
   const handleAddTester = async () => {
     if (!newEmail.trim()) {
       toast.error("E-mail é obrigatório");
       return;
     }
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
 
     setSubmitting(true);
-    const { error } = await supabase.from("test_users").insert({
-      email: newEmail.trim().toLowerCase(),
-      name: newName.trim() || null,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        toast.error("Este e-mail já está cadastrado como testador");
-      } else {
-        toast.error("Erro ao adicionar testador");
-        console.error(error);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        setSubmitting(false);
+        return;
       }
-    } else {
-      toast.success("Testador adicionado com sucesso!");
+
+      const response = await supabase.functions.invoke("create-test-user", {
+        body: {
+          email: newEmail.trim(),
+          password: newPassword,
+          name: newName.trim() || null,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Erro ao criar usuário");
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Erro ao criar usuário");
+      }
+
+      // Success - show credentials modal
+      setCreatedCredentials({
+        email: newEmail.trim().toLowerCase(),
+        password: newPassword,
+        expiresAt: response.data.expiresAt,
+      });
+      
+      // Reset form
       setNewEmail("");
       setNewName("");
+      setNewPassword("");
       setDialogOpen(false);
+      setShowSuccessModal(true);
+      
       fetchTestUsers();
+      toast.success("Usuário de teste criado com sucesso!");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao criar testador";
+      toast.error(message);
+      console.error(error);
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
+  };
+
+  const handleCopyCredentials = () => {
+    if (!createdCredentials) return;
+    
+    const text = `Email: ${createdCredentials.email}\nSenha: ${createdCredentials.password}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Credenciais copiadas!");
+    
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
@@ -127,6 +202,8 @@ export default function AdminTesters() {
       (user.name && user.name.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const passwordStrength = getPasswordStrength(newPassword);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -141,19 +218,19 @@ export default function AdminTesters() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Gerenciar Testadores</h1>
           <p className="text-muted-foreground">
-            Adicione usuários para testar o sistema por 7 dias
+            Crie usuários de teste com acesso completo por 7 dias
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="hero">
               <UserPlus className="w-4 h-4 mr-2" />
-              Adicionar Testador
+              Criar Usuário de Teste
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Novo Testador</DialogTitle>
+              <DialogTitle>Criar Usuário de Teste</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -167,6 +244,39 @@ export default function AdminTesters() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="password">Senha *</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Mínimo 6 caracteres"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {newPassword.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-300 ${passwordStrength.color}`}
+                        style={{ width: passwordStrength.width }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Força da senha: <span className="font-medium">{passwordStrength.label}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="name">Nome (opcional)</Label>
                 <Input
                   id="name"
@@ -177,12 +287,13 @@ export default function AdminTesters() {
               </div>
               <div className="bg-muted rounded-lg p-3 text-sm text-muted-foreground">
                 <p>• O testador terá <strong>7 dias</strong> de acesso</p>
-                <p>• Limite de <strong>20 análises</strong> de exames</p>
+                <p>• Limite de <strong>50 análises</strong> de exames</p>
                 <p>• Acesso ao chat com IA ilimitado</p>
+                <p>• Você definirá a senha e passará para o usuário</p>
               </div>
               <Button
                 onClick={handleAddTester}
-                disabled={submitting}
+                disabled={submitting || !newEmail || newPassword.length < 6}
                 className="w-full"
                 variant="hero"
               >
@@ -191,12 +302,67 @@ export default function AdminTesters() {
                 ) : (
                   <UserPlus className="w-4 h-4 mr-2" />
                 )}
-                Adicionar Testador
+                Criar Usuário de Teste
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Success Modal with Credentials */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-success">
+              <CheckCircle className="w-5 h-5" />
+              Usuário de Teste Criado!
+            </DialogTitle>
+          </DialogHeader>
+          {createdCredentials && (
+            <div className="space-y-4 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Copie as credenciais abaixo e envie para o usuário:
+              </p>
+              <div className="bg-muted rounded-lg p-4 space-y-3 font-mono text-sm">
+                <div>
+                  <span className="text-muted-foreground">Email:</span>{" "}
+                  <span className="font-semibold text-foreground">{createdCredentials.email}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Senha:</span>{" "}
+                  <span className="font-semibold text-foreground">{createdCredentials.password}</span>
+                </div>
+                <div className="pt-2 border-t border-border">
+                  <span className="text-muted-foreground text-xs">
+                    Expira em: {formatDate(createdCredentials.expiresAt)}
+                  </span>
+                </div>
+              </div>
+              <Button
+                onClick={handleCopyCredentials}
+                className="w-full"
+                variant={copied ? "outline" : "hero"}
+              >
+                {copied ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2 text-success" />
+                    Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar Credenciais
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                O usuário pode fazer login diretamente em{" "}
+                <strong>odontovisionpro.com.br</strong>
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
