@@ -17,6 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Upload from "./pages/Upload";
 import Chat from "./pages/Chat";
 import Cases from "./pages/Cases";
+import Compare from "./pages/Compare";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -152,6 +153,7 @@ function AppRoutes() {
         <Route path="/upload" element={<Upload />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/cases" element={<Cases />} />
+        <Route path="/compare" element={<Compare />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
 

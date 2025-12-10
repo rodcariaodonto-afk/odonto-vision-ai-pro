@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, FileImage, FileText, Download, Calendar, CheckCircle, Loader2, Eye, Trash2 } from "lucide-react";
+import { Search, FileImage, FileText, Download, Calendar, CheckCircle, Loader2, Eye, Trash2, GitCompare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,11 +37,14 @@ interface Case {
 
 export default function Cases() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [compareMode, setCompareMode] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,6 +90,27 @@ export default function Cases() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  const toggleCompareSelection = (id: string) => {
+    setSelectedForCompare(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(c => c !== id);
+      }
+      if (prev.length >= 5) {
+        toast.error("Máximo de 5 exames para comparação");
+        return prev;
+      }
+      return [...prev, id];
+    });
+  };
+
+  const handleCompare = () => {
+    if (selectedForCompare.length < 2) {
+      toast.error("Selecione pelo menos 2 exames para comparar");
+      return;
+    }
+    navigate(`/compare?cases=${selectedForCompare.join(",")}`);
   };
 
   const generatePDF = (caseData: Case) => {
@@ -202,12 +228,45 @@ export default function Cases() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Meus Casos</h1>
-        <p className="text-muted-foreground mt-1">
-          Histórico de análises realizadas
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Meus Casos</h1>
+          <p className="text-muted-foreground mt-1">
+            Histórico de análises realizadas
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {compareMode && selectedForCompare.length >= 2 && (
+            <Button onClick={handleCompare}>
+              <GitCompare className="w-4 h-4 mr-2" />
+              Comparar ({selectedForCompare.length})
+            </Button>
+          )}
+          <Button
+            variant={compareMode ? "default" : "outline"}
+            onClick={() => {
+              setCompareMode(!compareMode);
+              if (compareMode) {
+                setSelectedForCompare([]);
+              }
+            }}
+          >
+            <GitCompare className="w-4 h-4 mr-2" />
+            {compareMode ? "Cancelar" : "Comparar Exames"}
+          </Button>
+        </div>
       </div>
+
+      {/* Compare Mode Info */}
+      {compareMode && (
+        <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+          <p className="text-sm text-primary">
+            <GitCompare className="w-4 h-4 inline mr-2" />
+            Selecione 2-5 exames do mesmo paciente para gerar uma análise comparativa evolutiva.
+            {selectedForCompare.length > 0 && ` (${selectedForCompare.length} selecionado${selectedForCompare.length > 1 ? 's' : ''})`}
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -234,9 +293,21 @@ export default function Cases() {
           </Card>
         ) : (
           filteredCases.map((c) => (
-            <Card key={c.id} className="hover:shadow-lg transition-shadow">
+            <Card 
+              key={c.id} 
+              className={cn(
+                "hover:shadow-lg transition-shadow",
+                compareMode && selectedForCompare.includes(c.id) && "border-primary bg-primary/5"
+              )}
+            >
               <CardContent className="py-4">
                 <div className="flex items-center gap-4">
+                  {compareMode && (
+                    <Checkbox
+                      checked={selectedForCompare.includes(c.id)}
+                      onCheckedChange={() => toggleCompareSelection(c.id)}
+                    />
+                  )}
                   <div
                     className={cn(
                       "p-3 rounded-xl",
@@ -244,6 +315,7 @@ export default function Cases() {
                         ? "bg-primary/10 text-primary"
                         : "bg-muted text-muted-foreground"
                     )}
+                    onClick={() => compareMode && toggleCompareSelection(c.id)}
                   >
                     {getTypeIcon(c.exam_type)}
                   </div>
