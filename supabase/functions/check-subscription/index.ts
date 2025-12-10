@@ -12,11 +12,11 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
-// Product IDs mapped to plans
-const PRODUCTS = {
-  por_caso: "prod_TZcXMHLEIvxKiy",
-  mensal: "prod_TZcZGldD1idICC",
-  anual: "prod_TZcoHePuTNV00I",
+// Plan configuration with product IDs and analysis limits
+const PLANS = {
+  por_caso: { productId: "prod_TZcXMHLEIvxKiy", analysesLimit: 1 },
+  mensal: { productId: "prod_TZcZGldD1idICC", analysesLimit: 50 },
+  anual: { productId: "prod_TZcoHePuTNV00I", analysesLimit: 300 },
 };
 
 serve(async (req) => {
@@ -136,7 +136,8 @@ serve(async (req) => {
         subscribed: true,
         plan: "mensal",
         plan_end: planEnd,
-        analyses_remaining: 20, // Monthly plan limit
+        analyses_limit: PLANS.mensal.analysesLimit,
+        analyses_remaining: PLANS.mensal.analysesLimit, // Would need to track usage
         product_id: productId,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -174,7 +175,7 @@ serve(async (req) => {
           if (expiryDate > now) {
             activePlan = "anual";
             planEnd = expiryDate.toISOString();
-            analysesRemaining = 200; // Annual limit - would need to track usage
+            analysesRemaining = PLANS.anual.analysesLimit; // Would need to track usage
             logStep("Active annual plan found", { purchaseDate, expiryDate });
             break;
           }
