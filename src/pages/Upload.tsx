@@ -325,14 +325,12 @@ export default function Upload() {
       // Format patient name with proper capitalization
       const formattedName = capitalizeFullName(patientData.nome);
       
-      // Call the edge function with patient data and exam category
-      // Send first image for now (edge function needs update for multiple)
+      toast.info(`Analisando ${imagesData.length} arquivo(s)... Isso pode levar alguns segundos.`);
+      
+      // Call the edge function with all images
       const { data, error } = await supabase.functions.invoke("analyze-exam", {
         body: {
-          imageBase64: imagesData[0].imageBase64,
-          imageType: imagesData[0].imageType,
-          fileName: imagesData[0].fileName,
-          images: imagesData, // Send all images for future support
+          images: imagesData,
           examCategory,
           patientData: {
             nome: formattedName,
