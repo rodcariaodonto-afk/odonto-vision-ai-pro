@@ -6,8 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const buildSystemPrompt = (patientData: { nome: string; dataNascimento: string; dataLaudo: string }) => `
+const buildSystemPrompt = (patientData: { nome: string; dataNascimento: string; dataLaudo: string }, isTextBased: boolean) => `
 Você é um **Radiologista Odontológico Especialista** do sistema OdontoVision AI Pro, com conhecimento avançado em TODAS as especialidades da Odontologia.
+
+${isTextBased ? `
+-------------------------------------------------------------------
+📄 MODO DE ANÁLISE: DOCUMENTO DE TEXTO/PDF
+-------------------------------------------------------------------
+Você está analisando um documento PDF/texto contendo dados de exames laboratoriais ou laudos.
+Analise o conteúdo textual extraído e forneça interpretação clínica odontológica.
+` : ''}
 
 -------------------------------------------------------------------
 🎓 SUAS ESPECIALIDADES E CONHECIMENTOS
@@ -94,6 +102,20 @@ Você é um **Radiologista Odontológico Especialista** do sistema OdontoVision 
 - Assimetrias condilares
 - Alterações do espaço articular
 
+**FARMACOLOGIA E EXAMES LABORATORIAIS**
+- Interpretação de hemogramas para procedimentos odontológicos
+- Coagulograma e risco de sangramento
+- Glicemia e controle metabólico
+- Função renal e hepática para prescrições
+- Interações medicamentosas relevantes
+
+**CONSIDERAÇÕES SISTÊMICAS**
+- Pacientes diabéticos, hipertensos, cardiopatas
+- Uso de anticoagulantes e antiplaquetários
+- Bifosfonatos e risco de osteonecrose
+- Gestantes e lactantes
+- Pacientes imunossuprimidos
+
 -------------------------------------------------------------------
 📋 FORMATO DO LAUDO
 -------------------------------------------------------------------
@@ -111,40 +133,34 @@ O laudo deve seguir EXATAMENTE estas 9 seções:
 • Data da análise: ${patientData.dataLaudo}
 
 **2) Tipo de Exame**
-(Identifique automaticamente: panorâmica, periapical, bitewing, cefalométrica, fotografia clínica, tomografia convertida ou PDF radiológico.)
+(Identifique automaticamente: panorâmica, periapical, bitewing, cefalométrica, fotografia clínica, tomografia convertida, PDF radiológico, exame laboratorial, laudo médico.)
 
-**3) Qualidade da Imagem**
-(Avalie nitidez, contraste, posicionamento, distorções, áreas sobrepostas, erros de técnica.)
+**3) Qualidade da Imagem/Documento**
+(Para imagens: avalie nitidez, contraste, posicionamento, distorções, áreas sobrepostas, erros de técnica.)
+(Para documentos: avalie completude das informações, legibilidade, data do exame.)
 
-**4) Achados Radiográficos**
-(Descreva DETALHADAMENTE tudo o que é visível, aplicando conhecimento de TODAS as especialidades relevantes. Seja específico quanto a localização, tamanho, limites, radiopacidade/radiolucidez.)
+**4) Achados Radiográficos/Laboratoriais**
+(Descreva DETALHADAMENTE tudo o que é visível ou apresentado nos resultados, aplicando conhecimento de TODAS as especialidades relevantes.)
 
 **5) Interpretação Clínica / Radiológica**
-(Explique o significado dos achados usando conhecimento multidisciplinar. Correlacione com:
-- Endodontia: status pulpar, lesões periapicais
-- Periodontia: nível ósseo, defeitos
-- Ortodontia: posicionamento, desenvolvimento
-- Implantodontia: condição óssea
-- Cirurgia: patologias, cistos, tumores
-- Dentística: cáries, restaurações
-- DTM: alterações articulares)
+(Explique o significado dos achados usando conhecimento multidisciplinar. Correlacione com relevância odontológica.)
 
 **6) Diagnósticos Diferenciais**
-(Lista completa de possibilidades diagnósticas, organizadas por especialidade quando aplicável. Inclua características que favorecem ou desfavorecem cada diagnóstico.)
+(Lista completa de possibilidades diagnósticas, organizadas por especialidade quando aplicável.)
 
 **7) Riscos, alertas e pontos de atenção**
-(Alerte sobre achados que necessitam atenção imediata, prognósticos reservados, riscos de progressão, proximidade com estruturas nobres, sinais de malignidade.)
+(Alerte sobre achados que necessitam atenção imediata, valores alterados, contraindicações para procedimentos.)
 
 **8) Recomendações Clínicas**
 (Recomendações ESPECÍFICAS por especialidade:
 - Exames complementares indicados
 - Especialistas para encaminhamento
 - Urgência da avaliação
-- Acompanhamento sugerido
+- Cuidados pré e pós-operatórios
 SEM indicar tratamentos específicos.)
 
 **9) Observações**
-(Comentários adicionais, limitações da imagem, correlações clínicas necessárias, particularidades anatômicas.)
+(Comentários adicionais, limitações, correlações clínicas necessárias.)
 
 -------------------------------------------------------------------
 ⚠️ AVISO LEGAL E ÉTICO
@@ -179,8 +195,8 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
     "data_analise": "${patientData.dataLaudo}"
   },
   "tipo_exame": "Descrição do tipo de exame identificado",
-  "qualidade_imagem": "Avaliação da qualidade da imagem",
-  "achados_radiograficos": ["Lista detalhada de achados radiográficos"],
+  "qualidade_imagem": "Avaliação da qualidade da imagem ou documento",
+  "achados_radiograficos": ["Lista detalhada de achados radiográficos ou laboratoriais"],
   "interpretacao_clinica": "Interpretação clínica multidisciplinar detalhada",
   "diagnosticos_diferenciais": ["Lista de diagnósticos diferenciais com justificativas"],
   "riscos_alertas": ["Lista de riscos, alertas e pontos de atenção"],
@@ -188,6 +204,76 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
   "observacoes": "Observações adicionais e aviso legal"
 }
 `;
+
+// Function to extract readable text from PDF base64
+function extractTextFromPdfBase64(base64Data: string): string | null {
+  try {
+    // Remove data URL prefix if present
+    const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+    
+    // Decode base64 to binary
+    const binaryString = atob(cleanBase64);
+    
+    // Try to extract text content from PDF
+    // PDFs contain text streams that we can try to extract
+    let extractedText = '';
+    
+    // Look for text between stream and endstream markers
+    const streamRegex = /stream\s*([\s\S]*?)\s*endstream/g;
+    let match;
+    
+    while ((match = streamRegex.exec(binaryString)) !== null) {
+      const streamContent = match[1];
+      // Extract printable ASCII characters
+      const textContent = streamContent.replace(/[^\x20-\x7E\n\r]/g, ' ').trim();
+      if (textContent.length > 20) {
+        extractedText += textContent + '\n';
+      }
+    }
+    
+    // Also try to find text objects (BT...ET blocks)
+    const textObjRegex = /BT\s*([\s\S]*?)\s*ET/g;
+    while ((match = textObjRegex.exec(binaryString)) !== null) {
+      const textBlock = match[1];
+      // Extract text from Tj and TJ operators
+      const tjMatches = textBlock.match(/\((.*?)\)\s*Tj/g);
+      if (tjMatches) {
+        tjMatches.forEach(tj => {
+          const text = tj.replace(/\((.*?)\)\s*Tj/, '$1');
+          extractedText += text + ' ';
+        });
+      }
+    }
+    
+    // Clean up extracted text
+    extractedText = extractedText
+      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s\d.,;:!?()[\]{}áéíóúâêîôûãõàèìòùäëïöüçÁÉÍÓÚÂÊÎÔÛÃÕÀÈÌÒÙÄËÏÖÜÇ\-/\\%@#$&*+=<>'"]+/gi, ' ')
+      .trim();
+    
+    // If we extracted meaningful text, return it
+    if (extractedText.length > 50) {
+      return extractedText;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Erro ao extrair texto do PDF:", error);
+    return null;
+  }
+}
+
+// Check if the file type is an image that OpenAI Vision API accepts
+function isValidImageType(mimeType: string): boolean {
+  const validImageTypes = [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/webp'
+  ];
+  return validImageTypes.includes(mimeType.toLowerCase());
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -216,30 +302,86 @@ serve(async (req) => {
     console.log("Analisando exame:", fileName, "Tipo:", imageType);
     console.log("Paciente:", patient.nome, "DN:", patient.dataNascimento);
 
-    const SYSTEM_PROMPT = buildSystemPrompt(patient);
+    const isPdf = imageType === 'application/pdf' || fileName?.toLowerCase().endsWith('.pdf');
+    const isImage = isValidImageType(imageType);
 
-    const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
+    let messages;
+    let isTextBased = false;
+
+    if (isPdf) {
+      // Handle PDF files - try to extract text
+      console.log("Detectado arquivo PDF, extraindo texto...");
+      const extractedText = extractTextFromPdfBase64(imageBase64);
+      
+      if (extractedText && extractedText.length > 50) {
+        console.log("Texto extraído do PDF:", extractedText.substring(0, 200) + "...");
+        isTextBased = true;
+        
+        const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
+        
+        messages = [
+          { role: "system", content: SYSTEM_PROMPT },
           {
-            type: "text",
-            text: `Analise este exame odontológico (${fileName || "imagem"}) do paciente ${patient.nome} e forneça uma análise COMPLETA e MULTIDISCIPLINAR no formato JSON especificado. 
+            role: "user",
+            content: `Analise este documento/exame laboratorial do paciente ${patient.nome}.
+
+O conteúdo extraído do documento PDF é:
+
+---
+${extractedText.substring(0, 15000)}
+---
+
+Forneça uma análise COMPLETA focada na relevância odontológica no formato JSON especificado.
+Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), interprete os valores em relação a procedimentos odontológicos.
+Se for um laudo ou relatório, extraia as informações relevantes para o tratamento odontológico.`
+          }
+        ];
+      } else {
+        // Could not extract text from PDF
+        console.log("Não foi possível extrair texto suficiente do PDF");
+        return new Response(
+          JSON.stringify({ 
+            error: "Não foi possível analisar este PDF. Para documentos em PDF, por favor:\n\n1. Se for uma radiografia/imagem em PDF, converta para imagem (JPEG/PNG) antes de enviar\n2. Se for um exame laboratorial, tire uma foto ou screenshot do documento\n3. Certifique-se que o PDF contém texto legível (não apenas imagens escaneadas)"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (isImage) {
+      // Handle image files - use Vision API
+      console.log("Processando imagem com Vision API...");
+      const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
+      
+      messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analise este exame odontológico (${fileName || "imagem"}) do paciente ${patient.nome} e forneça uma análise COMPLETA e MULTIDISCIPLINAR no formato JSON especificado. 
 
 Use todo seu conhecimento em Radiologia, Endodontia, Periodontia, Ortodontia, Implantodontia, Cirurgia, Odontopediatria, Dentística, Prótese, Patologia Oral e DTM para uma análise abrangente.
 
 Seja extremamente detalhado e técnico.`
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: imageBase64.startsWith("data:") ? imageBase64 : `data:${imageType || "image/jpeg"};base64,${imageBase64}`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageBase64.startsWith("data:") ? imageBase64 : `data:${imageType || "image/jpeg"};base64,${imageBase64}`
+              }
             }
-          }
-        ]
-      }
-    ];
+          ]
+        }
+      ];
+    } else {
+      // Unsupported file type
+      return new Response(
+        JSON.stringify({ 
+          error: `Tipo de arquivo não suportado: ${imageType}. Por favor, envie imagens (JPEG, PNG, GIF, WebP) ou PDFs com texto legível.`
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -297,7 +439,7 @@ Seja extremamente detalhado e técnico.`
           data_nascimento: patient.dataNascimento,
           data_analise: patient.dataLaudo,
         },
-        tipo_exame: "Análise realizada",
+        tipo_exame: isTextBased ? "Documento PDF/Exame Laboratorial" : "Análise realizada",
         qualidade_imagem: "Não foi possível avaliar automaticamente",
         achados_radiograficos: [content],
         interpretacao_clinica: content,
