@@ -410,6 +410,8 @@ serve(async (req) => {
     };
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY não configurada");
     }
@@ -420,84 +422,70 @@ serve(async (req) => {
     const isPdf = imageType === 'application/pdf' || fileName?.toLowerCase().endsWith('.pdf');
     const isImage = isValidImageType(imageType);
 
-    let messages;
+    let apiResponse;
     let isTextBased = false;
 
     if (isPdf) {
-      console.log("Detectado arquivo PDF, tentando extrair texto primeiro...");
+      console.log("Detectado arquivo PDF, usando Gemini via Lovable AI (suporte nativo a PDF)...");
       
-      // ALWAYS try text extraction first - this is more reliable
-      const extractedText = extractTextFromPdfBase64(imageBase64);
-      
-      if (extractedText && extractedText.length > 100) {
-        console.log("Texto extraído do PDF com sucesso:", extractedText.substring(0, 200) + "...");
-        isTextBased = true;
-        
-        const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
-        
-        messages = [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analise este documento/exame laboratorial do paciente ${patient.nome}.
-
-O conteúdo extraído do documento PDF é:
-
----
-${extractedText.substring(0, 15000)}
----
-
-Forneça uma análise COMPLETA focada na relevância odontológica no formato JSON especificado.
-Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), interprete os valores em relação a procedimentos odontológicos.
-Se for um laudo ou relatório, extraia as informações relevantes para o tratamento odontológico.`
-          }
-        ];
-      } else {
-        // Text extraction failed or insufficient - try image extraction as fallback
-        console.log("Texto insuficiente extraído, tentando extrair imagem do PDF...");
-        const extractedImage = extractFirstImageFromPdf(imageBase64);
-        
-        if (extractedImage) {
-          console.log("Imagem extraída do PDF, enviando para Vision API...");
-          
-          const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
-          
-          messages = [
-            { role: "system", content: SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Analise este exame/documento (${fileName || "PDF"}) do paciente ${patient.nome}. 
-                    
-Forneça uma análise COMPLETA no formato JSON especificado. Seja extremamente detalhado e técnico.`
-                },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:${extractedImage.mimeType};base64,${extractedImage.imageBase64}`
-                  }
-                }
-              ]
-            }
-          ];
-        } else {
-          console.log("PDF sem texto legível e sem imagens extraíveis");
-          return new Response(
-            JSON.stringify({ 
-              error: "Não foi possível processar este PDF.\n\nO arquivo não contém texto selecionável nem imagens que possam ser extraídas.\n\nPor favor:\n1. **Tire um screenshot** do documento\n2. **Converta para imagem** (JPEG/PNG)\n3. Use um conversor online como ilovepdf.com ou smallpdf.com"
-            }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY não configurada para processamento de PDFs");
       }
+      
+      const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
+      
+      // Clean base64 data
+      const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
+      
+      // Use Gemini via Lovable AI gateway - it supports PDF directly
+      const geminiMessages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analise este documento PDF (${fileName || "exame"}) do paciente ${patient.nome}.
+
+Este é um exame laboratorial ou documento clínico. Leia TODO o conteúdo do PDF e forneça uma análise COMPLETA focada na relevância odontológica.
+
+Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), interprete TODOS os valores apresentados em relação a procedimentos odontológicos.
+Se for um laudo ou relatório, extraia as informações relevantes para o tratamento odontológico.
+
+Forneça a análise no formato JSON especificado. Seja extremamente detalhado e técnico.`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${cleanBase64}`
+              }
+            }
+          ]
+        }
+      ];
+
+      console.log("Enviando PDF para Gemini...");
+      
+      apiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: geminiMessages,
+        }),
+      });
+
+      isTextBased = true;
+      
     } else if (isImage) {
-      // Handle image files - use Vision API
-      console.log("Processando imagem com Vision API...");
+      // Handle image files - use OpenAI Vision API
+      console.log("Processando imagem com OpenAI Vision API...");
       const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
       
-      messages = [
+      const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
@@ -519,6 +507,19 @@ Seja extremamente detalhado e técnico.`
           ]
         }
       ];
+
+      apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4.1-2025-04-14",
+          messages,
+          max_completion_tokens: 6000,
+        }),
+      });
     } else {
       // Unsupported file type
       return new Response(
@@ -529,39 +530,27 @@ Seja extremamente detalhado e técnico.`
       );
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-2025-04-14",
-        messages,
-        max_completion_tokens: 6000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Erro da API OpenAI:", response.status, errorText);
+    // Handle API response (works for both Gemini and OpenAI)
+    if (!apiResponse.ok) {
+      const errorText = await apiResponse.text();
+      console.error("Erro da API:", apiResponse.status, errorText);
       
-      if (response.status === 429) {
+      if (apiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402 || response.status === 401) {
+      if (apiResponse.status === 402 || apiResponse.status === 401) {
         return new Response(
-          JSON.stringify({ error: "Erro de autenticação ou créditos insuficientes na API OpenAI." }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Erro de autenticação ou créditos insuficientes na API." }),
+          { status: apiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`Erro na API OpenAI: ${response.status} - ${errorText}`);
+      throw new Error(`Erro na API: ${apiResponse.status} - ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await apiResponse.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
