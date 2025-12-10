@@ -366,18 +366,41 @@ serve(async (req) => {
     let isTextBased = false;
 
     if (isPdf) {
-      console.log("Detectado arquivo PDF, verificando tipo...");
+      console.log("Detectado arquivo PDF, tentando extrair texto primeiro...");
       
-      // First, check if it's an image-based PDF (scanned document)
-      const isScannedPdf = isPdfImageBased(imageBase64);
-      console.log("PDF é escaneado (baseado em imagem):", isScannedPdf);
+      // ALWAYS try text extraction first - this is more reliable
+      const extractedText = extractTextFromPdfBase64(imageBase64);
       
-      if (isScannedPdf) {
-        // Try to extract the embedded image from the PDF
+      if (extractedText && extractedText.length > 100) {
+        console.log("Texto extraído do PDF com sucesso:", extractedText.substring(0, 200) + "...");
+        isTextBased = true;
+        
+        const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
+        
+        messages = [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Analise este documento/exame laboratorial do paciente ${patient.nome}.
+
+O conteúdo extraído do documento PDF é:
+
+---
+${extractedText.substring(0, 15000)}
+---
+
+Forneça uma análise COMPLETA focada na relevância odontológica no formato JSON especificado.
+Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), interprete os valores em relação a procedimentos odontológicos.
+Se for um laudo ou relatório, extraia as informações relevantes para o tratamento odontológico.`
+          }
+        ];
+      } else {
+        // Text extraction failed or insufficient - try image extraction as fallback
+        console.log("Texto insuficiente extraído, tentando extrair imagem do PDF...");
         const extractedImage = extractFirstImageFromPdf(imageBase64);
         
         if (extractedImage) {
-          console.log("Imagem extraída do PDF escaneado, enviando para Vision API...");
+          console.log("Imagem extraída do PDF, enviando para Vision API...");
           
           const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
           
@@ -389,13 +412,8 @@ serve(async (req) => {
                 {
                   type: "text",
                   text: `Analise este exame/documento (${fileName || "PDF"}) do paciente ${patient.nome}. 
-                  
-Este documento foi extraído de um PDF escaneado. Forneça uma análise COMPLETA no formato JSON especificado.
-
-Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), leia os valores apresentados e interprete em relação a procedimentos odontológicos.
-Se for uma radiografia ou imagem clínica, analise conforme seus conhecimentos em radiologia odontológica.
-
-Seja extremamente detalhado e técnico.`
+                    
+Forneça uma análise COMPLETA no formato JSON especificado. Seja extremamente detalhado e técnico.`
                 },
                 {
                   type: "image_url",
@@ -407,80 +425,13 @@ Seja extremamente detalhado e técnico.`
             }
           ];
         } else {
-          // Could not extract image from scanned PDF
-          console.log("Não foi possível extrair imagem do PDF escaneado");
+          console.log("PDF sem texto legível e sem imagens extraíveis");
           return new Response(
             JSON.stringify({ 
-              error: "Este PDF contém imagens escaneadas que não puderam ser extraídas automaticamente.\n\nPor favor, tente uma das opções:\n\n1. **Tire um screenshot/foto** do PDF aberto no seu computador\n2. **Converta o PDF para imagem** usando um conversor online (ilovepdf.com, smallpdf.com)\n3. Se possível, peça o exame em formato de imagem (JPEG/PNG)"
+              error: "Não foi possível processar este PDF.\n\nO arquivo não contém texto selecionável nem imagens que possam ser extraídas.\n\nPor favor:\n1. **Tire um screenshot** do documento\n2. **Converta para imagem** (JPEG/PNG)\n3. Use um conversor online como ilovepdf.com ou smallpdf.com"
             }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
-        }
-      } else {
-        // Try text extraction for text-based PDFs
-        const extractedText = extractTextFromPdfBase64(imageBase64);
-        
-        if (extractedText && extractedText.length > 50) {
-          console.log("Texto extraído do PDF:", extractedText.substring(0, 200) + "...");
-          isTextBased = true;
-          
-          const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
-          
-          messages = [
-            { role: "system", content: SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: `Analise este documento/exame laboratorial do paciente ${patient.nome}.
-
-O conteúdo extraído do documento PDF é:
-
----
-${extractedText.substring(0, 15000)}
----
-
-Forneça uma análise COMPLETA focada na relevância odontológica no formato JSON especificado.
-Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), interprete os valores em relação a procedimentos odontológicos.
-Se for um laudo ou relatório, extraia as informações relevantes para o tratamento odontológico.`
-            }
-          ];
-        } else {
-          // No text found, but also not detected as image-based - try image extraction anyway
-          const extractedImage = extractFirstImageFromPdf(imageBase64);
-          
-          if (extractedImage) {
-            console.log("Tentando extrair imagem de PDF sem texto...");
-            
-            const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
-            
-            messages = [
-              { role: "system", content: SYSTEM_PROMPT },
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `Analise este exame/documento (${fileName || "PDF"}) do paciente ${patient.nome}. 
-                    
-Forneça uma análise COMPLETA no formato JSON especificado. Seja extremamente detalhado e técnico.`
-                  },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:${extractedImage.mimeType};base64,${extractedImage.imageBase64}`
-                    }
-                  }
-                ]
-              }
-            ];
-          } else {
-            console.log("PDF sem texto legível e sem imagens extraíveis");
-            return new Response(
-              JSON.stringify({ 
-                error: "Não foi possível processar este PDF.\n\nO arquivo não contém texto selecionável nem imagens que possam ser extraídas.\n\nPor favor:\n1. **Tire um screenshot** do documento\n2. **Converta para imagem** (JPEG/PNG)\n3. Use um conversor online como ilovepdf.com ou smallpdf.com"
-              }),
-              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
         }
       }
     } else if (isImage) {
