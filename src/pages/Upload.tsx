@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 
+type ExamCategory = "radiografia" | "tomografia" | "foto" | "laboratorial";
+
 interface AnalysisResult {
   identificacao_paciente: {
     nome: string;
@@ -33,6 +35,13 @@ interface PatientData {
   dataNascimento: string;
   dataLaudo: string;
 }
+
+const EXAM_CATEGORIES: { id: ExamCategory; label: string; description: string; icon: string }[] = [
+  { id: "radiografia", label: "Radiografia", description: "Periapical, panorâmica, bitewing", icon: "🦷" },
+  { id: "tomografia", label: "Tomografia", description: "CBCT, tomografia computadorizada", icon: "📡" },
+  { id: "foto", label: "Foto Clínica", description: "Intraoral, extraoral, documentação", icon: "📷" },
+  { id: "laboratorial", label: "Exames Laboratoriais", description: "Hemograma, coagulograma, glicemia", icon: "🧪" },
+];
 
 const STORAGE_KEY = "odontovision_draft";
 const RESULT_STORAGE_KEY = "odontovision_analysis_result";
@@ -121,6 +130,7 @@ export default function Upload() {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
+  const [examCategory, setExamCategory] = useState<ExamCategory | null>(null);
   
   // Patient data state - load from draft or use defaults
   const [patientData, setPatientData] = useState<PatientData>(() => {
@@ -226,7 +236,10 @@ export default function Upload() {
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
-    
+    if (!examCategory) {
+      toast.error("Por favor, selecione o tipo de exame.");
+      return;
+    }
     if (!validatePatientData()) return;
 
     setIsAnalyzing(true);
@@ -245,12 +258,13 @@ export default function Upload() {
       // Format patient name with proper capitalization
       const formattedName = capitalizeFullName(patientData.nome);
       
-      // Call the edge function with patient data
+      // Call the edge function with patient data and exam category
       const { data, error } = await supabase.functions.invoke("analyze-exam", {
         body: {
           imageBase64,
           imageType: selectedFile.type,
           fileName: selectedFile.name,
+          examCategory,
           patientData: {
             nome: formattedName,
             dataNascimento: patientData.dataNascimento,
@@ -367,21 +381,27 @@ export default function Upload() {
     doc.setFont("helvetica", "normal");
     yPosition = addWrappedText(result.tipo_exame || "Não identificado", yPosition);
 
-    // 3) Qualidade da Imagem
+    // 3) Qualidade da Imagem/Documento
     checkPageBreak(25);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("3) Qualidade da Imagem", margin, yPosition);
+    const qualityLabel = examCategory === "laboratorial" ? "3) Qualidade do Documento" : "3) Qualidade da Imagem";
+    doc.text(qualityLabel, margin, yPosition);
     yPosition += 7;
     doc.setFont("helvetica", "normal");
     yPosition = addWrappedText(result.qualidade_imagem || "Não avaliada", yPosition);
 
-    // 4) Achados Radiográficos
+    // 4) Achados - título varia conforme tipo de exame
     if (result.achados_radiograficos?.length > 0) {
       checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("4) Achados Radiográficos", margin, yPosition);
+      const achadosLabel = examCategory === "laboratorial" 
+        ? "4) Resultados dos Exames" 
+        : examCategory === "foto" 
+          ? "4) Achados Clínicos" 
+          : "4) Achados Radiográficos";
+      doc.text(achadosLabel, margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
       result.achados_radiograficos.forEach((item) => {
@@ -525,6 +545,7 @@ export default function Upload() {
     setResult(null);
     setRawContent(null);
     setReportGenerated(false);
+    setExamCategory(null);
     clearDraft();
     setPatientData({
       nome: "",
@@ -533,7 +554,7 @@ export default function Upload() {
     });
   };
 
-  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo;
+  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo && examCategory;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -589,6 +610,40 @@ export default function Upload() {
                 className="w-full"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Exam Type Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileCheck className="w-5 h-5 text-primary" />
+            Tipo de Exame
+          </CardTitle>
+          <CardDescription>
+            Selecione o tipo de exame para uma análise mais precisa
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {EXAM_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setExamCategory(cat.id)}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
+                  examCategory === cat.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border hover:border-primary/50 hover:bg-muted/50"
+                )}
+              >
+                <span className="text-2xl">{cat.icon}</span>
+                <span className="font-medium text-sm">{cat.label}</span>
+                <span className="text-xs text-muted-foreground text-center">{cat.description}</span>
+              </button>
+            ))}
           </div>
         </CardContent>
       </Card>

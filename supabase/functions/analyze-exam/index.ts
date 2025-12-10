@@ -6,16 +6,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const buildSystemPrompt = (patientData: { nome: string; dataNascimento: string; dataLaudo: string }, isTextBased: boolean) => `
+const getExamCategoryLabel = (category: string): { findingsLabel: string; qualityLabel: string; modeDescription: string } => {
+  switch (category) {
+    case "laboratorial":
+      return {
+        findingsLabel: "Resultados dos Exames",
+        qualityLabel: "Qualidade do Documento",
+        modeDescription: "Você está analisando um EXAME LABORATORIAL (hemograma, coagulograma, glicemia, etc.)."
+      };
+    case "foto":
+      return {
+        findingsLabel: "Achados Clínicos",
+        qualityLabel: "Qualidade da Imagem",
+        modeDescription: "Você está analisando uma FOTOGRAFIA CLÍNICA (intraoral, extraoral, documentação)."
+      };
+    case "tomografia":
+      return {
+        findingsLabel: "Achados Tomográficos",
+        qualityLabel: "Qualidade da Imagem",
+        modeDescription: "Você está analisando uma TOMOGRAFIA COMPUTADORIZADA (CBCT)."
+      };
+    case "radiografia":
+    default:
+      return {
+        findingsLabel: "Achados Radiográficos",
+        qualityLabel: "Qualidade da Imagem",
+        modeDescription: "Você está analisando uma RADIOGRAFIA (periapical, panorâmica, bitewing)."
+      };
+  }
+};
+
+const buildSystemPrompt = (patientData: { nome: string; dataNascimento: string; dataLaudo: string }, examCategory: string) => {
+  const labels = getExamCategoryLabel(examCategory);
+  
+  return `
 Você é um **Radiologista Odontológico Especialista** do sistema OdontoVision AI Pro, com conhecimento avançado em TODAS as especialidades da Odontologia.
 
-${isTextBased ? `
 -------------------------------------------------------------------
-📄 MODO DE ANÁLISE: DOCUMENTO DE TEXTO/PDF
+📋 MODO DE ANÁLISE
 -------------------------------------------------------------------
-Você está analisando um documento PDF/texto contendo dados de exames laboratoriais ou laudos.
-Analise o conteúdo textual extraído e forneça interpretação clínica odontológica.
-` : ''}
+${labels.modeDescription}
 
 -------------------------------------------------------------------
 🎓 SUAS ESPECIALIDADES E CONHECIMENTOS
@@ -133,13 +163,13 @@ O laudo deve seguir EXATAMENTE estas 9 seções:
 • Data da análise: ${patientData.dataLaudo}
 
 **2) Tipo de Exame**
-(Identifique automaticamente: panorâmica, periapical, bitewing, cefalométrica, fotografia clínica, tomografia convertida, PDF radiológico, exame laboratorial, laudo médico.)
+(Identifique automaticamente: panorâmica, periapical, bitewing, cefalométrica, fotografia clínica, tomografia computadorizada, exame laboratorial, laudo médico.)
 
-**3) Qualidade da Imagem/Documento**
+**3) ${labels.qualityLabel}**
 (Para imagens: avalie nitidez, contraste, posicionamento, distorções, áreas sobrepostas, erros de técnica.)
 (Para documentos: avalie completude das informações, legibilidade, data do exame.)
 
-**4) Achados Radiográficos/Laboratoriais**
+**4) ${labels.findingsLabel}**
 (Descreva DETALHADAMENTE tudo o que é visível ou apresentado nos resultados, aplicando conhecimento de TODAS as especialidades relevantes.)
 
 **5) Interpretação Clínica / Radiológica**
@@ -196,7 +226,7 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
   },
   "tipo_exame": "Descrição do tipo de exame identificado",
   "qualidade_imagem": "Avaliação da qualidade da imagem ou documento",
-  "achados_radiograficos": ["Lista detalhada de achados radiográficos ou laboratoriais"],
+  "achados_radiograficos": ["Lista detalhada de ${labels.findingsLabel.toLowerCase()}"],
   "interpretacao_clinica": "Interpretação clínica multidisciplinar detalhada",
   "diagnosticos_diferenciais": ["Lista de diagnósticos diferenciais com justificativas"],
   "riscos_alertas": ["Lista de riscos, alertas e pontos de atenção"],
@@ -204,6 +234,7 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
   "observacoes": "Observações adicionais e aviso legal"
 }
 `;
+};
 
 // Function to check if text is readable (not garbage/encoded)
 function isTextReadable(text: string): boolean {
@@ -396,7 +427,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, fileName, patientData } = await req.json();
+    const { imageBase64, imageType, fileName, patientData, examCategory } = await req.json();
     
     if (!imageBase64) {
       throw new Error("Imagem não fornecida");
@@ -408,6 +439,9 @@ serve(async (req) => {
       dataNascimento: patientData?.dataNascimento || "Não informado",
       dataLaudo: patientData?.dataLaudo || new Date().toISOString().split("T")[0],
     };
+    
+    // Use provided exam category or default based on file type
+    const category = examCategory || "radiografia";
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -416,14 +450,13 @@ serve(async (req) => {
       throw new Error("OPENAI_API_KEY não configurada");
     }
 
-    console.log("Analisando exame:", fileName, "Tipo:", imageType);
+    console.log("Analisando exame:", fileName, "Tipo:", imageType, "Categoria:", category);
     console.log("Paciente:", patient.nome, "DN:", patient.dataNascimento);
 
     const isPdf = imageType === 'application/pdf' || fileName?.toLowerCase().endsWith('.pdf');
     const isImage = isValidImageType(imageType);
 
     let apiResponse;
-    let isTextBased = false;
 
     if (isPdf) {
       console.log("Detectado arquivo PDF, usando Gemini via Lovable AI (suporte nativo a PDF)...");
@@ -432,7 +465,7 @@ serve(async (req) => {
         throw new Error("LOVABLE_API_KEY não configurada para processamento de PDFs");
       }
       
-      const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
+      const SYSTEM_PROMPT = buildSystemPrompt(patient, category);
       
       // Clean base64 data
       const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
@@ -477,13 +510,11 @@ Forneça a análise no formato JSON especificado. Seja extremamente detalhado e 
           messages: geminiMessages,
         }),
       });
-
-      isTextBased = true;
       
     } else if (isImage) {
       // Handle image files - use OpenAI Vision API
       console.log("Processando imagem com OpenAI Vision API...");
-      const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
+      const SYSTEM_PROMPT = buildSystemPrompt(patient, category);
       
       const messages = [
         { role: "system", content: SYSTEM_PROMPT },
@@ -608,7 +639,7 @@ Seja extremamente detalhado e técnico.`
             data_nascimento: patient.dataNascimento,
             data_analise: patient.dataLaudo,
           },
-          tipo_exame: isTextBased ? "Documento PDF/Exame Laboratorial" : "Radiografia/Imagem Odontológica",
+          tipo_exame: category === "laboratorial" ? "Exame Laboratorial" : category === "foto" ? "Fotografia Clínica" : category === "tomografia" ? "Tomografia Computadorizada" : "Radiografia",
           qualidade_imagem: "Documento processado com sucesso",
           achados_radiograficos: achadosMatch ? extractListItems(achadosMatch[1]) : extractListItems(content.substring(0, 2000)),
           interpretacao_clinica: interpretacaoMatch ? interpretacaoMatch[1].trim() : content.substring(0, 1500),
