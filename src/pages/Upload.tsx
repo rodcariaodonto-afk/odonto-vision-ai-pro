@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User } from "lucide-react";
+import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -559,6 +559,61 @@ export default function Upload() {
     toast.success("PDF baixado com sucesso!");
   };
 
+  const handleCopyToClipboard = () => {
+    if (!result) return;
+
+    const formatText = (text: string) => text.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n');
+
+    const achadosLabel = examCategory === "laboratorial" 
+      ? "Resultados dos Exames" 
+      : examCategory === "foto" 
+        ? "Achados Clínicos" 
+        : "Achados Radiográficos";
+
+    const reportText = `LAUDO RADIOLÓGICO – ODONTOVISION AI PRO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1) IDENTIFICAÇÃO DO PACIENTE
+• Nome: ${capitalizeFullName(result.identificacao_paciente?.nome || patientData.nome)}
+• Data de Nascimento: ${formatDate(result.identificacao_paciente?.data_nascimento || patientData.dataNascimento)}
+• Data da Análise: ${formatDate(result.identificacao_paciente?.data_analise || patientData.dataLaudo)}
+
+2) TIPO DE EXAME
+${result.tipo_exame || "Não identificado"}
+
+3) QUALIDADE DA IMAGEM
+${result.qualidade_imagem || "Não avaliada"}
+
+4) ${achadosLabel.toUpperCase()}
+${result.achados_radiograficos?.map(item => `• ${item}`).join('\n') || "Nenhum achado registrado"}
+
+5) INTERPRETAÇÃO CLÍNICA / RADIOLÓGICA
+${formatText(result.interpretacao_clinica || "Não disponível")}
+
+6) DIAGNÓSTICOS DIFERENCIAIS
+${result.diagnosticos_diferenciais?.map(item => `• ${item}`).join('\n') || "Nenhum diagnóstico listado"}
+
+7) RISCOS, ALERTAS E PONTOS DE ATENÇÃO
+${result.riscos_alertas?.map(item => `• ${item}`).join('\n') || "Nenhum risco identificado"}
+
+8) RECOMENDAÇÕES CLÍNICAS
+${result.recomendacoes_clinicas?.map(item => `• ${item}`).join('\n') || "Nenhuma recomendação"}
+
+9) OBSERVAÇÕES
+${formatText(result.observacoes || "Nenhuma observação")}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ AVISO LEGAL E ÉTICO
+Este laudo é gerado automaticamente por inteligência artificial como ferramenta de apoio ao cirurgião-dentista. Ele NÃO substitui exame clínico, diagnóstico presencial ou julgamento profissional. A interpretação final é sempre responsabilidade do dentista responsável.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    navigator.clipboard.writeText(reportText).then(() => {
+      toast.success("Laudo copiado para a área de transferência!");
+    }).catch(() => {
+      toast.error("Erro ao copiar o laudo");
+    });
+  };
+
   const handleSaveCase = async () => {
     if (!result || !selectedFile || !user) {
       console.error("Missing data:", { result: !!result, selectedFile: !!selectedFile, user: !!user });
@@ -976,7 +1031,7 @@ export default function Upload() {
           </div>
 
           <div className="flex flex-col gap-4">
-            {/* Botão de Download PDF */}
+            {/* Botões de Download e Copiar */}
             <div className="flex gap-4">
               <Button 
                 variant="hero"
@@ -984,7 +1039,15 @@ export default function Upload() {
                 onClick={handleDownloadPDF}
               >
                 <Download className="w-4 h-4" />
-                Baixar PDF do Laudo
+                Baixar PDF
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex-1"
+                onClick={handleCopyToClipboard}
+              >
+                <Copy className="w-4 h-4" />
+                Copiar Texto
               </Button>
             </div>
 
