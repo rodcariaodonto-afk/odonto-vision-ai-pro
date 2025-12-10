@@ -15,16 +15,19 @@ export default function Register() {
   const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTestUser, setIsTestUser] = useState(false);
+  const [checkingTestUser, setCheckingTestUser] = useState(false);
   
   // Get pre-filled data from URL params (after payment)
   const prefilledEmail = searchParams.get("email") || "";
+  const testEmail = searchParams.get("test_email") || "";
   const plan = searchParams.get("plan");
   const sessionId = searchParams.get("session_id");
   const isPaidUser = !!sessionId && !!plan;
 
   const [formData, setFormData] = useState({
     name: "",
-    email: prefilledEmail,
+    email: prefilledEmail || testEmail,
     password: "",
     cro: "",
   });
@@ -32,8 +35,52 @@ export default function Register() {
   useEffect(() => {
     if (prefilledEmail) {
       setFormData(prev => ({ ...prev, email: prefilledEmail }));
+    } else if (testEmail) {
+      setFormData(prev => ({ ...prev, email: testEmail }));
+      setIsTestUser(true);
     }
-  }, [prefilledEmail]);
+  }, [prefilledEmail, testEmail]);
+
+  // Check if email is a test user when manually entered
+  const checkTestUser = async (email: string) => {
+    if (!email || isPaidUser) return;
+    
+    setCheckingTestUser(true);
+    try {
+      const { data, error } = await supabase
+        .from("test_users")
+        .select("email, is_active, expires_at")
+        .eq("email", email.toLowerCase())
+        .eq("is_active", true)
+        .single();
+      
+      if (data && !error) {
+        const expiresAt = new Date(data.expires_at);
+        if (expiresAt > new Date()) {
+          setIsTestUser(true);
+        } else {
+          setIsTestUser(false);
+        }
+      } else {
+        setIsTestUser(false);
+      }
+    } catch {
+      setIsTestUser(false);
+    } finally {
+      setCheckingTestUser(false);
+    }
+  };
+
+  // Debounce email check
+  useEffect(() => {
+    if (!formData.email || isPaidUser) return;
+    
+    const timer = setTimeout(() => {
+      checkTestUser(formData.email);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [formData.email, isPaidUser]);
 
   const planNames: Record<string, string> = {
     por_caso: "Por Caso",
@@ -84,8 +131,11 @@ export default function Register() {
     navigate("/dashboard");
   };
 
-  // If user is not coming from payment, redirect to plans
-  if (!isPaidUser) {
+  // Allow access if: paid user OR test user
+  const canRegister = isPaidUser || isTestUser;
+
+  // If user is not coming from payment and not a test user, redirect to plans
+  if (!canRegister && !checkingTestUser) {
     return (
       <div className="min-h-screen bg-muted flex flex-col">
         <header className="p-4">
@@ -146,12 +196,24 @@ export default function Register() {
             </div>
             
             {/* Payment confirmed badge */}
-            <div className="flex items-center justify-center gap-2 mb-4 p-2 rounded-lg bg-success/10 text-success">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                Plano {plan ? planNames[plan] : ""} confirmado!
-              </span>
-            </div>
+            {isPaidUser && (
+              <div className="flex items-center justify-center gap-2 mb-4 p-2 rounded-lg bg-success/10 text-success">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Plano {plan ? planNames[plan] : ""} confirmado!
+                </span>
+              </div>
+            )}
+            
+            {/* Test user badge */}
+            {isTestUser && !isPaidUser && (
+              <div className="flex items-center justify-center gap-2 mb-4 p-2 rounded-lg bg-primary/10 text-primary">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Acesso de Teste (7 dias)
+                </span>
+              </div>
+            )}
 
             <CardTitle className="text-2xl">Complete seu Cadastro</CardTitle>
             <CardDescription>
