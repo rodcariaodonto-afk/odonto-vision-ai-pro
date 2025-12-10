@@ -106,14 +106,27 @@ const saveAnalysisResult = (result: AnalysisResult, rawContent: string | null, p
 };
 
 // Load analysis result from sessionStorage
-const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData; examCategory: ExamCategory } | null => {
+const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData; examCategory: ExamCategory | null } | null => {
   try {
     const saved = sessionStorage.getItem(RESULT_STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Validate parsed data has required fields
+      if (parsed && typeof parsed === 'object' && parsed.result) {
+        return {
+          result: parsed.result,
+          rawContent: parsed.rawContent || null,
+          patientData: parsed.patientData || { nome: "", dataNascimento: "", dataLaudo: "" },
+          examCategory: parsed.examCategory || null
+        };
+      }
     }
   } catch (e) {
     console.error("Erro ao carregar resultado:", e);
+    // Clear corrupted data
+    try {
+      sessionStorage.removeItem(RESULT_STORAGE_KEY);
+    } catch {}
   }
   return null;
 };
