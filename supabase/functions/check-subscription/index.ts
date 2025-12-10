@@ -62,6 +62,41 @@ serve(async (req) => {
       });
     }
 
+    // Check if user is a test user with active trial
+    const { data: testUser, error: testUserError } = await supabaseClient
+      .from("test_users")
+      .select("*")
+      .eq("email", user.email)
+      .eq("is_active", true)
+      .single();
+
+    if (testUser && !testUserError) {
+      const expiresAt = new Date(testUser.expires_at);
+      const now = new Date();
+      
+      if (expiresAt > now) {
+        const analysesRemaining = testUser.analyses_limit - testUser.analyses_used;
+        logStep("Test user detected - granting trial access", {
+          email: user.email,
+          expiresAt: testUser.expires_at,
+          analysesUsed: testUser.analyses_used,
+          analysesRemaining
+        });
+        
+        return new Response(JSON.stringify({
+          subscribed: true,
+          plan: "teste",
+          plan_end: testUser.expires_at,
+          analyses_remaining: analysesRemaining > 0 ? analysesRemaining : 0,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      } else {
+        logStep("Test user trial expired", { email: user.email, expiresAt: testUser.expires_at });
+      }
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     
     // Find customer by email

@@ -25,6 +25,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCases from "./pages/admin/AdminCases";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminTesters from "./pages/admin/AdminTesters";
 import { Card, CardContent } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { Lock, ArrowRight, Loader2 } from "lucide-react";
@@ -163,6 +164,7 @@ function AppRoutes() {
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/cases" element={<AdminCases />} />
         <Route path="/admin/support" element={<AdminSupport />} />
+        <Route path="/admin/testers" element={<AdminTesters />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
       </Route>
 
