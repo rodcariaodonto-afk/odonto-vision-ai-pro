@@ -73,9 +73,25 @@ serve(async (req) => {
       .eq("is_active", true)
       .maybeSingle();
 
-    if (testUser && !testUserError) {
+    logStep("Test user query result", { 
+      found: !!testUser, 
+      error: testUserError?.message || null,
+      testUserEmail: testUser?.email || null
+    });
+
+    if (testUserError) {
+      logStep("Test user query error", { error: testUserError.message, code: testUserError.code });
+    }
+
+    if (testUser) {
       const expiresAt = new Date(testUser.expires_at);
       const now = new Date();
+      
+      logStep("Test user found - checking expiration", { 
+        expiresAt: testUser.expires_at, 
+        now: now.toISOString(),
+        isValid: expiresAt > now 
+      });
       
       if (expiresAt > now) {
         const analysesRemaining = testUser.analyses_limit - testUser.analyses_used;
