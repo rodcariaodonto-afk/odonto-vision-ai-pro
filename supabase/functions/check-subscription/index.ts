@@ -63,12 +63,15 @@ serve(async (req) => {
     }
 
     // Check if user is a test user with active trial
+    const userEmailLower = user.email.toLowerCase();
+    logStep("Checking for test user", { email: userEmailLower });
+    
     const { data: testUser, error: testUserError } = await supabaseClient
       .from("test_users")
       .select("*")
-      .eq("email", user.email)
+      .eq("email", userEmailLower)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
 
     if (testUser && !testUserError) {
       const expiresAt = new Date(testUser.expires_at);
