@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
   GitCompare, 
@@ -23,13 +25,17 @@ import {
   Download,
   Save,
   History,
-  Trash2
+  Trash2,
+  Search,
+  User,
+  BarChart3
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 
 interface AnalysisResult {
   identificacao_paciente?: {
@@ -101,6 +107,8 @@ export default function Compare() {
   const [savedComparisons, setSavedComparisons] = useState<SavedComparison[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [activeTab, setActiveTab] = useState("new");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [patientFilter, setPatientFilter] = useState<string>("all");
 
   useEffect(() => {
     if (user) {
@@ -110,7 +118,6 @@ export default function Compare() {
   }, [user]);
 
   useEffect(() => {
-    // Check if cases were passed via URL params
     const caseIds = searchParams.get("cases");
     if (caseIds) {
       setSelectedCases(caseIds.split(","));
@@ -157,6 +164,33 @@ export default function Compare() {
     }
   };
 
+  // Extract unique patient names from cases
+  const patientNames = useMemo(() => {
+    const names = new Set<string>();
+    cases.forEach(c => {
+      const patientName = c.analysis?.identificacao_paciente?.nome || c.name;
+      if (patientName) {
+        names.add(patientName);
+      }
+    });
+    return Array.from(names).sort();
+  }, [cases]);
+
+  // Filter cases based on search and patient filter
+  const filteredCases = useMemo(() => {
+    return cases.filter(c => {
+      const patientName = c.analysis?.identificacao_paciente?.nome || c.name;
+      const matchesSearch = searchQuery === "" || 
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.exam_type.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesPatient = patientFilter === "all" || patientName === patientFilter;
+      
+      return matchesSearch && matchesPatient;
+    });
+  }, [cases, searchQuery, patientFilter]);
+
   const toggleCase = (id: string) => {
     setSelectedCases(prev => {
       if (prev.includes(id)) {
@@ -182,7 +216,6 @@ export default function Compare() {
     try {
       const selectedCasesData = cases.filter(c => selectedCases.includes(c.id));
       
-      // Get patient name from first case
       const patientName = selectedCasesData[0]?.analysis?.identificacao_paciente?.nome || 
                           selectedCasesData[0]?.name || 
                           "Paciente";
@@ -311,7 +344,6 @@ export default function Compare() {
     doc.setTextColor(0, 0, 0);
     yPos = 45;
 
-    // Evolution Summary
     const evolutionLabels: Record<string, string> = {
       improved: "MELHORA",
       worsened: "PIORA",
@@ -325,19 +357,16 @@ export default function Compare() {
     }
     yPos += 5;
 
-    // Executive Summary
     addText("RESUMO EXECUTIVO", 12, true);
     addText(comparison.resumo_executivo);
     yPos += 5;
 
-    // Critical Alerts
     if (comparison.alertas_criticos?.length > 0) {
       addText("⚠️ ALERTAS CRÍTICOS", 12, true);
       comparison.alertas_criticos.forEach(alert => addText(`• ${alert}`));
       yPos += 5;
     }
 
-    // Comparative Findings
     if (comparison.achados_comparativos?.length > 0) {
       addText("ACHADOS COMPARATIVOS", 12, true);
       comparison.achados_comparativos.forEach(achado => {
@@ -373,7 +402,6 @@ export default function Compare() {
       yPos += 5;
     }
 
-    // Disclaimer
     yPos += 10;
     doc.setFillColor(255, 243, 205);
     doc.rect(margin - 5, yPos - 5, maxWidth + 10, 20, "F");
@@ -448,6 +476,51 @@ export default function Compare() {
       .join(", ");
   };
 
+  // Generate chart data from comparison results
+  const evolutionChartData = useMemo(() => {
+    if (!comparison?.achados_comparativos) return [];
+    
+    const statusValues: Record<string, number> = {
+      improved: 2,
+      resolved: 2,
+      stable: 0,
+      new: -1,
+      worsened: -2
+    };
+
+    return comparison.achados_comparativos.map((achado, index) => ({
+      name: achado.estrutura.length > 15 ? achado.estrutura.substring(0, 15) + "..." : achado.estrutura,
+      fullName: achado.estrutura,
+      valor: statusValues[achado.status] || 0,
+      status: achado.status,
+    }));
+  }, [comparison]);
+
+  // Summary chart data
+  const summaryChartData = useMemo(() => {
+    if (!comparison) return [];
+    
+    return [
+      { name: "Melhoras", value: comparison.melhoras_observadas?.length || 0, fill: "hsl(var(--success))" },
+      { name: "Pioras", value: comparison.pioras_observadas?.length || 0, fill: "hsl(var(--destructive))" },
+      { name: "Estáveis", value: comparison.condicoes_estaveis?.length || 0, fill: "hsl(var(--muted-foreground))" },
+    ];
+  }, [comparison]);
+
+  // Timeline chart data from selected cases
+  const timelineChartData = useMemo(() => {
+    const selectedCasesData = cases
+      .filter(c => selectedCases.includes(c.id))
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    return selectedCasesData.map((c, index) => ({
+      name: formatDate(c.created_at),
+      exame: index + 1,
+      achados: c.analysis?.achados_radiograficos?.length || c.analysis?.diagnosticos_diferenciais?.length || 0,
+      riscos: c.analysis?.riscos_alertas?.length || 0,
+    }));
+  }, [cases, selectedCases]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -457,7 +530,7 @@ export default function Compare() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/cases")}>
@@ -496,15 +569,46 @@ export default function Compare() {
                   Escolha 2-5 exames do mesmo paciente para comparar
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px] pr-4">
+              <CardContent className="space-y-4">
+                {/* Search and Filter */}
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar exames..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  
+                  <Select value={patientFilter} onValueChange={setPatientFilter}>
+                    <SelectTrigger>
+                      <User className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Filtrar por paciente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os pacientes</SelectItem>
+                      {patientNames.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <ScrollArea className="h-[350px] pr-4">
                   <div className="space-y-2">
-                    {cases.length === 0 ? (
+                    {filteredCases.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-8">
-                        Nenhum caso disponível para comparação
+                        {cases.length === 0 
+                          ? "Nenhum caso disponível para comparação"
+                          : "Nenhum caso encontrado com os filtros aplicados"
+                        }
                       </p>
                     ) : (
-                      cases.map((c) => (
+                      filteredCases.map((c) => (
                         <div
                           key={c.id}
                           className={cn(
@@ -521,6 +625,12 @@ export default function Compare() {
                           />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{c.name}</p>
+                            {c.analysis?.identificacao_paciente?.nome && (
+                              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                {c.analysis.identificacao_paciente.nome}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant="outline" className="text-xs">
                                 {c.exam_type}
@@ -537,7 +647,7 @@ export default function Compare() {
                   </div>
                 </ScrollArea>
 
-                <div className="mt-4 pt-4 border-t border-border">
+                <div className="pt-4 border-t border-border">
                   <p className="text-sm text-muted-foreground mb-3">
                     {selectedCases.length} de 5 exames selecionados
                   </p>
@@ -609,7 +719,7 @@ export default function Compare() {
                 )}
 
                 {comparison && (
-                  <ScrollArea className="h-[600px] pr-4">
+                  <ScrollArea className="h-[700px] pr-4">
                     <div className="space-y-6">
                       {/* Evolution Summary */}
                       <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
@@ -629,6 +739,143 @@ export default function Compare() {
                           </div>
                         )}
                       </div>
+
+                      {/* Charts Section */}
+                      {(summaryChartData.some(d => d.value > 0) || evolutionChartData.length > 0) && (
+                        <div className="space-y-4">
+                          <h3 className="font-semibold flex items-center gap-2">
+                            <BarChart3 className="w-5 h-5 text-primary" />
+                            Gráficos de Evolução
+                          </h3>
+                          
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {/* Summary Bar Chart */}
+                            {summaryChartData.some(d => d.value > 0) && (
+                              <Card className="p-4">
+                                <p className="text-sm font-medium mb-3 text-center">Resumo de Alterações</p>
+                                <ResponsiveContainer width="100%" height={180}>
+                                  <BarChart data={summaryChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                                    <Tooltip 
+                                      contentStyle={{ 
+                                        backgroundColor: "hsl(var(--background))", 
+                                        border: "1px solid hsl(var(--border))",
+                                        borderRadius: "8px"
+                                      }} 
+                                    />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                      {summaryChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                      ))}
+                                    </Bar>
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </Card>
+                            )}
+
+                            {/* Timeline Chart */}
+                            {timelineChartData.length > 1 && (
+                              <Card className="p-4">
+                                <p className="text-sm font-medium mb-3 text-center">Evolução ao Longo do Tempo</p>
+                                <ResponsiveContainer width="100%" height={180}>
+                                  <LineChart data={timelineChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                                    <Tooltip 
+                                      contentStyle={{ 
+                                        backgroundColor: "hsl(var(--background))", 
+                                        border: "1px solid hsl(var(--border))",
+                                        borderRadius: "8px"
+                                      }} 
+                                    />
+                                    <Legend />
+                                    <Line 
+                                      type="monotone" 
+                                      dataKey="achados" 
+                                      stroke="hsl(var(--primary))" 
+                                      strokeWidth={2}
+                                      name="Achados"
+                                      dot={{ fill: "hsl(var(--primary))" }}
+                                    />
+                                    <Line 
+                                      type="monotone" 
+                                      dataKey="riscos" 
+                                      stroke="hsl(var(--destructive))" 
+                                      strokeWidth={2}
+                                      name="Riscos"
+                                      dot={{ fill: "hsl(var(--destructive))" }}
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </Card>
+                            )}
+                          </div>
+
+                          {/* Findings Evolution Chart */}
+                          {evolutionChartData.length > 0 && (
+                            <Card className="p-4">
+                              <p className="text-sm font-medium mb-3 text-center">Status dos Achados Comparativos</p>
+                              <ResponsiveContainer width="100%" height={Math.max(200, evolutionChartData.length * 35)}>
+                                <BarChart data={evolutionChartData} layout="vertical">
+                                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                  <XAxis 
+                                    type="number" 
+                                    domain={[-2, 2]} 
+                                    tick={{ fontSize: 12 }}
+                                    tickFormatter={(value) => {
+                                      const labels: Record<number, string> = {
+                                        [-2]: "Piora",
+                                        [-1]: "Novo",
+                                        [0]: "Estável",
+                                        [2]: "Melhora"
+                                      };
+                                      return labels[value] || "";
+                                    }}
+                                  />
+                                  <YAxis 
+                                    dataKey="name" 
+                                    type="category" 
+                                    width={120}
+                                    tick={{ fontSize: 11 }}
+                                  />
+                                  <Tooltip 
+                                    contentStyle={{ 
+                                      backgroundColor: "hsl(var(--background))", 
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "8px"
+                                    }}
+                                    formatter={(value, name, props) => {
+                                      const statusLabels: Record<string, string> = {
+                                        improved: "Melhora",
+                                        worsened: "Piora",
+                                        stable: "Estável",
+                                        new: "Novo",
+                                        resolved: "Resolvido"
+                                      };
+                                      return [statusLabels[props.payload.status] || props.payload.status, props.payload.fullName];
+                                    }}
+                                  />
+                                  <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
+                                    {evolutionChartData.map((entry, index) => {
+                                      const colors: Record<string, string> = {
+                                        improved: "hsl(var(--success))",
+                                        resolved: "hsl(var(--success))",
+                                        stable: "hsl(var(--muted-foreground))",
+                                        new: "hsl(var(--warning))",
+                                        worsened: "hsl(var(--destructive))"
+                                      };
+                                      return <Cell key={`cell-${index}`} fill={colors[entry.status] || "hsl(var(--primary))"} />;
+                                    })}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </Card>
+                          )}
+                        </div>
+                      )}
 
                       {/* Executive Summary */}
                       <div>
