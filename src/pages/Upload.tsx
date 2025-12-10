@@ -862,7 +862,18 @@ export default function Upload() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-foreground leading-relaxed">{result.interpretacao_clinica}</p>
+                  <div className="text-foreground leading-relaxed space-y-3">
+                    {result.interpretacao_clinica.split(/\\n\\n|\n\n/).map((paragraph, index) => (
+                      <p key={index} className="text-justify">
+                        {paragraph.split(/\\n|\n/).map((line, lineIndex, arr) => (
+                          <span key={lineIndex}>
+                            {line}
+                            {lineIndex < arr.length - 1 && <br />}
+                          </span>
+                        ))}
+                      </p>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -904,7 +915,18 @@ export default function Upload() {
                   <CardTitle className="text-lg">9) Observações</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground leading-relaxed italic">{result.observacoes}</p>
+                  <div className="text-muted-foreground leading-relaxed italic space-y-3">
+                    {result.observacoes.split(/\\n\\n|\n\n/).map((paragraph, index) => (
+                      <p key={index} className="text-justify">
+                        {paragraph.split(/\\n|\n/).map((line, lineIndex, arr) => (
+                          <span key={lineIndex}>
+                            {line}
+                            {lineIndex < arr.length - 1 && <br />}
+                          </span>
+                        ))}
+                      </p>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -991,14 +1013,14 @@ function ResultCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {items.map((item, index) => (
             <li key={index} className="flex items-start gap-3">
               <span className={cn("mt-1.5 w-2 h-2 rounded-full flex-shrink-0", 
                 color === "text-success" ? "bg-success" : 
                 color === "text-destructive" ? "bg-destructive" : "bg-primary"
               )} />
-              <span className="text-foreground">{item}</span>
+              <span className="text-foreground leading-relaxed">{item}</span>
             </li>
           ))}
         </ul>
