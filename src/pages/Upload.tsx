@@ -107,6 +107,9 @@ const saveAnalysisResult = (result: AnalysisResult, rawContent: string | null, p
 
 // Load analysis result from sessionStorage
 const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData; examCategory: ExamCategory | null } | null => {
+  // Safety check for SSR
+  if (typeof window === 'undefined') return null;
+  
   try {
     const saved = sessionStorage.getItem(RESULT_STORAGE_KEY);
     if (saved) {
@@ -131,6 +134,12 @@ const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | nu
   return null;
 };
 
+// Load draft from localStorage (safe version)
+const loadDraftSafe = (): PatientData | null => {
+  if (typeof window === 'undefined') return null;
+  return loadDraft();
+};
+
 export default function Upload() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -143,33 +152,43 @@ export default function Upload() {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
-  const [examCategory, setExamCategory] = useState<ExamCategory | null>(() => {
-    const savedResult = loadAnalysisResult();
-    return savedResult?.examCategory || null;
-  });
+  const [examCategory, setExamCategory] = useState<ExamCategory | null>(null);
   
-  // Patient data state - load from draft or use defaults
-  const [patientData, setPatientData] = useState<PatientData>(() => {
-    const savedResult = loadAnalysisResult();
-    if (savedResult?.patientData) {
-      return savedResult.patientData;
-    }
-    const draft = loadDraft();
-    return draft || {
-      nome: "",
-      dataNascimento: "",
-      dataLaudo: getTodayFormatted(),
-    };
+  // Patient data state - use defaults initially
+  const [patientData, setPatientData] = useState<PatientData>({
+    nome: "",
+    dataNascimento: "",
+    dataLaudo: getTodayFormatted(),
   });
 
-  // Load saved analysis result on mount
+  // Load saved data on mount (client-side only)
   useEffect(() => {
     const savedResult = loadAnalysisResult();
-    if (savedResult?.result) {
-      setResult(savedResult.result);
-      setRawContent(savedResult.rawContent);
-      setReportGenerated(true);
-      toast.info("Análise anterior restaurada");
+    
+    if (savedResult) {
+      // Load exam category
+      if (savedResult.examCategory) {
+        setExamCategory(savedResult.examCategory);
+      }
+      
+      // Load patient data
+      if (savedResult.patientData) {
+        setPatientData(savedResult.patientData);
+      }
+      
+      // Load analysis result
+      if (savedResult.result) {
+        setResult(savedResult.result);
+        setRawContent(savedResult.rawContent);
+        setReportGenerated(true);
+        toast.info("Análise anterior restaurada");
+      }
+    } else {
+      // Try to load draft if no saved result
+      const draft = loadDraftSafe();
+      if (draft) {
+        setPatientData(draft);
+      }
     }
   }, []);
 
