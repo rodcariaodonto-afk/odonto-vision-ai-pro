@@ -271,6 +271,14 @@ export default function Upload() {
         setPreviewUrls(prev => [...prev, "pdf"]);
       }
     });
+
+    // Scroll to submit button on Android after a brief delay
+    setTimeout(() => {
+      const submitBtn = document.getElementById("submit-analysis-btn");
+      if (submitBtn) {
+        submitBtn.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 300);
   };
 
   const removeFile = (index: number) => {
@@ -786,10 +794,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 type="button"
                 onClick={() => setExamCategory(cat.id)}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
+                  "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 touch-manipulation min-h-[100px]",
                   examCategory === cat.id
                     ? "border-primary bg-primary/10 text-primary"
-                    : "border-border hover:border-primary/50 hover:bg-muted/50"
+                    : "border-border hover:border-primary/50 hover:bg-muted/50 active:bg-muted"
                 )}
               >
                 <span className="text-2xl">{cat.icon}</span>
@@ -906,31 +914,33 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </div>
 
               {!result && (
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleAnalyze}
-                  disabled={isAnalyzing || !isFormValid}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Analisando {selectedFiles.length} arquivo{selectedFiles.length > 1 ? 's' : ''} com IA...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      Enviar para Análise
-                    </>
+                <div className="pt-4 pb-2">
+                  <Button
+                    id="submit-analysis-btn"
+                    variant="hero"
+                    size="lg"
+                    className="w-full min-h-[56px] text-base touch-manipulation"
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing || !isFormValid}
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Analisando {selectedFiles.length} arquivo{selectedFiles.length > 1 ? 's' : ''} com IA...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" />
+                        Enviar para Análise
+                      </>
+                    )}
+                  </Button>
+                  {!isFormValid && (
+                    <p className="text-sm text-muted-foreground text-center mt-3">
+                      Preencha todos os dados do paciente e selecione o tipo de exame
+                    </p>
                   )}
-                </Button>
-              )}
-
-              {!isFormValid && !result && (
-                <p className="text-sm text-muted-foreground text-center">
-                  Preencha todos os dados do paciente e selecione o tipo de exame
-                </p>
+                </div>
               )}
             </div>
           )}
