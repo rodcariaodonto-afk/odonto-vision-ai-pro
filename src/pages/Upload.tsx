@@ -367,12 +367,38 @@ export default function Upload() {
     const maxWidth = pageWidth - margin * 2;
     let yPosition = 20;
 
-    // Helper function to add text with word wrap
+    // Helper function to add text with word wrap and paragraph support
     const addWrappedText = (text: string, y: number, fontSize: number = 11): number => {
       doc.setFontSize(fontSize);
-      const lines = doc.splitTextToSize(text, maxWidth);
-      doc.text(lines, margin, y);
-      return y + (lines.length * fontSize * 0.4) + 5;
+      
+      // Split by double line breaks (paragraphs) - handle both escaped and actual
+      const paragraphs = text.split(/\\n\\n|\n\n/).filter(p => p.trim());
+      
+      let currentY = y;
+      paragraphs.forEach((paragraph, pIndex) => {
+        // Split by single line breaks within paragraphs
+        const subLines = paragraph.split(/\\n|\n/).filter(l => l.trim());
+        
+        subLines.forEach((subLine) => {
+          const wrappedLines = doc.splitTextToSize(subLine.trim(), maxWidth);
+          
+          // Check if we need a new page
+          if (currentY + (wrappedLines.length * fontSize * 0.4) > 270) {
+            doc.addPage();
+            currentY = 20;
+          }
+          
+          doc.text(wrappedLines, margin, currentY);
+          currentY += (wrappedLines.length * fontSize * 0.4) + 3;
+        });
+        
+        // Add extra space between paragraphs
+        if (pIndex < paragraphs.length - 1) {
+          currentY += 4;
+        }
+      });
+      
+      return currentY + 3;
     };
 
     const checkPageBreak = (requiredSpace: number) => {
