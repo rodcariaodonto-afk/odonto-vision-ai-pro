@@ -54,7 +54,7 @@ const plans: Plan[] = [
     price: "R$ 97",
     period: "/mês",
     features: [
-      "Até 20 análises por mês",
+      "Até 50 análises por mês",
       "Chat ilimitado com IA",
       "Histórico completo",
       "Relatórios em PDF",
