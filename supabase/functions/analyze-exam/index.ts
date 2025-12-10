@@ -205,6 +205,59 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
 }
 `;
 
+// Function to check if text is readable (not garbage/encoded)
+function isTextReadable(text: string): boolean {
+  if (!text || text.length < 50) return false;
+  
+  // Common Portuguese/medical words that should appear in lab exams
+  const commonWords = [
+    'hemograma', 'glicose', 'colesterol', 'hemoglobina', 'leucocitos', 'plaquetas',
+    'resultado', 'exame', 'paciente', 'data', 'referencia', 'valor', 'unidade',
+    'mg', 'dl', 'ml', 'normal', 'alto', 'baixo', 'laboratorio', 'sangue',
+    'eritrocitos', 'hematocrito', 'vcm', 'hcm', 'rdw', 'basofilo', 'eosinofilo',
+    'linfocito', 'monocito', 'neutrofilo', 'segmentado', 'bastao', 'creatinina',
+    'ureia', 'acido', 'urico', 'triglicerides', 'hdl', 'ldl', 'vldl', 'tgo', 'tgp',
+    'bilirrubina', 'fosfatase', 'gama', 'proteina', 'albumina', 'globulina',
+    'sodio', 'potassio', 'calcio', 'ferro', 'ferritina', 'vitamina', 'tsh', 't4',
+    'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto',
+    'setembro', 'outubro', 'novembro', 'dezembro', 'anos', 'feminino', 'masculino'
+  ];
+  
+  const textLower = text.toLowerCase();
+  let wordMatchCount = 0;
+  
+  for (const word of commonWords) {
+    if (textLower.includes(word)) {
+      wordMatchCount++;
+    }
+  }
+  
+  // Should have at least 3 common words to be considered readable
+  if (wordMatchCount >= 3) return true;
+  
+  // Check for numeric patterns (lab values like "4.5" or "120")
+  const numericPattern = /\d+[.,]\d+|\d{2,}/g;
+  const numericMatches = text.match(numericPattern) || [];
+  
+  // Check for word-like patterns (sequences of letters)
+  const wordPattern = /[a-záéíóúâêîôûãõàèìòùäëïöüç]{4,}/gi;
+  const wordMatches = text.match(wordPattern) || [];
+  
+  // If we have numbers and words, it's probably readable
+  if (numericMatches.length >= 5 && wordMatches.length >= 10) return true;
+  
+  // Check for garbage patterns (repeating sequences, too many special chars)
+  const garbagePattern = /(.{2,})\1{3,}/g; // Repeating patterns
+  const hasGarbage = garbagePattern.test(text);
+  
+  // Calculate ratio of alphanumeric to total characters
+  const alphanumeric = text.replace(/[^a-záéíóúâêîôûãõàèìòùäëïöüç0-9]/gi, '');
+  const ratio = alphanumeric.length / text.length;
+  
+  // Good text should have >60% alphanumeric characters and no garbage patterns
+  return ratio > 0.6 && !hasGarbage && wordMatches.length >= 5;
+}
+
 // Function to extract readable text from PDF base64
 function extractTextFromPdfBase64(base64Data: string): string | null {
   try {
@@ -250,9 +303,14 @@ function extractTextFromPdfBase64(base64Data: string): string | null {
       .replace(/[^\w\s\d.,;:!?()[\]{}áéíóúâêîôûãõàèìòùäëïöüçÁÉÍÓÚÂÊÎÔÛÃÕÀÈÌÒÙÄËÏÖÜÇ\-/\\%@#$&*+=<>'"]+/gi, ' ')
       .trim();
     
-    // If we extracted meaningful text, return it
+    // If we extracted text, validate it's readable
     if (extractedText.length > 50) {
-      return extractedText;
+      if (isTextReadable(extractedText)) {
+        return extractedText;
+      } else {
+        console.log("Texto extraído não é legível (provavelmente codificado), tentando extração de imagem...");
+        return null;
+      }
     }
     
     return null;
