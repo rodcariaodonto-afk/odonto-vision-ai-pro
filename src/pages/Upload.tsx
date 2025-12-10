@@ -97,16 +97,16 @@ const clearDraft = (): void => {
 };
 
 // Save analysis result to sessionStorage
-const saveAnalysisResult = (result: AnalysisResult, rawContent: string | null, patientData: PatientData): void => {
+const saveAnalysisResult = (result: AnalysisResult, rawContent: string | null, patientData: PatientData, examCategory: ExamCategory): void => {
   try {
-    sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({ result, rawContent, patientData }));
+    sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({ result, rawContent, patientData, examCategory }));
   } catch (e) {
     console.error("Erro ao salvar resultado:", e);
   }
 };
 
 // Load analysis result from sessionStorage
-const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData } | null => {
+const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData; examCategory: ExamCategory } | null => {
   try {
     const saved = sessionStorage.getItem(RESULT_STORAGE_KEY);
     if (saved) {
@@ -130,7 +130,10 @@ export default function Upload() {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
-  const [examCategory, setExamCategory] = useState<ExamCategory | null>(null);
+  const [examCategory, setExamCategory] = useState<ExamCategory | null>(() => {
+    const savedResult = loadAnalysisResult();
+    return savedResult?.examCategory || null;
+  });
   
   // Patient data state - load from draft or use defaults
   const [patientData, setPatientData] = useState<PatientData>(() => {
@@ -288,7 +291,7 @@ export default function Upload() {
         nome: formattedName,
         dataNascimento: patientData.dataNascimento,
         dataLaudo: patientData.dataLaudo,
-      });
+      }, examCategory!);
       toast.success("Análise concluída com sucesso!");
     } catch (error) {
       console.error("Erro na análise:", error);
