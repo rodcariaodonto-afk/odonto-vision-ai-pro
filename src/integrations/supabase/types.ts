@@ -169,6 +169,42 @@ export type Database = {
           },
         ]
       }
+      test_users: {
+        Row: {
+          analyses_limit: number
+          analyses_used: number
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          analyses_limit?: number
+          analyses_used?: number
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analyses_limit?: number
+          analyses_used?: number
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -226,6 +262,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_test_user_analyses: {
+        Args: { user_email: string }
+        Returns: undefined
       }
     }
     Enums: {

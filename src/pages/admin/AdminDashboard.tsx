@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, MessageSquare, TrendingUp, Settings, Loader2 } from "lucide-react";
+import { Users, FileText, MessageSquare, TrendingUp, Settings, Loader2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
@@ -108,7 +108,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/admin/users")}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -116,6 +116,16 @@ export default function AdminDashboard() {
               Gerenciar Usuários
             </CardTitle>
             <CardDescription>Ver e gerenciar todos os usuários do sistema</CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate("/admin/testers")}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-accent" />
+              Testadores
+            </CardTitle>
+            <CardDescription>Gerenciar usuários de teste (7 dias grátis)</CardDescription>
           </CardHeader>
         </Card>
 
