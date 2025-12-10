@@ -99,6 +99,12 @@ export default function Register() {
       return;
     }
 
+    if (!formData.cro.trim()) {
+      setError("O CRO é obrigatório");
+      setIsLoading(false);
+      return;
+    }
+
     const { error } = await signUp(formData.email, formData.password, formData.name);
     
     if (error) {
@@ -291,7 +297,7 @@ export default function Register() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
-                  CRO <span className="text-muted-foreground">(opcional)</span>
+                  CRO <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
                   <BadgeCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -301,8 +307,10 @@ export default function Register() {
                     className="pl-10"
                     value={formData.cro}
                     onChange={(e) => setFormData({ ...formData, cro: e.target.value })}
+                    required
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">Registro no Conselho Regional de Odontologia</p>
               </div>
 
               <Button
