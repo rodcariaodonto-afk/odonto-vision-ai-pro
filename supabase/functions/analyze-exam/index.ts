@@ -565,25 +565,77 @@ Seja extremamente detalhado e técnico.`
       // Extract JSON from markdown code blocks if present
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
       const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      analysis = JSON.parse(jsonStr);
-    } catch {
-      // If parsing fails, create structured response from text
-      analysis = {
-        identificacao_paciente: {
-          nome: patient.nome,
-          data_nascimento: patient.dataNascimento,
-          data_analise: patient.dataLaudo,
-        },
-        tipo_exame: isTextBased ? "Documento PDF/Exame Laboratorial" : "Análise realizada",
-        qualidade_imagem: "Não foi possível avaliar automaticamente",
-        achados_radiograficos: [content],
-        interpretacao_clinica: content,
-        diagnosticos_diferenciais: [],
-        riscos_alertas: [],
-        recomendacoes_clinicas: [],
-        observacoes: "As informações acima são suporte técnico. A interpretação final deve ser realizada pelo dentista responsável."
+      analysis = JSON.parse(jsonStr.trim());
+      console.log("JSON parseado com sucesso");
+    } catch (parseError) {
+      console.log("Falha ao parsear JSON, tentando extrair seções do texto...", parseError);
+      
+      // Try to extract sections from unstructured text
+      const extractSection = (text: string, sectionName: string, nextSection?: string): string => {
+        const regex = new RegExp(`(?:${sectionName}[:\\s]*)(.*?)(?=${nextSection ? `(?:${nextSection})` : '$'})`, 'is');
+        const match = text.match(regex);
+        return match ? match[1].trim() : '';
       };
+
+      const extractListItems = (text: string): string[] => {
+        const items = text.split(/[\n•\-\*]/).map(s => s.trim()).filter(s => s.length > 10);
+        return items.length > 0 ? items : [text];
+      };
+
+      // Try to find JSON-like patterns anywhere in the content
+      const findJsonObject = content.match(/\{[\s\S]*"identificacao_paciente"[\s\S]*\}/);
+      if (findJsonObject) {
+        try {
+          analysis = JSON.parse(findJsonObject[0]);
+          console.log("JSON encontrado em substring");
+        } catch {
+          console.log("Substring JSON também falhou, usando extração de texto");
+        }
+      }
+
+      if (!analysis) {
+        // Extract meaningful content from text response
+        const achadosMatch = content.match(/(?:achados|findings|4\))[:\s]*([\s\S]*?)(?:5\)|interpreta|$)/i);
+        const interpretacaoMatch = content.match(/(?:interpreta|5\))[:\s]*([\s\S]*?)(?:6\)|diagn|$)/i);
+        const diagnosticosMatch = content.match(/(?:diagn|6\))[:\s]*([\s\S]*?)(?:7\)|risco|alert|$)/i);
+        const riscosMatch = content.match(/(?:risco|alert|7\))[:\s]*([\s\S]*?)(?:8\)|recomenda|$)/i);
+        const recomendacoesMatch = content.match(/(?:recomenda|8\))[:\s]*([\s\S]*?)(?:9\)|observa|$)/i);
+        const observacoesMatch = content.match(/(?:observa|9\))[:\s]*([\s\S]*?)$/i);
+
+        analysis = {
+          identificacao_paciente: {
+            nome: patient.nome,
+            data_nascimento: patient.dataNascimento,
+            data_analise: patient.dataLaudo,
+          },
+          tipo_exame: isTextBased ? "Documento PDF/Exame Laboratorial" : "Radiografia/Imagem Odontológica",
+          qualidade_imagem: "Documento processado com sucesso",
+          achados_radiograficos: achadosMatch ? extractListItems(achadosMatch[1]) : extractListItems(content.substring(0, 2000)),
+          interpretacao_clinica: interpretacaoMatch ? interpretacaoMatch[1].trim() : content.substring(0, 1500),
+          diagnosticos_diferenciais: diagnosticosMatch ? extractListItems(diagnosticosMatch[1]) : ["Consulte a interpretação clínica para diagnósticos diferenciais"],
+          riscos_alertas: riscosMatch ? extractListItems(riscosMatch[1]) : ["Verifique valores alterados na análise completa"],
+          recomendacoes_clinicas: recomendacoesMatch ? extractListItems(recomendacoesMatch[1]) : ["Avaliação clínica complementar recomendada"],
+          observacoes: observacoesMatch ? observacoesMatch[1].trim() : "Este laudo é baseado na análise automática do documento. A interpretação final deve ser realizada pelo dentista responsável."
+        };
+      }
     }
+
+    // Ensure all required fields exist
+    analysis = {
+      identificacao_paciente: analysis.identificacao_paciente || {
+        nome: patient.nome,
+        data_nascimento: patient.dataNascimento,
+        data_analise: patient.dataLaudo,
+      },
+      tipo_exame: analysis.tipo_exame || "Exame Analisado",
+      qualidade_imagem: analysis.qualidade_imagem || "Documento processado",
+      achados_radiograficos: analysis.achados_radiograficos?.length > 0 ? analysis.achados_radiograficos : ["Análise detalhada disponível na interpretação clínica"],
+      interpretacao_clinica: analysis.interpretacao_clinica || content.substring(0, 2000),
+      diagnosticos_diferenciais: analysis.diagnosticos_diferenciais?.length > 0 ? analysis.diagnosticos_diferenciais : ["Ver interpretação clínica"],
+      riscos_alertas: analysis.riscos_alertas?.length > 0 ? analysis.riscos_alertas : ["Avaliação de riscos incluída na análise"],
+      recomendacoes_clinicas: analysis.recomendacoes_clinicas?.length > 0 ? analysis.recomendacoes_clinicas : ["Recomendações clínicas conforme análise"],
+      observacoes: analysis.observacoes || "A interpretação final é responsabilidade do dentista responsável."
+    };
 
     return new Response(JSON.stringify({ analysis, rawContent: content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

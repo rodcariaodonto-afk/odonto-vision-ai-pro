@@ -35,6 +35,7 @@ interface PatientData {
 }
 
 const STORAGE_KEY = "odontovision_draft";
+const RESULT_STORAGE_KEY = "odontovision_analysis_result";
 
 // Helper to format today's date as DD/MM/AAAA
 const getTodayFormatted = (): string => {
@@ -80,9 +81,32 @@ const saveDraft = (data: PatientData): void => {
 const clearDraft = (): void => {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(RESULT_STORAGE_KEY);
   } catch (e) {
     console.error("Erro ao limpar rascunho:", e);
   }
+};
+
+// Save analysis result to sessionStorage
+const saveAnalysisResult = (result: AnalysisResult, rawContent: string | null, patientData: PatientData): void => {
+  try {
+    sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({ result, rawContent, patientData }));
+  } catch (e) {
+    console.error("Erro ao salvar resultado:", e);
+  }
+};
+
+// Load analysis result from sessionStorage
+const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData } | null => {
+  try {
+    const saved = sessionStorage.getItem(RESULT_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error("Erro ao carregar resultado:", e);
+  }
+  return null;
 };
 
 export default function Upload() {
@@ -100,6 +124,10 @@ export default function Upload() {
   
   // Patient data state - load from draft or use defaults
   const [patientData, setPatientData] = useState<PatientData>(() => {
+    const savedResult = loadAnalysisResult();
+    if (savedResult?.patientData) {
+      return savedResult.patientData;
+    }
     const draft = loadDraft();
     return draft || {
       nome: "",
@@ -107,6 +135,17 @@ export default function Upload() {
       dataLaudo: getTodayFormatted(),
     };
   });
+
+  // Load saved analysis result on mount
+  useEffect(() => {
+    const savedResult = loadAnalysisResult();
+    if (savedResult?.result) {
+      setResult(savedResult.result);
+      setRawContent(savedResult.rawContent);
+      setReportGenerated(true);
+      toast.info("Análise anterior restaurada");
+    }
+  }, []);
 
   // Auto-save draft when patient data changes
   useEffect(() => {
@@ -230,6 +269,12 @@ export default function Upload() {
 
       setResult(data.analysis);
       setRawContent(data.rawContent);
+      // Save result to prevent loss on refresh
+      saveAnalysisResult(data.analysis, data.rawContent, {
+        nome: formattedName,
+        dataNascimento: patientData.dataNascimento,
+        dataLaudo: patientData.dataLaudo,
+      });
       toast.success("Análise concluída com sucesso!");
     } catch (error) {
       console.error("Erro na análise:", error);
