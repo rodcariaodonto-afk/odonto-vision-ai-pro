@@ -597,6 +597,23 @@ export default function Upload() {
     const patientNameClean = patientData.nome.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
     doc.save(`laudo-${patientNameClean}-${patientData.dataLaudo}.pdf`);
     toast.success("PDF baixado com sucesso!");
+    
+    // Reset form after download
+    setTimeout(() => {
+      setSelectedFiles([]);
+      setPreviewUrls([]);
+      setResult(null);
+      setRawContent(null);
+      setReportGenerated(false);
+      setExamCategory(null);
+      clearDraft();
+      setPatientData({
+        nome: "",
+        dataNascimento: "",
+        dataLaudo: getTodayFormatted(),
+      });
+      toast.info("Formulário resetado para nova análise");
+    }, 500);
   };
 
   const handleCopyToClipboard = () => {
@@ -754,9 +771,26 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               <Input
                 id="dataNascimento"
                 type="text"
+                inputMode="numeric"
                 placeholder="DD/MM/AAAA"
                 value={patientData.dataNascimento}
-                onChange={(e) => setPatientData({ ...patientData, dataNascimento: e.target.value })}
+                onChange={(e) => {
+                  // Auto-format date with slashes
+                  let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                  if (value.length > 8) value = value.slice(0, 8);
+                  
+                  let formatted = '';
+                  if (value.length > 0) {
+                    formatted = value.slice(0, 2);
+                    if (value.length > 2) {
+                      formatted += '/' + value.slice(2, 4);
+                      if (value.length > 4) {
+                        formatted += '/' + value.slice(4, 8);
+                      }
+                    }
+                  }
+                  setPatientData({ ...patientData, dataNascimento: formatted });
+                }}
                 className="w-full"
               />
             </div>
@@ -765,9 +799,26 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               <Input
                 id="dataLaudo"
                 type="text"
+                inputMode="numeric"
                 placeholder="DD/MM/AAAA"
                 value={patientData.dataLaudo}
-                onChange={(e) => setPatientData({ ...patientData, dataLaudo: e.target.value })}
+                onChange={(e) => {
+                  // Auto-format date with slashes
+                  let value = e.target.value.replace(/\D/g, '');
+                  if (value.length > 8) value = value.slice(0, 8);
+                  
+                  let formatted = '';
+                  if (value.length > 0) {
+                    formatted = value.slice(0, 2);
+                    if (value.length > 2) {
+                      formatted += '/' + value.slice(2, 4);
+                      if (value.length > 4) {
+                        formatted += '/' + value.slice(4, 8);
+                      }
+                    }
+                  }
+                  setPatientData({ ...patientData, dataLaudo: formatted });
+                }}
                 className="w-full"
               />
             </div>
