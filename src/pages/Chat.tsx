@@ -2,17 +2,33 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot, User, Sparkles, ImagePlus, Loader2, X, Download, Copy } from "lucide-react";
+import { Send, Bot, User, Sparkles, ImagePlus, Loader2, X, Download, Copy, Save, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+}
+
+interface SavedConversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  created_at: string;
 }
 
 const initialMessages: Message[] = [
@@ -25,11 +41,16 @@ const initialMessages: Message[] = [
 ];
 
 export default function Chat() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [savedConversations, setSavedConversations] = useState<SavedConversation[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +61,35 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const fetchSavedConversations = async () => {
+    if (!user) return;
+    setIsLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from("chat_conversations")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      const conversations = data?.map((conv) => ({
+        ...conv,
+        messages: (conv.messages as unknown as Message[]).map((m: Message) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        })),
+      })) || [];
+      
+      setSavedConversations(conversations);
+    } catch (error) {
+      console.error("Erro ao buscar conversas:", error);
+      toast.error("Erro ao carregar histórico");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,13 +131,11 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      // Build messages history for API
       const apiMessages = messages
-        .filter((m) => m.id !== "1") // Exclude initial welcome message
+        .filter((m) => m.id !== "1")
         .map((m) => ({ role: m.role, content: m.content }));
       apiMessages.push({ role: "user", content: currentInput || "Analise esta imagem" });
 
-      // Convert image to base64 if present
       let imageBase64: string | undefined;
       if (selectedImage) {
         const reader = new FileReader();
@@ -99,7 +147,6 @@ export default function Chat() {
 
       clearImage();
 
-      // Call the edge function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/odonto-chat`,
         {
@@ -120,14 +167,12 @@ export default function Chat() {
         throw new Error(errorData.error || "Erro ao processar mensagem");
       }
 
-      // Handle streaming response
       const reader = response.body?.getReader();
       if (!reader) throw new Error("Streaming não suportado");
 
       const decoder = new TextDecoder();
       let assistantContent = "";
 
-      // Create assistant message placeholder
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -144,7 +189,6 @@ export default function Chat() {
 
         textBuffer += decoder.decode(value, { stream: true });
 
-        // Process line-by-line
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
@@ -171,7 +215,6 @@ export default function Chat() {
               );
             }
           } catch {
-            // Incomplete JSON, put back and wait
             textBuffer = line + "\n" + textBuffer;
             break;
           }
@@ -180,7 +223,6 @@ export default function Chat() {
     } catch (error) {
       console.error("Erro no chat:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao enviar mensagem");
-      // Remove the user message on error
       setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
     } finally {
       setIsLoading(false);
@@ -194,13 +236,57 @@ export default function Chat() {
     }
   };
 
+  const handleSaveConversation = async () => {
+    if (!user) {
+      toast.error("Faça login para salvar conversas");
+      return;
+    }
+
+    const chatMessages = messages.filter((m) => m.id !== "1");
+    if (chatMessages.length === 0) {
+      toast.error("Nenhuma conversa para salvar");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const firstUserMessage = chatMessages.find((m) => m.role === "user");
+      const title = firstUserMessage
+        ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? "..." : "")
+        : `Conversa ${new Date().toLocaleDateString("pt-BR")}`;
+
+      const { error } = await supabase.from("chat_conversations").insert({
+        user_id: user.id,
+        title,
+        messages: chatMessages.map((m) => ({
+          ...m,
+          timestamp: m.timestamp.toISOString(),
+        })),
+      });
+
+      if (error) throw error;
+      toast.success("Conversa salva com sucesso!");
+    } catch (error) {
+      console.error("Erro ao salvar conversa:", error);
+      toast.error("Erro ao salvar conversa");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadConversation = (conversation: SavedConversation) => {
+    setMessages([initialMessages[0], ...conversation.messages]);
+    setIsHistoryOpen(false);
+    toast.success("Conversa carregada!");
+  };
+
   const formatChatForExport = () => {
     return messages
-      .filter((m) => m.id !== "1") // Exclude welcome message
+      .filter((m) => m.id !== "1")
       .map((m) => {
         const role = m.role === "user" ? "Você" : "OdontoVision IA";
         const time = m.timestamp.toLocaleString("pt-BR");
-        const content = m.content.replace(/\*\*/g, ""); // Remove markdown bold
+        const content = m.content.replace(/\*\*/g, "");
         return `[${time}] ${role}:\n${content}`;
       })
       .join("\n\n---\n\n");
@@ -225,25 +311,45 @@ export default function Chat() {
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
     const maxWidth = pageWidth - margin * 2;
     let yPosition = 20;
 
-    // Header
-    doc.setFontSize(18);
+    // Brand colors
+    const primaryColor = { r: 63, g: 140, b: 255 }; // #3F8CFF
+    const darkColor = { r: 30, g: 42, b: 56 }; // #1E2A38
+    const grayColor = { r: 44, g: 47, b: 51 }; // #2C2F33
+
+    // Header background
+    doc.setFillColor(darkColor.r, darkColor.g, darkColor.b);
+    doc.rect(0, 0, pageWidth, 45, "F");
+
+    // Logo text (OdontoVision AI Pro)
+    doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("OdontoVision IA - Histórico de Conversa", margin, yPosition);
-    yPosition += 10;
+    doc.setTextColor(255, 255, 255);
+    doc.text("OdontoVision AI Pro", margin, 25);
 
-    doc.setFontSize(10);
+    // Subtitle
+    doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    doc.text(`Exportado em: ${new Date().toLocaleString("pt-BR")}`, margin, yPosition);
-    yPosition += 15;
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.text("Histórico de Conversa - Assistente Clínico", margin, 35);
 
-    // Separator
-    doc.setDrawColor(200);
+    yPosition = 55;
+
+    // Export date
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Exportado em: ${new Date().toLocaleString("pt-BR")}`, margin, yPosition);
+    yPosition += 12;
+
+    // Separator line
+    doc.setDrawColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.setLineWidth(0.5);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
-    yPosition += 10;
+    yPosition += 12;
 
     // Messages
     chatMessages.forEach((message) => {
@@ -252,25 +358,44 @@ export default function Chat() {
       const content = message.content.replace(/\*\*/g, "");
 
       // Check if we need a new page
-      if (yPosition > 270) {
+      if (yPosition > pageHeight - 40) {
         doc.addPage();
         yPosition = 20;
+      }
+
+      // Message bubble indicator
+      if (message.role === "assistant") {
+        doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
+        doc.circle(margin - 3, yPosition - 2, 2, "F");
+      } else {
+        doc.setFillColor(grayColor.r, grayColor.g, grayColor.b);
+        doc.circle(margin - 3, yPosition - 2, 2, "F");
       }
 
       // Role and time
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(message.role === "user" ? 59 : 37, message.role === "user" ? 130 : 99, message.role === "user" ? 246 : 235);
-      doc.text(`${role} - ${time}`, margin, yPosition);
-      yPosition += 6;
+      if (message.role === "assistant") {
+        doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+      } else {
+        doc.setTextColor(grayColor.r, grayColor.g, grayColor.b);
+      }
+      doc.text(`${role}`, margin, yPosition);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      const roleWidth = doc.getTextWidth(role);
+      doc.text(` • ${time}`, margin + roleWidth, yPosition);
+      yPosition += 7;
 
       // Content
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(60, 60, 60);
       doc.setFontSize(10);
       const lines = doc.splitTextToSize(content, maxWidth);
       lines.forEach((line: string) => {
-        if (yPosition > 280) {
+        if (yPosition > pageHeight - 30) {
           doc.addPage();
           yPosition = 20;
         }
@@ -278,21 +403,21 @@ export default function Chat() {
         yPosition += 5;
       });
 
-      yPosition += 8;
+      yPosition += 10;
     });
 
-    // Footer disclaimer
-    if (yPosition > 260) {
-      doc.addPage();
-      yPosition = 20;
-    }
-    yPosition += 5;
-    doc.setDrawColor(200);
-    doc.line(margin, yPosition, pageWidth - margin, yPosition);
-    yPosition += 8;
+    // Footer on last page
+    const footerY = pageHeight - 15;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
+    
     doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text("Este documento é apenas para fins informativos. Consulte sempre um profissional qualificado.", margin, yPosition);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Este documento é apenas para fins informativos. Consulte sempre um profissional qualificado.", margin, footerY);
+    
+    doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+    doc.text("OdontoVision AI Pro", pageWidth - margin - 40, footerY);
 
     doc.save(`odontovision-chat-${new Date().toISOString().split("T")[0]}.pdf`);
     toast.success("PDF baixado com sucesso!");
@@ -303,7 +428,7 @@ export default function Chat() {
       {/* Header */}
       <Card className="mb-4">
         <CardHeader className="py-4">
-          <CardTitle className="flex items-center gap-3">
+          <CardTitle className="flex items-center gap-3 flex-wrap">
             <div className="p-2 gradient-primary rounded-xl">
               <Bot className="w-6 h-6 text-primary-foreground" />
             </div>
@@ -313,7 +438,64 @@ export default function Chat() {
                 Assistente Clínico • Online
               </p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 sm:gap-2 flex-wrap">
+              {/* Desktop buttons */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveConversation}
+                disabled={isSaving}
+                className="hidden sm:flex items-center gap-1"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span className="hidden md:inline">Salvar</span>
+              </Button>
+              <Dialog open={isHistoryOpen} onOpenChange={(open) => {
+                setIsHistoryOpen(open);
+                if (open) fetchSavedConversations();
+              }}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hidden sm:flex items-center gap-1"
+                  >
+                    <History className="w-4 h-4" />
+                    <span className="hidden md:inline">Histórico</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Conversas Salvas</DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="h-[400px] pr-4">
+                    {isLoadingHistory ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    ) : savedConversations.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        Nenhuma conversa salva
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {savedConversations.map((conv) => (
+                          <button
+                            key={conv.id}
+                            onClick={() => loadConversation(conv)}
+                            className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted transition-colors"
+                          >
+                            <p className="font-medium text-sm truncate">{conv.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(conv.created_at).toLocaleDateString("pt-BR")} • {conv.messages.length} mensagens
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
               <Button
                 variant="outline"
                 size="sm"
@@ -332,11 +514,32 @@ export default function Chat() {
                 <Download className="w-4 h-4" />
                 <span className="hidden md:inline">PDF</span>
               </Button>
+              
+              {/* Mobile buttons */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleSaveConversation}
+                disabled={isSaving}
+                className="sm:hidden h-8 w-8"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              </Button>
+              <Dialog open={isHistoryOpen} onOpenChange={(open) => {
+                setIsHistoryOpen(open);
+                if (open) fetchSavedConversations();
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="sm:hidden h-8 w-8">
+                    <History className="w-4 h-4" />
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleCopyChat}
-                className="sm:hidden"
+                className="sm:hidden h-8 w-8"
               >
                 <Copy className="w-4 h-4" />
               </Button>
@@ -344,12 +547,13 @@ export default function Chat() {
                 variant="outline"
                 size="icon"
                 onClick={handleDownloadPDF}
-                className="sm:hidden"
+                className="sm:hidden h-8 w-8"
               >
                 <Download className="w-4 h-4" />
               </Button>
+              
               <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-              <span className="text-sm text-success">Ativo</span>
+              <span className="text-sm text-success hidden sm:inline">Ativo</span>
             </div>
           </CardTitle>
         </CardHeader>
