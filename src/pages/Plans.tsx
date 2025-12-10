@@ -72,7 +72,7 @@ const plans: Plan[] = [
     price: "R$ 897",
     period: "/ano",
     features: [
-      "Até 200 exames por ano",
+      "Até 300 análises por ano",
       "Chat ilimitado com IA",
       "Prioridade na análise",
       "Recursos avançados",
