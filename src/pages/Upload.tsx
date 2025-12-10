@@ -144,8 +144,8 @@ export default function Upload() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isDragActive, setIsDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -212,8 +212,8 @@ export default function Upload() {
     e.stopPropagation();
     setIsDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(Array.from(e.dataTransfer.files));
     }
   }, []);
 
@@ -227,30 +227,55 @@ export default function Upload() {
     return "Radiografia";
   };
 
-  const handleFile = (file: File) => {
+  const handleFiles = (files: File[]) => {
     const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!validTypes.includes(file.type)) {
-      toast.error("Formato não suportado. Use JPG, PNG ou PDF.");
-      return;
+    const maxFiles = 10;
+    
+    // Filter valid files
+    const validFiles = files.filter(file => {
+      if (!validTypes.includes(file.type)) {
+        toast.error(`${file.name}: Formato não suportado. Use JPG, PNG ou PDF.`);
+        return false;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error(`${file.name}: Arquivo muito grande. Máximo 20MB.`);
+        return false;
+      }
+      return true;
+    });
+
+    // Check total files limit
+    const totalFiles = selectedFiles.length + validFiles.length;
+    if (totalFiles > maxFiles) {
+      toast.error(`Máximo de ${maxFiles} arquivos permitido.`);
+      const availableSlots = maxFiles - selectedFiles.length;
+      validFiles.splice(availableSlots);
     }
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("Arquivo muito grande. Máximo 20MB.");
-      return;
-    }
-    setSelectedFile(file);
+
+    if (validFiles.length === 0) return;
+
+    // Add to existing files
+    setSelectedFiles(prev => [...prev, ...validFiles]);
     setResult(null);
     setRawContent(null);
 
-    // Create preview for images
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setPreviewUrl(null);
-    }
+    // Create previews for images
+    validFiles.forEach(file => {
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewUrls(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setPreviewUrls(prev => [...prev, "pdf"]);
+      }
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const validatePatientData = (): boolean => {
@@ -270,7 +295,7 @@ export default function Upload() {
   };
 
   const handleAnalyze = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
     if (!examCategory) {
       toast.error("Por favor, selecione o tipo de exame.");
       return;
@@ -280,25 +305,34 @@ export default function Upload() {
     setIsAnalyzing(true);
 
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(selectedFile);
-      });
-
-      const imageBase64 = await base64Promise;
+      // Convert all files to base64
+      const imagesData = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          return {
+            imageBase64: await base64Promise,
+            imageType: file.type,
+            fileName: file.name,
+          };
+        })
+      );
 
       // Format patient name with proper capitalization
       const formattedName = capitalizeFullName(patientData.nome);
       
       // Call the edge function with patient data and exam category
+      // Send first image for now (edge function needs update for multiple)
       const { data, error } = await supabase.functions.invoke("analyze-exam", {
         body: {
-          imageBase64,
-          imageType: selectedFile.type,
-          fileName: selectedFile.name,
+          imageBase64: imagesData[0].imageBase64,
+          imageType: imagesData[0].imageType,
+          fileName: imagesData[0].fileName,
+          images: imagesData, // Send all images for future support
           examCategory,
           patientData: {
             nome: formattedName,
@@ -359,7 +393,7 @@ export default function Upload() {
   };
 
   const handleDownloadPDF = () => {
-    if (!result || !selectedFile) return;
+    if (!result || selectedFiles.length === 0) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -615,8 +649,8 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
   };
 
   const handleSaveCase = async () => {
-    if (!result || !selectedFile || !user) {
-      console.error("Missing data:", { result: !!result, selectedFile: !!selectedFile, user: !!user });
+    if (!result || selectedFiles.length === 0 || !user) {
+      console.error("Missing data:", { result: !!result, selectedFiles: selectedFiles.length, user: !!user });
       toast.error("Dados incompletos para salvar o caso");
       return;
     }
@@ -624,7 +658,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setIsSaving(true);
 
     try {
-      const examType = getExamType(selectedFile.name, selectedFile.type);
+      const firstFile = selectedFiles[0];
+      const examType = getExamType(firstFile.name, firstFile.type);
+      const fileNames = selectedFiles.map(f => f.name).join(", ");
       
       console.log("Saving case with user_id:", user.id);
       
@@ -632,8 +668,8 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         user_id: user.id,
         name: `${patientData.nome} - ${examType}`,
         exam_type: examType,
-        file_name: selectedFile.name,
-        file_type: selectedFile.type,
+        file_name: fileNames,
+        file_type: firstFile.type,
         status: "completed",
         analysis: result as unknown as Json,
         raw_content: rawContent,
@@ -655,9 +691,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     }
   };
 
-  const clearFile = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
+  const clearFiles = () => {
+    setSelectedFiles([]);
+    setPreviewUrls([]);
     setResult(null);
     setRawContent(null);
     setReportGenerated(false);
@@ -670,7 +706,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     });
   };
 
-  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo && examCategory;
+  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo && examCategory && selectedFiles.length > 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -776,10 +812,12 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!selectedFile ? (
+          {/* Drop zone - always visible when less than 10 files */}
+          {selectedFiles.length < 10 && (
             <div
               className={cn(
-                "border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer",
+                "border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer",
+                selectedFiles.length > 0 ? "mb-4" : "",
                 isDragActive
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50 hover:bg-muted/50"
@@ -794,56 +832,76 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 id="file-input"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,application/pdf"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleFiles(Array.from(e.target.files));
+                  }
                 }}
               />
-              <div className="flex flex-col items-center gap-4">
-                <div className="p-4 rounded-full bg-muted">
-                  <UploadIcon className="w-8 h-8 text-primary" />
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 rounded-full bg-muted">
+                  <UploadIcon className="w-6 h-6 text-primary" />
                 </div>
                 <div>
                   <p className="font-medium text-foreground">
-                    Arraste o arquivo aqui ou clique para selecionar
+                    {selectedFiles.length === 0 
+                      ? "Arraste os arquivos aqui ou clique para selecionar"
+                      : "Adicionar mais arquivos"}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    JPG, PNG ou PDF (máx. 20MB)
+                    JPG, PNG ou PDF (máx. 20MB cada, até 10 arquivos)
                   </p>
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+
+          {/* Files list */}
+          {selectedFiles.length > 0 && (
             <div className="space-y-4">
-              {/* File Preview */}
-              <div className="flex items-start gap-4 p-4 bg-muted rounded-xl">
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="w-24 h-24 object-cover rounded-lg"
-                  />
-                ) : selectedFile.type === "application/pdf" ? (
-                  <div className="w-24 h-24 bg-destructive/10 rounded-lg flex items-center justify-center">
-                    <FileText className="w-12 h-12 text-destructive" />
-                  </div>
-                ) : (
-                  <FileImage className="w-12 h-12 text-primary" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {selectedFile.type === "application/pdf" ? "Documento PDF" : selectedFile.type}
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={clearFile}>
-                  <X className="w-5 h-5" />
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">
+                  {selectedFiles.length} arquivo{selectedFiles.length > 1 ? 's' : ''} selecionado{selectedFiles.length > 1 ? 's' : ''}
+                </p>
+                <Button variant="ghost" size="sm" onClick={clearFiles}>
+                  <X className="w-4 h-4 mr-1" />
+                  Limpar todos
                 </Button>
+              </div>
+              
+              <div className="grid gap-3">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    {previewUrls[index] && previewUrls[index] !== "pdf" ? (
+                      <img
+                        src={previewUrls[index]}
+                        alt={`Preview ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded-md"
+                      />
+                    ) : file.type === "application/pdf" ? (
+                      <div className="w-16 h-16 bg-destructive/10 rounded-md flex items-center justify-center">
+                        <FileText className="w-8 h-8 text-destructive" />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 bg-primary/10 rounded-md flex items-center justify-center">
+                        <FileImage className="w-8 h-8 text-primary" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => removeFile(index)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
 
               {!result && (
@@ -857,7 +915,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                   {isAnalyzing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      {selectedFile.type === "application/pdf" ? "Analisando PDF..." : "Analisando com IA..."}
+                      Analisando {selectedFiles.length} arquivo{selectedFiles.length > 1 ? 's' : ''} com IA...
                     </>
                   ) : (
                     <>
@@ -870,7 +928,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
 
               {!isFormValid && !result && (
                 <p className="text-sm text-muted-foreground text-center">
-                  Preencha todos os dados do paciente para enviar o exame
+                  Preencha todos os dados do paciente e selecione o tipo de exame
                 </p>
               )}
             </div>
@@ -1071,7 +1129,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                   </>
                 )}
               </Button>
-              <Button variant="outline" onClick={clearFile}>
+              <Button variant="outline" onClick={clearFiles}>
                 Nova Análise
               </Button>
             </div>
