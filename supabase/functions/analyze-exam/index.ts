@@ -215,7 +215,6 @@ function extractTextFromPdfBase64(base64Data: string): string | null {
     const binaryString = atob(cleanBase64);
     
     // Try to extract text content from PDF
-    // PDFs contain text streams that we can try to extract
     let extractedText = '';
     
     // Look for text between stream and endstream markers
@@ -275,6 +274,64 @@ function isValidImageType(mimeType: string): boolean {
   return validImageTypes.includes(mimeType.toLowerCase());
 }
 
+// Check if PDF is image-based (scanned) by looking for XObject references
+function isPdfImageBased(base64Data: string): boolean {
+  try {
+    const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+    const binaryString = atob(cleanBase64);
+    
+    // Count XObject (image) references vs text operators
+    const xobjectCount = (binaryString.match(/\/XObject/g) || []).length;
+    const textOperators = (binaryString.match(/BT[\s\S]*?ET/g) || []).length;
+    
+    // If there are XObjects but very few text blocks, it's likely image-based
+    return xobjectCount > 0 && textOperators < 3;
+  } catch {
+    return false;
+  }
+}
+
+// Extract embedded image from PDF XObject
+function extractFirstImageFromPdf(base64Data: string): { imageBase64: string; mimeType: string } | null {
+  try {
+    const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+    const binaryString = atob(cleanBase64);
+    
+    // Look for JPEG image markers (FFD8 start, FFD9 end)
+    const jpegStart = binaryString.indexOf('\xFF\xD8');
+    const jpegEnd = binaryString.lastIndexOf('\xFF\xD9');
+    
+    if (jpegStart !== -1 && jpegEnd !== -1 && jpegEnd > jpegStart) {
+      const jpegData = binaryString.substring(jpegStart, jpegEnd + 2);
+      const base64Image = btoa(jpegData);
+      console.log("Imagem JPEG extraída do PDF, tamanho:", base64Image.length);
+      return { imageBase64: base64Image, mimeType: 'image/jpeg' };
+    }
+    
+    // Look for PNG image markers (89504E47 start)
+    const pngSignature = '\x89PNG\r\n\x1a\n';
+    const pngStart = binaryString.indexOf(pngSignature);
+    
+    if (pngStart !== -1) {
+      // Find IEND chunk
+      const iendMarker = 'IEND';
+      const pngEnd = binaryString.indexOf(iendMarker, pngStart);
+      
+      if (pngEnd !== -1) {
+        const pngData = binaryString.substring(pngStart, pngEnd + 8); // IEND + CRC
+        const base64Image = btoa(pngData);
+        console.log("Imagem PNG extraída do PDF, tamanho:", base64Image.length);
+        return { imageBase64: base64Image, mimeType: 'image/png' };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Erro ao extrair imagem do PDF:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -309,21 +366,71 @@ serve(async (req) => {
     let isTextBased = false;
 
     if (isPdf) {
-      // Handle PDF files - try to extract text
-      console.log("Detectado arquivo PDF, extraindo texto...");
-      const extractedText = extractTextFromPdfBase64(imageBase64);
+      console.log("Detectado arquivo PDF, verificando tipo...");
       
-      if (extractedText && extractedText.length > 50) {
-        console.log("Texto extraído do PDF:", extractedText.substring(0, 200) + "...");
-        isTextBased = true;
+      // First, check if it's an image-based PDF (scanned document)
+      const isScannedPdf = isPdfImageBased(imageBase64);
+      console.log("PDF é escaneado (baseado em imagem):", isScannedPdf);
+      
+      if (isScannedPdf) {
+        // Try to extract the embedded image from the PDF
+        const extractedImage = extractFirstImageFromPdf(imageBase64);
         
-        const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
+        if (extractedImage) {
+          console.log("Imagem extraída do PDF escaneado, enviando para Vision API...");
+          
+          const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
+          
+          messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analise este exame/documento (${fileName || "PDF"}) do paciente ${patient.nome}. 
+                  
+Este documento foi extraído de um PDF escaneado. Forneça uma análise COMPLETA no formato JSON especificado.
+
+Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), leia os valores apresentados e interprete em relação a procedimentos odontológicos.
+Se for uma radiografia ou imagem clínica, analise conforme seus conhecimentos em radiologia odontológica.
+
+Seja extremamente detalhado e técnico.`
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${extractedImage.mimeType};base64,${extractedImage.imageBase64}`
+                  }
+                }
+              ]
+            }
+          ];
+        } else {
+          // Could not extract image from scanned PDF
+          console.log("Não foi possível extrair imagem do PDF escaneado");
+          return new Response(
+            JSON.stringify({ 
+              error: "Este PDF contém imagens escaneadas que não puderam ser extraídas automaticamente.\n\nPor favor, tente uma das opções:\n\n1. **Tire um screenshot/foto** do PDF aberto no seu computador\n2. **Converta o PDF para imagem** usando um conversor online (ilovepdf.com, smallpdf.com)\n3. Se possível, peça o exame em formato de imagem (JPEG/PNG)"
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        // Try text extraction for text-based PDFs
+        const extractedText = extractTextFromPdfBase64(imageBase64);
         
-        messages = [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analise este documento/exame laboratorial do paciente ${patient.nome}.
+        if (extractedText && extractedText.length > 50) {
+          console.log("Texto extraído do PDF:", extractedText.substring(0, 200) + "...");
+          isTextBased = true;
+          
+          const SYSTEM_PROMPT = buildSystemPrompt(patient, true);
+          
+          messages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: `Analise este documento/exame laboratorial do paciente ${patient.nome}.
 
 O conteúdo extraído do documento PDF é:
 
@@ -334,17 +441,47 @@ ${extractedText.substring(0, 15000)}
 Forneça uma análise COMPLETA focada na relevância odontológica no formato JSON especificado.
 Se for um exame laboratorial (hemograma, coagulograma, glicemia, etc.), interprete os valores em relação a procedimentos odontológicos.
 Se for um laudo ou relatório, extraia as informações relevantes para o tratamento odontológico.`
+            }
+          ];
+        } else {
+          // No text found, but also not detected as image-based - try image extraction anyway
+          const extractedImage = extractFirstImageFromPdf(imageBase64);
+          
+          if (extractedImage) {
+            console.log("Tentando extrair imagem de PDF sem texto...");
+            
+            const SYSTEM_PROMPT = buildSystemPrompt(patient, false);
+            
+            messages = [
+              { role: "system", content: SYSTEM_PROMPT },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Analise este exame/documento (${fileName || "PDF"}) do paciente ${patient.nome}. 
+                    
+Forneça uma análise COMPLETA no formato JSON especificado. Seja extremamente detalhado e técnico.`
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${extractedImage.mimeType};base64,${extractedImage.imageBase64}`
+                    }
+                  }
+                ]
+              }
+            ];
+          } else {
+            console.log("PDF sem texto legível e sem imagens extraíveis");
+            return new Response(
+              JSON.stringify({ 
+                error: "Não foi possível processar este PDF.\n\nO arquivo não contém texto selecionável nem imagens que possam ser extraídas.\n\nPor favor:\n1. **Tire um screenshot** do documento\n2. **Converta para imagem** (JPEG/PNG)\n3. Use um conversor online como ilovepdf.com ou smallpdf.com"
+              }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
           }
-        ];
-      } else {
-        // Could not extract text from PDF
-        console.log("Não foi possível extrair texto suficiente do PDF");
-        return new Response(
-          JSON.stringify({ 
-            error: "Não foi possível analisar este PDF. Para documentos em PDF, por favor:\n\n1. Se for uma radiografia/imagem em PDF, converta para imagem (JPEG/PNG) antes de enviar\n2. Se for um exame laboratorial, tire uma foto ou screenshot do documento\n3. Certifique-se que o PDF contém texto legível (não apenas imagens escaneadas)"
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        }
       }
     } else if (isImage) {
       // Handle image files - use Vision API
@@ -377,7 +514,7 @@ Seja extremamente detalhado e técnico.`
       // Unsupported file type
       return new Response(
         JSON.stringify({ 
-          error: `Tipo de arquivo não suportado: ${imageType}. Por favor, envie imagens (JPEG, PNG, GIF, WebP) ou PDFs com texto legível.`
+          error: `Tipo de arquivo não suportado: ${imageType}. Por favor, envie imagens (JPEG, PNG, GIF, WebP) ou PDFs.`
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
