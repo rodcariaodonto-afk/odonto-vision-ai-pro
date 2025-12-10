@@ -31,14 +31,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   const checkSubscription = async () => {
-    if (!session) {
+    // Get the current session to ensure we have a valid token
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    
+    if (!currentSession) {
+      console.log("No session available for subscription check");
       setSubscription(null);
       return;
     }
 
+    console.log("Checking subscription for:", currentSession.user?.email);
     setSubscriptionLoading(true);
+    
     try {
       const { data, error } = await supabase.functions.invoke("check-subscription");
+      
+      console.log("Subscription check result:", { data, error });
       
       if (error) {
         console.error("Error checking subscription:", error);
