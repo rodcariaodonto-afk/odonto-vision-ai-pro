@@ -391,7 +391,7 @@ export default function Upload() {
   };
 
   const handleDownloadPDF = () => {
-    if (!result || selectedFiles.length === 0) return;
+    if (!result) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -647,8 +647,8 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
   };
 
   const handleSaveCase = async () => {
-    if (!result || selectedFiles.length === 0 || !user) {
-      console.error("Missing data:", { result: !!result, selectedFiles: selectedFiles.length, user: !!user });
+    if (!result || !user) {
+      console.error("Missing data:", { result: !!result, user: !!user });
       toast.error("Dados incompletos para salvar o caso");
       return;
     }
@@ -656,18 +656,21 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setIsSaving(true);
 
     try {
+      // Use exam category label if no files are selected (restored session)
+      const examTypeLabel = EXAM_CATEGORIES.find(c => c.id === examCategory)?.label || "Exame";
       const firstFile = selectedFiles[0];
-      const examType = getExamType(firstFile.name, firstFile.type);
-      const fileNames = selectedFiles.map(f => f.name).join(", ");
+      const examType = firstFile ? getExamType(firstFile.name, firstFile.type) : examTypeLabel;
+      const fileNames = selectedFiles.length > 0 ? selectedFiles.map(f => f.name).join(", ") : "Restaurado da sessão";
+      const fileType = firstFile?.type || "application/octet-stream";
       
       console.log("Saving case with user_id:", user.id);
       
       const { data, error } = await supabase.from("cases").insert([{
         user_id: user.id,
-        name: `${patientData.nome} - ${examType}`,
+        name: `${capitalizeFullName(patientData.nome)} - ${examType}`,
         exam_type: examType,
         file_name: fileNames,
-        file_type: firstFile.type,
+        file_type: fileType,
         status: "completed",
         analysis: result as unknown as Json,
         raw_content: rawContent,
