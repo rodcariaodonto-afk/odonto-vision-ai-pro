@@ -2,71 +2,73 @@
 // Formato NORMALIZADO: [x, y] - valores entre 0 e 1
 // X: 0 = extrema esquerda, 1 = extrema direita
 // Y: 0 = topo, 1 = base
+// CALIBRADO para radiografias panorâmicas reais
 
 export const TYPICAL_TOOTH_COORDINATES: Record<string, [number, number]> = {
-  // Arcada superior direita (lado esquerdo da imagem) - Y entre 0.20 e 0.40
-  "18": [0.08, 0.35],   // Terceiro molar superior direito (siso)
-  "17": [0.13, 0.33],   // Segundo molar superior direito
-  "16": [0.18, 0.31],   // Primeiro molar superior direito
-  "15": [0.23, 0.30],   // Segundo pré-molar superior direito
-  "14": [0.28, 0.29],   // Primeiro pré-molar superior direito
-  "13": [0.33, 0.28],   // Canino superior direito
-  "12": [0.38, 0.28],   // Incisivo lateral superior direito
-  "11": [0.44, 0.28],   // Incisivo central superior direito
+  // Arcada superior direita (lado esquerdo da imagem) - Y entre 0.38 e 0.50
+  "18": [0.06, 0.46],   // Terceiro molar superior direito (siso)
+  "17": [0.11, 0.44],   // Segundo molar superior direito
+  "16": [0.16, 0.42],   // Primeiro molar superior direito
+  "15": [0.21, 0.41],   // Segundo pré-molar superior direito
+  "14": [0.26, 0.40],   // Primeiro pré-molar superior direito
+  "13": [0.31, 0.39],   // Canino superior direito
+  "12": [0.37, 0.39],   // Incisivo lateral superior direito
+  "11": [0.44, 0.40],   // Incisivo central superior direito
   
-  // Arcada superior esquerda (lado direito da imagem) - Y entre 0.20 e 0.40
-  "21": [0.56, 0.28],   // Incisivo central superior esquerdo
-  "22": [0.62, 0.28],   // Incisivo lateral superior esquerdo
-  "23": [0.67, 0.28],   // Canino superior esquerdo
-  "24": [0.72, 0.29],   // Primeiro pré-molar superior esquerdo
-  "25": [0.77, 0.30],   // Segundo pré-molar superior esquerdo
-  "26": [0.82, 0.31],   // Primeiro molar superior esquerdo
-  "27": [0.87, 0.33],   // Segundo molar superior esquerdo
-  "28": [0.92, 0.35],   // Terceiro molar superior esquerdo (siso)
+  // Arcada superior esquerda (lado direito da imagem) - Y entre 0.38 e 0.50
+  "21": [0.56, 0.40],   // Incisivo central superior esquerdo
+  "22": [0.63, 0.39],   // Incisivo lateral superior esquerdo
+  "23": [0.69, 0.39],   // Canino superior esquerdo
+  "24": [0.74, 0.40],   // Primeiro pré-molar superior esquerdo
+  "25": [0.79, 0.41],   // Segundo pré-molar superior esquerdo
+  "26": [0.84, 0.42],   // Primeiro molar superior esquerdo
+  "27": [0.89, 0.44],   // Segundo molar superior esquerdo
+  "28": [0.94, 0.46],   // Terceiro molar superior esquerdo (siso)
   
-  // Arcada inferior direita (lado esquerdo da imagem) - Y entre 0.60 e 0.80
-  "48": [0.08, 0.72],   // Terceiro molar inferior direito (siso)
-  "47": [0.13, 0.70],   // Segundo molar inferior direito
-  "46": [0.20, 0.68],   // Primeiro molar inferior direito
-  "45": [0.25, 0.67],   // Segundo pré-molar inferior direito
-  "44": [0.30, 0.66],   // Primeiro pré-molar inferior direito
-  "43": [0.35, 0.66],   // Canino inferior direito
-  "42": [0.40, 0.66],   // Incisivo lateral inferior direito
-  "41": [0.45, 0.66],   // Incisivo central inferior direito
+  // Arcada inferior direita (lado esquerdo da imagem) - Y entre 0.54 e 0.68
+  "48": [0.06, 0.62],   // Terceiro molar inferior direito (siso)
+  "47": [0.11, 0.60],   // Segundo molar inferior direito
+  "46": [0.17, 0.58],   // Primeiro molar inferior direito
+  "45": [0.22, 0.57],   // Segundo pré-molar inferior direito
+  "44": [0.27, 0.56],   // Primeiro pré-molar inferior direito
+  "43": [0.32, 0.55],   // Canino inferior direito
+  "42": [0.38, 0.55],   // Incisivo lateral inferior direito
+  "41": [0.44, 0.55],   // Incisivo central inferior direito
   
-  // Arcada inferior esquerda (lado direito da imagem) - Y entre 0.60 e 0.80
-  "31": [0.55, 0.66],   // Incisivo central inferior esquerdo
-  "32": [0.60, 0.66],   // Incisivo lateral inferior esquerdo
-  "33": [0.65, 0.66],   // Canino inferior esquerdo
-  "34": [0.70, 0.66],   // Primeiro pré-molar inferior esquerdo
-  "35": [0.75, 0.67],   // Segundo pré-molar inferior esquerdo
-  "36": [0.80, 0.68],   // Primeiro molar inferior esquerdo
-  "37": [0.87, 0.70],   // Segundo molar inferior esquerdo
-  "38": [0.92, 0.72],   // Terceiro molar inferior esquerdo (siso)
+  // Arcada inferior esquerda (lado direito da imagem) - Y entre 0.54 e 0.68
+  "31": [0.56, 0.55],   // Incisivo central inferior esquerdo
+  "32": [0.62, 0.55],   // Incisivo lateral inferior esquerdo
+  "33": [0.68, 0.55],   // Canino inferior esquerdo
+  "34": [0.73, 0.56],   // Primeiro pré-molar inferior esquerdo
+  "35": [0.78, 0.57],   // Segundo pré-molar inferior esquerdo
+  "36": [0.83, 0.58],   // Primeiro molar inferior esquerdo
+  "37": [0.89, 0.60],   // Segundo molar inferior esquerdo
+  "38": [0.94, 0.62],   // Terceiro molar inferior esquerdo (siso)
 };
 
 // Estruturas anatômicas típicas (coordenadas normalizadas 0-1)
+// CALIBRADO para radiografias panorâmicas reais
 export const TYPICAL_ANATOMIC_STRUCTURES = {
   seio_maxilar: {
     direito: {
-      center: [0.18, 0.25],
-      yRange: [0.15, 0.35],
-      xRange: [0.08, 0.30],
+      center: [0.20, 0.28],
+      yRange: [0.18, 0.38],
+      xRange: [0.08, 0.35],
     },
     esquerdo: {
-      center: [0.82, 0.25],
-      yRange: [0.15, 0.35],
-      xRange: [0.70, 0.92],
+      center: [0.80, 0.28],
+      yRange: [0.18, 0.38],
+      xRange: [0.65, 0.92],
     },
   },
   canal_mandibular: {
     direito: {
-      yRange: [0.68, 0.78],
-      xRange: [0.08, 0.45],
+      yRange: [0.72, 0.82],
+      xRange: [0.06, 0.42],
     },
     esquerdo: {
-      yRange: [0.68, 0.78],
-      xRange: [0.55, 0.92],
+      yRange: [0.72, 0.82],
+      xRange: [0.58, 0.94],
     },
   },
 };
@@ -86,30 +88,31 @@ function normalizeCoordinate(value: number): number {
 }
 
 // Função para corrigir coordenadas baseada em posição anatômica típica
-// FORÇA as coordenadas típicas para garantir precisão
+// FORÇA 100% as coordenadas típicas - IA é muito imprecisa
 export function correctToothCoordinates(
   denteNum: string,
-  originalCoords: [number, number]
+  _originalCoords: [number, number] // Ignorado - usamos 100% típicas
 ): [number, number] {
   const typicalCoords = TYPICAL_TOOTH_COORDINATES[denteNum];
   
   if (!typicalCoords) {
-    // Se não temos coordenadas típicas, normalizar as originais
-    return [normalizeCoordinate(originalCoords[0]), normalizeCoordinate(originalCoords[1])];
+    // Se não temos coordenadas típicas, usar posição genérica baseada no número
+    const num = parseInt(denteNum);
+    const quadrant = Math.floor(num / 10);
+    const position = num % 10;
+    
+    // Calcular X baseado na posição do dente (1-8)
+    const baseX = position <= 4 ? 0.5 - (position * 0.08) : 0.5 + ((position - 4) * 0.08);
+    const x = quadrant === 1 || quadrant === 4 ? 0.5 - Math.abs(0.5 - baseX) : 0.5 + Math.abs(0.5 - baseX);
+    
+    // Y baseado no quadrante
+    const y = quadrant <= 2 ? 0.42 : 0.58;
+    
+    return [x, y];
   }
   
-  // Normalizar as coordenadas originais caso venham em formato 0-100
-  const [origX, origY] = [normalizeCoordinate(originalCoords[0]), normalizeCoordinate(originalCoords[1])];
-  
-  // SEMPRE usar as coordenadas típicas como base principal (95%)
-  // As coordenadas da IA são muito imprecisas, então forçamos 95% típica
-  const [typicalX, typicalY] = typicalCoords;
-  
-  // Pequeno offset baseado no original (5% máximo) para variação natural
-  const offsetX = Math.max(-0.02, Math.min(0.02, (origX - typicalX) * 0.05));
-  const offsetY = Math.max(-0.02, Math.min(0.02, (origY - typicalY) * 0.05));
-  
-  return [typicalX + offsetX, typicalY + offsetY];
+  // USAR 100% as coordenadas típicas calibradas
+  return [...typicalCoords];
 }
 
 // Função para corrigir todas as coordenadas de uma análise
