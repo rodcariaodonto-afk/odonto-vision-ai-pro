@@ -9,18 +9,73 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Marcacao {
   id: string;
-  tipo: "rect" | "circle" | "polygon" | "ellipse";
+  tipo: "rect" | "circle" | "polygon" | "ellipse" | "path";
   coords: number[];
   label: string;
   descricao: string;
   cor: string;
   severidade: "baixa" | "media" | "alta" | "info";
   categoria: string;
+}
+
+export interface AnaliseVisualCompleta {
+  estrutura_ossea_percentual: string;
+  avaliacao_periodontal: {
+    perda_ossea_global_percentual: string;
+    comentarios: string;
+  };
+  avaliacao_ortodontica: {
+    alinhamento: string;
+    inclinacoes_relevantes: string[];
+    sugestoes_iniciais: string[];
+  };
+  dentes: Record<string, {
+    status: string;
+    detalhes: string;
+    posicao: [number, number];
+  }>;
+  ausencias: string[];
+  implantes: Array<{
+    dente: string;
+    posicao: [number, number];
+    detalhes?: string;
+  }>;
+  lesoes_suspeitas: Array<{
+    dente: string;
+    descricao: string;
+    posicao: [number, number];
+    tipo?: string;
+  }>;
+  caries: Array<{
+    dente: string;
+    superficie: string;
+    posicao: [number, number];
+  }>;
+  reabsorcoes: Array<{
+    dente: string;
+    tipo: string;
+    posicao: [number, number];
+  }>;
+  fraturas: Array<{
+    dente: string;
+    descricao: string;
+    posicao: [number, number];
+  }>;
+  seio_maxilar: {
+    direito?: { contorno: Array<[number, number]> };
+    esquerdo?: { contorno: Array<[number, number]> };
+  };
+  canal_mandibular: {
+    direito?: Array<[number, number]>;
+    esquerdo?: Array<[number, number]>;
+  };
+  resumo_para_paciente: string[];
+  marcacoes: Marcacao[];
 }
 
 interface VisualAnalysisProps {
@@ -30,6 +85,7 @@ interface VisualAnalysisProps {
   observacoes?: string;
   editable?: boolean;
   onMarcacoesChange?: (marcacoes: Marcacao[]) => void;
+  analiseCompleta?: AnaliseVisualCompleta;
 }
 
 const severidadeOrder = ["alta", "media", "baixa", "info"];
@@ -47,7 +103,8 @@ export function VisualAnalysis({
   resumo, 
   observacoes, 
   editable = false,
-  onMarcacoesChange 
+  onMarcacoesChange,
+  analiseCompleta
 }: VisualAnalysisProps) {
   const [selectedMarcacao, setSelectedMarcacao] = useState<Marcacao | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -55,6 +112,8 @@ export function VisualAnalysis({
   const [visibleMarcacoes, setVisibleMarcacoes] = useState<Set<string>>(new Set(marcacoes.map(m => m.id)));
   const [zoom, setZoom] = useState(1);
   const [showList, setShowList] = useState(false);
+  const [showPatientSummary, setShowPatientSummary] = useState(false);
+  const [showClinicalDetails, setShowClinicalDetails] = useState(false);
   const [editMode, setEditMode] = useState<"none" | "add" | "move">("none");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newMarcacao, setNewMarcacao] = useState<Partial<Marcacao>>({
@@ -64,6 +123,7 @@ export function VisualAnalysis({
     coords: [10, 10, 10, 10],
   });
   const [movingMarcacao, setMovingMarcacao] = useState<string | null>(null);
+  const [showAnatomicStructures, setShowAnatomicStructures] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -188,6 +248,94 @@ export function VisualAnalysis({
     }
   };
 
+  // Render seio maxilar contours
+  const renderSeioMaxilar = () => {
+    if (!analiseCompleta?.seio_maxilar || !showAnatomicStructures) return null;
+    
+    const elements: JSX.Element[] = [];
+    
+    if (analiseCompleta.seio_maxilar.direito?.contorno?.length) {
+      const points = analiseCompleta.seio_maxilar.direito.contorno
+        .map(([x, y]) => `${x},${y}`).join(" ");
+      elements.push(
+        <polygon
+          key="seio-direito"
+          points={points}
+          fill="rgba(59, 130, 246, 0.1)"
+          stroke="#3B82F6"
+          strokeWidth="0.2"
+          strokeDasharray="0.5,0.5"
+        />
+      );
+    }
+    
+    if (analiseCompleta.seio_maxilar.esquerdo?.contorno?.length) {
+      const points = analiseCompleta.seio_maxilar.esquerdo.contorno
+        .map(([x, y]) => `${x},${y}`).join(" ");
+      elements.push(
+        <polygon
+          key="seio-esquerdo"
+          points={points}
+          fill="rgba(59, 130, 246, 0.1)"
+          stroke="#3B82F6"
+          strokeWidth="0.2"
+          strokeDasharray="0.5,0.5"
+        />
+      );
+    }
+    
+    return elements;
+  };
+
+  // Render canal mandibular paths
+  const renderCanalMandibular = () => {
+    if (!analiseCompleta?.canal_mandibular || !showAnatomicStructures) return null;
+    
+    const elements: JSX.Element[] = [];
+    
+    if (analiseCompleta.canal_mandibular.direito?.length) {
+      const pathPoints = analiseCompleta.canal_mandibular.direito;
+      if (pathPoints.length >= 2) {
+        const d = pathPoints.reduce((acc, [x, y], i) => {
+          if (i === 0) return `M ${x},${y}`;
+          return `${acc} L ${x},${y}`;
+        }, "");
+        elements.push(
+          <path
+            key="canal-direito"
+            d={d}
+            fill="none"
+            stroke="#F59E0B"
+            strokeWidth="0.4"
+            strokeLinecap="round"
+          />
+        );
+      }
+    }
+    
+    if (analiseCompleta.canal_mandibular.esquerdo?.length) {
+      const pathPoints = analiseCompleta.canal_mandibular.esquerdo;
+      if (pathPoints.length >= 2) {
+        const d = pathPoints.reduce((acc, [x, y], i) => {
+          if (i === 0) return `M ${x},${y}`;
+          return `${acc} L ${x},${y}`;
+        }, "");
+        elements.push(
+          <path
+            key="canal-esquerdo"
+            d={d}
+            fill="none"
+            stroke="#F59E0B"
+            strokeWidth="0.4"
+            strokeLinecap="round"
+          />
+        );
+      }
+    }
+    
+    return elements;
+  };
+
   const generateImageWithMarkers = (): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = containerRef.current?.querySelector("img");
@@ -211,7 +359,6 @@ export function VisualAnalysis({
         ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
         
         if (showMarcacoes) {
-          // Only draw visible markers
           marcacoes.filter(m => visibleMarcacoes.has(m.id)).forEach(m => {
             ctx.strokeStyle = m.cor;
             ctx.lineWidth = 4;
@@ -231,7 +378,6 @@ export function VisualAnalysis({
               ctx.fill(); 
             }
             
-            // Draw label with background for better visibility
             ctx.font = "bold 16px sans-serif";
             const textWidth = ctx.measureText(m.label).width;
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -272,9 +418,9 @@ export function VisualAnalysis({
       
       const newWindow = window.open("", "_blank");
       if (newWindow) {
-        // Prepare data for the new window
         const marcacoesData = JSON.stringify(marcacoes);
         const visibleIds = JSON.stringify(Array.from(visibleMarcacoes));
+        const analiseData = analiseCompleta ? JSON.stringify(analiseCompleta) : "null";
         
         newWindow.document.write(`
           <!DOCTYPE html>
@@ -346,20 +492,87 @@ export function VisualAnalysis({
                   pointer-events: none;
                 }
                 .controls-panel {
-                  width: 320px;
+                  width: 380px;
                   background: #2a2a2a;
                   border-radius: 8px;
                   padding: 16px;
                   overflow-y: auto;
                   max-height: calc(100vh - 140px);
                 }
+                .panel-section {
+                  margin-bottom: 16px;
+                  padding-bottom: 12px;
+                  border-bottom: 1px solid #3a3a3a;
+                }
+                .panel-section:last-child {
+                  border-bottom: none;
+                  margin-bottom: 0;
+                }
+                .section-title {
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: #3F8CFF;
+                  margin-bottom: 12px;
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                }
+                .clinical-stats {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 8px;
+                }
+                .stat-card {
+                  background: #333;
+                  border-radius: 8px;
+                  padding: 12px;
+                }
+                .stat-label {
+                  font-size: 11px;
+                  color: #888;
+                  margin-bottom: 4px;
+                }
+                .stat-value {
+                  font-size: 16px;
+                  font-weight: 600;
+                }
+                .stat-value.good { color: #22C55E; }
+                .stat-value.warning { color: #F59E0B; }
+                .stat-value.danger { color: #EF4444; }
+                .patient-summary {
+                  background: #1e3a5f;
+                  border-radius: 8px;
+                  padding: 12px;
+                }
+                .patient-summary h4 {
+                  font-size: 13px;
+                  margin-bottom: 8px;
+                  color: #60A5FA;
+                }
+                .patient-summary ul {
+                  list-style: none;
+                  padding: 0;
+                }
+                .patient-summary li {
+                  font-size: 12px;
+                  padding: 4px 0;
+                  border-bottom: 1px solid #2a4a6f;
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                }
+                .patient-summary li:last-child {
+                  border-bottom: none;
+                }
+                .patient-summary li::before {
+                  content: "•";
+                  color: #60A5FA;
+                }
                 .controls-header {
                   display: flex;
                   align-items: center;
                   justify-content: space-between;
-                  margin-bottom: 16px;
-                  padding-bottom: 12px;
-                  border-bottom: 1px solid #3a3a3a;
+                  margin-bottom: 12px;
                 }
                 .controls-header h3 {
                   font-size: 16px;
@@ -395,8 +608,8 @@ export function VisualAnalysis({
                   display: flex;
                   align-items: flex-start;
                   gap: 12px;
-                  padding: 12px;
-                  margin-bottom: 8px;
+                  padding: 10px;
+                  margin-bottom: 6px;
                   background: #333;
                   border-radius: 8px;
                   cursor: pointer;
@@ -424,8 +637,8 @@ export function VisualAnalysis({
                   accent-color: #3F8CFF;
                 }
                 .color-dot {
-                  width: 14px;
-                  height: 14px;
+                  width: 12px;
+                  height: 12px;
                   border-radius: 50%;
                   flex-shrink: 0;
                   margin-top: 3px;
@@ -436,20 +649,20 @@ export function VisualAnalysis({
                 }
                 .marcacao-label {
                   font-weight: 600;
-                  font-size: 14px;
-                  margin-bottom: 4px;
+                  font-size: 13px;
+                  margin-bottom: 2px;
                 }
                 .marcacao-desc {
-                  font-size: 12px;
+                  font-size: 11px;
                   color: #aaa;
                   line-height: 1.4;
                 }
                 .severity-badge {
-                  font-size: 10px;
+                  font-size: 9px;
                   padding: 2px 6px;
                   border-radius: 4px;
                   font-weight: 600;
-                  margin-left: 8px;
+                  margin-left: 6px;
                 }
                 .severity-alta { background: #EF4444; color: white; }
                 .severity-media { background: #F59E0B; color: white; }
@@ -485,6 +698,22 @@ export function VisualAnalysis({
                   font-size: 12px;
                   text-align: center;
                 }
+                .teeth-grid {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 4px;
+                  margin-top: 8px;
+                }
+                .tooth-badge {
+                  font-size: 10px;
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  background: #444;
+                }
+                .tooth-badge.healthy { background: #166534; color: #86efac; }
+                .tooth-badge.problem { background: #7f1d1d; color: #fca5a5; }
+                .tooth-badge.absent { background: #374151; color: #9ca3af; text-decoration: line-through; }
+                .tooth-badge.implant { background: #5b21b6; color: #c4b5fd; }
                 @media (max-width: 768px) {
                   .main-content {
                     flex-direction: column;
@@ -499,7 +728,7 @@ export function VisualAnalysis({
             <body>
               <div class="header">
                 <h1>OdontoVision AI Pro</h1>
-                <p>Análise Visual Interativa - ${new Date().toLocaleDateString('pt-BR')}</p>
+                <p>Análise Visual Avançada - ${new Date().toLocaleDateString('pt-BR')}</p>
               </div>
               
               <div class="main-content">
@@ -513,15 +742,18 @@ export function VisualAnalysis({
                 </div>
                 
                 <div class="controls-panel">
-                  <div class="controls-header">
-                    <h3>Achados (${marcacoes.length})</h3>
-                    <div class="toggle-all-btns">
-                      <button class="btn-show-all" onclick="toggleAll(true)">Todos</button>
-                      <button class="btn-hide-all" onclick="toggleAll(false)">Nenhum</button>
+                  <div class="panel-section" id="clinicalSection"></div>
+                  <div class="panel-section" id="patientSection"></div>
+                  <div class="panel-section">
+                    <div class="controls-header">
+                      <h3>Achados (${marcacoes.length})</h3>
+                      <div class="toggle-all-btns">
+                        <button class="btn-show-all" onclick="toggleAll(true)">Todos</button>
+                        <button class="btn-hide-all" onclick="toggleAll(false)">Nenhum</button>
+                      </div>
                     </div>
+                    <div id="marcacoesList"></div>
                   </div>
-                  
-                  <div id="marcacoesList"></div>
                   
                   <div class="download-section">
                     <button class="btn-download" onclick="downloadImage()">
@@ -543,12 +775,68 @@ export function VisualAnalysis({
               <script>
                 const marcacoes = ${marcacoesData};
                 let visibleMarcacoes = new Set(${visibleIds});
+                const analise = ${analiseData};
                 const severidadeOrder = ["alta", "media", "baixa", "info"];
                 
                 function sortMarcacoes(arr) {
                   return [...arr].sort((a, b) => 
                     severidadeOrder.indexOf(a.severidade) - severidadeOrder.indexOf(b.severidade)
                   );
+                }
+                
+                function renderClinicalSection() {
+                  const container = document.getElementById('clinicalSection');
+                  if (!analise) {
+                    container.style.display = 'none';
+                    return;
+                  }
+                  
+                  const perdaClass = analise.avaliacao_periodontal?.perda_ossea_global_percentual === 'leve' ? 'good' : 
+                                     analise.avaliacao_periodontal?.perda_ossea_global_percentual === 'moderada' ? 'warning' : 
+                                     analise.avaliacao_periodontal?.perda_ossea_global_percentual === 'grave' ? 'danger' : '';
+                  
+                  const alinhClass = analise.avaliacao_ortodontica?.alinhamento === 'bom' ? 'good' : 
+                                     analise.avaliacao_ortodontica?.alinhamento === 'regular' ? 'warning' : 
+                                     analise.avaliacao_ortodontica?.alinhamento === 'ruim' ? 'danger' : '';
+                  
+                  container.innerHTML = \`
+                    <div class="section-title">📊 Resumo Clínico</div>
+                    <div class="clinical-stats">
+                      <div class="stat-card">
+                        <div class="stat-label">Estrutura Óssea</div>
+                        <div class="stat-value good">\${analise.estrutura_ossea_percentual || 'N/A'}</div>
+                      </div>
+                      <div class="stat-card">
+                        <div class="stat-label">Perda Óssea</div>
+                        <div class="stat-value \${perdaClass}">\${analise.avaliacao_periodontal?.perda_ossea_global_percentual || 'N/A'}</div>
+                      </div>
+                      <div class="stat-card">
+                        <div class="stat-label">Alinhamento</div>
+                        <div class="stat-value \${alinhClass}">\${analise.avaliacao_ortodontica?.alinhamento || 'N/A'}</div>
+                      </div>
+                      <div class="stat-card">
+                        <div class="stat-label">Ausências</div>
+                        <div class="stat-value \${analise.ausencias?.length > 0 ? 'warning' : 'good'}">\${analise.ausencias?.length || 0}</div>
+                      </div>
+                    </div>
+                  \`;
+                }
+                
+                function renderPatientSection() {
+                  const container = document.getElementById('patientSection');
+                  if (!analise?.resumo_para_paciente?.length) {
+                    container.style.display = 'none';
+                    return;
+                  }
+                  
+                  container.innerHTML = \`
+                    <div class="patient-summary">
+                      <h4>👤 Resumo para o Paciente</h4>
+                      <ul>
+                        \${analise.resumo_para_paciente.map(item => \`<li>\${item}</li>\`).join('')}
+                      </ul>
+                    </div>
+                  \`;
                 }
                 
                 function renderMarcacoesList() {
@@ -577,8 +865,28 @@ export function VisualAnalysis({
                 
                 function renderSvgMarkers() {
                   const svg = document.getElementById('svgOverlay');
+                  let svgContent = '';
                   
-                  svg.innerHTML = marcacoes
+                  // Render anatomic structures if available
+                  if (analise?.seio_maxilar?.direito?.contorno?.length) {
+                    const points = analise.seio_maxilar.direito.contorno.map(p => p.join(',')).join(' ');
+                    svgContent += \`<polygon points="\${points}" fill="rgba(59,130,246,0.1)" stroke="#3B82F6" stroke-width="0.2" stroke-dasharray="0.5,0.5" />\`;
+                  }
+                  if (analise?.seio_maxilar?.esquerdo?.contorno?.length) {
+                    const points = analise.seio_maxilar.esquerdo.contorno.map(p => p.join(',')).join(' ');
+                    svgContent += \`<polygon points="\${points}" fill="rgba(59,130,246,0.1)" stroke="#3B82F6" stroke-width="0.2" stroke-dasharray="0.5,0.5" />\`;
+                  }
+                  if (analise?.canal_mandibular?.direito?.length >= 2) {
+                    const d = analise.canal_mandibular.direito.reduce((acc, p, i) => i === 0 ? \`M \${p[0]},\${p[1]}\` : \`\${acc} L \${p[0]},\${p[1]}\`, '');
+                    svgContent += \`<path d="\${d}" fill="none" stroke="#F59E0B" stroke-width="0.4" stroke-linecap="round" />\`;
+                  }
+                  if (analise?.canal_mandibular?.esquerdo?.length >= 2) {
+                    const d = analise.canal_mandibular.esquerdo.reduce((acc, p, i) => i === 0 ? \`M \${p[0]},\${p[1]}\` : \`\${acc} L \${p[0]},\${p[1]}\`, '');
+                    svgContent += \`<path d="\${d}" fill="none" stroke="#F59E0B" stroke-width="0.4" stroke-linecap="round" />\`;
+                  }
+                  
+                  // Render marcacoes
+                  svgContent += marcacoes
                     .filter(m => visibleMarcacoes.has(m.id))
                     .map(m => {
                       const [x, y, w, h] = m.coords;
@@ -596,6 +904,8 @@ export function VisualAnalysis({
                         \`;
                       }
                     }).join('');
+                  
+                  svg.innerHTML = svgContent;
                 }
                 
                 function toggleMarcacao(id) {
@@ -661,6 +971,8 @@ export function VisualAnalysis({
                 }
                 
                 // Initial render
+                renderClinicalSection();
+                renderPatientSection();
                 renderMarcacoesList();
                 renderSvgMarkers();
               </script>
@@ -690,8 +1002,63 @@ export function VisualAnalysis({
     }
   };
 
+  const getPerdaOsseaColor = (perda: string) => {
+    switch (perda) {
+      case "leve": return "text-green-500";
+      case "moderada": return "text-amber-500";
+      case "grave": return "text-red-500";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  const getAlinhamentoColor = (alinhamento: string) => {
+    switch (alinhamento) {
+      case "bom": return "text-green-500";
+      case "regular": return "text-amber-500";
+      case "ruim": return "text-red-500";
+      default: return "text-muted-foreground";
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Clinical Summary Cards */}
+      {analiseCompleta && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="py-3 px-4">
+              <p className="text-xs text-muted-foreground mb-1">Estrutura Óssea</p>
+              <p className="text-lg font-bold text-green-500">{analiseCompleta.estrutura_ossea_percentual}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="py-3 px-4">
+              <p className="text-xs text-muted-foreground mb-1">Perda Óssea</p>
+              <p className={cn("text-lg font-bold capitalize", getPerdaOsseaColor(analiseCompleta.avaliacao_periodontal.perda_ossea_global_percentual))}>
+                {analiseCompleta.avaliacao_periodontal.perda_ossea_global_percentual}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="py-3 px-4">
+              <p className="text-xs text-muted-foreground mb-1">Alinhamento</p>
+              <p className={cn("text-lg font-bold capitalize", getAlinhamentoColor(analiseCompleta.avaliacao_ortodontica.alinhamento))}>
+                {analiseCompleta.avaliacao_ortodontica.alinhamento}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="py-3 px-4">
+              <p className="text-xs text-muted-foreground mb-1">Ausências</p>
+              <p className={cn("text-lg font-bold", analiseCompleta.ausencias.length > 0 ? "text-amber-500" : "text-green-500")}>
+                {analiseCompleta.ausencias.length}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Control Buttons */}
       <div className="flex flex-wrap items-center gap-2">
         <Button 
           variant={showMarcacoes ? "default" : "outline"} 
@@ -708,6 +1075,32 @@ export function VisualAnalysis({
         >
           <List className="w-4 h-4 mr-1" /> Lista ({marcacoes.length})
         </Button>
+        
+        {analiseCompleta && (
+          <>
+            <Button 
+              variant={showPatientSummary ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setShowPatientSummary(!showPatientSummary)}
+            >
+              <User className="w-4 h-4 mr-1" /> Resumo Paciente
+            </Button>
+            <Button 
+              variant={showClinicalDetails ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setShowClinicalDetails(!showClinicalDetails)}
+            >
+              <Stethoscope className="w-4 h-4 mr-1" /> Detalhes Clínicos
+            </Button>
+            <Button 
+              variant={showAnatomicStructures ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setShowAnatomicStructures(!showAnatomicStructures)}
+            >
+              <Activity className="w-4 h-4 mr-1" /> Estruturas
+            </Button>
+          </>
+        )}
         
         {editable && (
           <>
@@ -763,6 +1156,132 @@ export function VisualAnalysis({
         </div>
       )}
 
+      {/* Patient Summary Panel */}
+      {showPatientSummary && analiseCompleta?.resumo_para_paciente?.length > 0 && (
+        <Card className="bg-blue-500/10 border-blue-500/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="w-4 h-4" /> Resumo para o Paciente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {analiseCompleta.resumo_para_paciente.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="text-blue-500 mt-1">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Clinical Details Panel */}
+      {showClinicalDetails && analiseCompleta && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Stethoscope className="w-4 h-4" /> Detalhes Clínicos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Periodontal */}
+            {analiseCompleta.avaliacao_periodontal.comentarios && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Avaliação Periodontal</p>
+                <p className="text-sm">{analiseCompleta.avaliacao_periodontal.comentarios}</p>
+              </div>
+            )}
+            
+            {/* Orthodontic */}
+            {(analiseCompleta.avaliacao_ortodontica.inclinacoes_relevantes.length > 0 || 
+              analiseCompleta.avaliacao_ortodontica.sugestoes_iniciais.length > 0) && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Avaliação Ortodôntica</p>
+                {analiseCompleta.avaliacao_ortodontica.inclinacoes_relevantes.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-muted-foreground">Inclinações:</p>
+                    <ul className="text-sm list-disc list-inside">
+                      {analiseCompleta.avaliacao_ortodontica.inclinacoes_relevantes.map((inc, i) => (
+                        <li key={i}>{inc}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analiseCompleta.avaliacao_ortodontica.sugestoes_iniciais.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Sugestões:</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {analiseCompleta.avaliacao_ortodontica.sugestoes_iniciais.map((sug, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{sug}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Teeth Summary */}
+            {Object.keys(analiseCompleta.dentes).length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Dentes Identificados ({Object.keys(analiseCompleta.dentes).length})</p>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(analiseCompleta.dentes).map(([num, info]) => {
+                    const isHealthy = info.status.toLowerCase().includes("saudável") || info.status.toLowerCase().includes("normal");
+                    const hasIssue = info.status.toLowerCase().includes("cárie") || 
+                                     info.status.toLowerCase().includes("lesão") || 
+                                     info.status.toLowerCase().includes("fratura");
+                    return (
+                      <Badge 
+                        key={num} 
+                        variant="outline" 
+                        className={cn(
+                          "text-xs",
+                          isHealthy && "bg-green-500/10 border-green-500/30 text-green-700",
+                          hasIssue && "bg-red-500/10 border-red-500/30 text-red-700"
+                        )}
+                        title={info.detalhes}
+                      >
+                        {num}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Absences */}
+            {analiseCompleta.ausencias.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Ausências</p>
+                <div className="flex flex-wrap gap-1">
+                  {analiseCompleta.ausencias.map((dente) => (
+                    <Badge key={dente} variant="outline" className="text-xs line-through opacity-60">
+                      {dente}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Implants */}
+            {analiseCompleta.implantes.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Implantes</p>
+                <div className="flex flex-wrap gap-1">
+                  {analiseCompleta.implantes.map((imp, i) => (
+                    <Badge key={i} variant="outline" className="text-xs bg-purple-500/10 border-purple-500/30 text-purple-700">
+                      {imp.dente} {imp.detalhes && `- ${imp.detalhes}`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {resumo && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3">
@@ -771,6 +1290,7 @@ export function VisualAnalysis({
         </Card>
       )}
 
+      {/* Main Image with Markers */}
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div 
@@ -794,6 +1314,11 @@ export function VisualAnalysis({
                   viewBox="0 0 100 100" 
                   preserveAspectRatio="none"
                 >
+                  {/* Render anatomic structures */}
+                  {renderSeioMaxilar()}
+                  {renderCanalMandibular()}
+                  
+                  {/* Render marcacoes */}
                   {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
                     const [x, y, w, h] = m.coords;
                     const isMoving = movingMarcacao === m.id;
@@ -847,6 +1372,7 @@ export function VisualAnalysis({
         </CardContent>
       </Card>
 
+      {/* Findings List */}
       {showList && (
         <Card>
           <CardHeader className="pb-3">
@@ -890,28 +1416,23 @@ export function VisualAnalysis({
                       className="flex-1 cursor-pointer"
                       onClick={() => setSelectedMarcacao(m)}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-foreground">{m.label}</span>
-                        <div className="flex items-center gap-2">
-                          {getSeveridadeBadge(m.severidade)}
-                          {editable && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteMarcacao(m.id);
-                              }}
-                            >
-                              <Trash2 className="w-3 h-3 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{m.label}</span>
+                        {getSeveridadeBadge(m.severidade)}
+                        <Badge variant="outline" className="text-xs">{m.categoria}</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{m.descricao}</p>
                     </div>
+                    {editable && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleDeleteMarcacao(m.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
+                  <p className="text-sm text-muted-foreground pl-9">{m.descricao}</p>
                 </div>
               ))}
             </div>
@@ -920,43 +1441,39 @@ export function VisualAnalysis({
       )}
 
       {observacoes && (
-        <Card className="bg-amber-500/5 border-amber-500/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-amber-600 dark:text-amber-400">Observações</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-sm text-muted-foreground">{observacoes}</p>
+        <Card className="bg-amber-500/10 border-amber-500/30">
+          <CardContent className="py-3">
+            <p className="text-sm font-medium text-amber-700 mb-1">Observações</p>
+            <p className="text-sm text-foreground">{observacoes}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Add Marcacao Dialog */}
+      {/* Add Marker Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Adicionar Marcação</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="label">Nome da Estrutura *</Label>
+          <div className="space-y-4">
+            <div>
+              <Label>Nome</Label>
               <Input 
-                id="label"
-                placeholder="Ex: Lesão Periapical"
-                value={newMarcacao.label || ""}
+                value={newMarcacao.label || ""} 
                 onChange={(e) => setNewMarcacao(prev => ({ ...prev, label: e.target.value }))}
+                placeholder="Ex: Lesão periapical"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="descricao">Descrição *</Label>
+            <div>
+              <Label>Descrição</Label>
               <Input 
-                id="descricao"
-                placeholder="Descrição detalhada do achado"
-                value={newMarcacao.descricao || ""}
+                value={newMarcacao.descricao || ""} 
                 onChange={(e) => setNewMarcacao(prev => ({ ...prev, descricao: e.target.value }))}
+                placeholder="Descrição detalhada do achado"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <Label>Tipo</Label>
                 <Select 
                   value={newMarcacao.tipo} 
@@ -967,12 +1484,12 @@ export function VisualAnalysis({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="rect">Retângulo</SelectItem>
-                    <SelectItem value="ellipse">Elipse</SelectItem>
                     <SelectItem value="circle">Círculo</SelectItem>
+                    <SelectItem value="ellipse">Elipse</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label>Severidade</Label>
                 <Select 
                   value={newMarcacao.severidade} 
@@ -990,7 +1507,7 @@ export function VisualAnalysis({
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
+            <div>
               <Label>Categoria</Label>
               <Select 
                 value={newMarcacao.categoria} 
@@ -1000,9 +1517,9 @@ export function VisualAnalysis({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="anatomia">Estrutura Anatômica</SelectItem>
-                  <SelectItem value="patologia">Achado Patológico</SelectItem>
-                  <SelectItem value="tratamento">Tratamento Prévio</SelectItem>
+                  <SelectItem value="anatomia">Anatomia</SelectItem>
+                  <SelectItem value="patologia">Patologia</SelectItem>
+                  <SelectItem value="tratamento">Tratamento</SelectItem>
                   <SelectItem value="anomalia">Anomalia</SelectItem>
                 </SelectContent>
               </Select>

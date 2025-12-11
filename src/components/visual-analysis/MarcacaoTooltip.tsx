@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 
 interface Marcacao {
   id: string;
-  tipo: "rect" | "circle" | "polygon" | "ellipse";
+  tipo: "rect" | "circle" | "polygon" | "ellipse" | "path";
   coords: number[];
   label: string;
   descricao: string;
