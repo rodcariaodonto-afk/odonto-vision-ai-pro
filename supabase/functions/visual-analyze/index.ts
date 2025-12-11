@@ -86,12 +86,24 @@ interface AnaliseVisualCompleta {
 
 const VISUAL_ANALYSIS_PROMPT = `Você é o módulo de análise visual do OdontoVision AI Pro. Sua função é analisar radiografias odontológicas e retornar um JSON estruturado com TODAS as estruturas identificadas.
 
-## COORDENADAS PERCENTUAIS (0-100)
+## COORDENADAS PERCENTUAIS PRECISAS (0-100)
 - Todas as coordenadas devem ser PERCENTUAIS da imagem
 - X = 0 é a borda ESQUERDA, X = 100 é a borda DIREITA
 - Y = 0 é o TOPO, Y = 100 é a BASE
-- Para pontos: [x%, y%]
-- Para retângulos/elipses: [centro_x%, centro_y%, largura%, altura%]
+
+### REGRAS DE POSICIONAMENTO PRECISAS
+1. **Para DENTES**: A posição [x, y] deve ser o CENTRO EXATO da coroa dentária visível
+2. **Para CÁRIES**: A posição deve ser o CENTRO EXATO da área radiolúcida da cárie
+3. **Para LESÕES PERIAPICAIS**: A posição deve ser o CENTRO da rarefação óssea ao redor do ápice
+4. **Para IMPLANTES**: A posição deve ser o CENTRO do corpo do implante (não a plataforma)
+5. **Para RESTAURAÇÕES**: A posição deve ser o CENTRO da área restaurada
+6. **Para FRATURAS**: A posição deve ser o PONTO MÉDIO da linha de fratura
+7. **Para REABSORÇÕES**: A posição deve ser o CENTRO da área de reabsorção
+
+### PRECISÃO OBRIGATÓRIA
+- NÃO marque bordas ou extremidades - SEMPRE o centro geométrico
+- Para estruturas alongadas (implantes, fraturas), use o ponto médio do eixo principal
+- Para lesões irregulares, use o centroide aproximado da área
 
 ## ESTRUTURAS OBRIGATÓRIAS PARA IDENTIFICAR
 
@@ -236,15 +248,23 @@ serve(async (req) => {
                 type: "text", 
                 text: `ANÁLISE VISUAL COMPLETA - Analise esta radiografia odontológica e retorne o JSON completo.
 
+REGRA CRÍTICA DE POSICIONAMENTO:
+- TODAS as posições devem ser o CENTRO GEOMÉTRICO EXATO da estrutura
+- Para dentes: centro da coroa visível
+- Para cáries: centro da área radiolúcida (escura)
+- Para lesões: centro da rarefação óssea
+- Para implantes: centro do corpo metálico
+- NÃO marque bordas ou extremidades, SEMPRE o ponto central
+
 OBRIGATÓRIO identificar e marcar:
 1. SEIOS MAXILARES - trace o contorno COMPLETO de ambos (8-12 pontos cada)
 2. CANAIS MANDIBULARES - trace o trajeto COMPLETO de ambos (6-10 pontos cada)  
-3. TODOS os dentes visíveis com posição central e status
-4. TODAS as patologias (cáries, lesões, reabsorções)
-5. TODOS os tratamentos existentes (restaurações, implantes, endodontias)
+3. TODOS os dentes visíveis com posição CENTRAL da coroa e status
+4. TODAS as patologias com posição CENTRAL (cáries, lesões, reabsorções)
+5. TODOS os tratamentos existentes com posição CENTRAL (restaurações, implantes, endodontias)
 6. TODAS as ausências dentárias
 
-Use coordenadas PERCENTUAIS (0-100). Retorne JSON válido.` 
+Use coordenadas PERCENTUAIS precisas (0-100). Retorne JSON válido.`
               },
               { 
                 type: "image_url", 
