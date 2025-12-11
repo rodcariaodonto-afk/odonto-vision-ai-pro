@@ -415,7 +415,7 @@ export function VisualAnalysis({
     return elements;
   };
 
-  // Render caries directly from analiseCompleta - círculos pequenos
+  // Render caries directly from analiseCompleta - círculos vermelhos
   const renderCaries = () => {
     if (!analiseCompleta?.caries?.length) return null;
     
@@ -426,17 +426,17 @@ export function VisualAnalysis({
           key={`carie-${i}`}
           cx={carie.posicao[0]}
           cy={carie.posicao[1]}
-          r="0.6"
+          r="1.0"
           fill="#FF0000"
-          fillOpacity="0.8"
+          fillOpacity="0.5"
           stroke="#FF0000"
-          strokeWidth="0.15"
+          strokeWidth="0.25"
         />
       );
     });
   };
 
-  // Render lesoes directly from analiseCompleta - círculos pequenos
+  // Render lesoes directly from analiseCompleta - círculos laranjas
   const renderLesoes = () => {
     if (!analiseCompleta?.lesoes_suspeitas?.length) return null;
     
@@ -447,71 +447,72 @@ export function VisualAnalysis({
           key={`lesao-${i}`}
           cx={lesao.posicao[0]}
           cy={lesao.posicao[1]}
-          r="0.8"
+          r="1.2"
           fill="#FFA500"
-          fillOpacity="0.8"
+          fillOpacity="0.5"
           stroke="#FFA500"
-          strokeWidth="0.15"
+          strokeWidth="0.25"
         />
       );
     });
   };
 
-  // Render implantes directly from analiseCompleta - retângulos pequenos
+  // Render implantes directly from analiseCompleta - ícone roxo distintivo
   const renderImplantes = () => {
     if (!analiseCompleta?.implantes?.length) return null;
     
     return analiseCompleta.implantes.map((implante, i) => {
       if (!implante.posicao) return null;
       return (
-        <rect
-          key={`implante-${i}`}
-          x={implante.posicao[0] - 0.4}
-          y={implante.posicao[1] - 1.2}
-          width="0.8"
-          height="2.4"
-          fill="#00FF00"
-          fillOpacity="0.7"
-          stroke="#00FF00"
-          strokeWidth="0.1"
-          rx="0.1"
-        />
+        <g key={`implante-${i}`}>
+          {/* Retângulo representando implante */}
+          <rect
+            x={implante.posicao[0] - 0.8}
+            y={implante.posicao[1] - 1.5}
+            width="1.6"
+            height="3"
+            fill="#8B5CF6"
+            fillOpacity="0.6"
+            stroke="#8B5CF6"
+            strokeWidth="0.2"
+            rx="0.3"
+          />
+          {/* Linhas de rosca */}
+          <line x1={implante.posicao[0] - 0.6} y1={implante.posicao[1] - 0.8} x2={implante.posicao[0] + 0.6} y2={implante.posicao[1] - 0.8} stroke="#8B5CF6" strokeWidth="0.15" />
+          <line x1={implante.posicao[0] - 0.6} y1={implante.posicao[1]} x2={implante.posicao[0] + 0.6} y2={implante.posicao[1]} stroke="#8B5CF6" strokeWidth="0.15" />
+          <line x1={implante.posicao[0] - 0.6} y1={implante.posicao[1] + 0.8} x2={implante.posicao[0] + 0.6} y2={implante.posicao[1] + 0.8} stroke="#8B5CF6" strokeWidth="0.15" />
+        </g>
       );
     });
   };
 
-  // Render dentes positions from analiseCompleta - círculos e texto pequenos
+  // Render dentes positions from analiseCompleta - apenas círculos SEM texto
   const renderDentes = () => {
     if (!analiseCompleta?.dentes) return null;
     
     return Object.entries(analiseCompleta.dentes).map(([num, dente]) => {
       if (!dente.posicao) return null;
-      const isHealthy = dente.status?.toLowerCase().includes("saudável") || 
-                       dente.status?.toLowerCase().includes("normal") ||
-                       dente.status?.toLowerCase().includes("hígido");
+      const status = dente.status?.toLowerCase() || "";
+      const isHealthy = status.includes("saudável") || status.includes("normal") || status.includes("hígido");
+      const isImplant = status.includes("implante");
+      const isRestored = status.includes("restaur") || status.includes("endo");
+      
+      // Cor baseada no status
+      let color = "#3B82F6"; // azul padrão
+      if (isImplant) color = "#8B5CF6"; // roxo
+      else if (isRestored) color = "#22C55E"; // verde
+      else if (!isHealthy) color = "#F59E0B"; // laranja
+      
       return (
-        <g key={`dente-${num}`}>
-          <circle
-            cx={dente.posicao[0]}
-            cy={dente.posicao[1]}
-            r="0.8"
-            fill="none"
-            stroke={isHealthy ? "#3B82F6" : "#F59E0B"}
-            strokeWidth="0.15"
-            strokeOpacity="0.8"
-          />
-          <text
-            x={dente.posicao[0]}
-            y={dente.posicao[1] - 1.2}
-            textAnchor="middle"
-            fontSize="0.9"
-            fill="white"
-            fontWeight="bold"
-            style={{ textShadow: "0 0 1px black" }}
-          >
-            {num}
-          </text>
-        </g>
+        <circle
+          key={`dente-${num}`}
+          cx={dente.posicao[0]}
+          cy={dente.posicao[1]}
+          r="1.2"
+          fill={`${color}40`}
+          stroke={color}
+          strokeWidth="0.25"
+        />
       );
     });
   };
