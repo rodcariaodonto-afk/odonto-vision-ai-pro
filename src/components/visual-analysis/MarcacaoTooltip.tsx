@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 interface Marcacao {
   id: string;
@@ -15,6 +17,8 @@ interface MarcacaoTooltipProps {
   marcacao: Marcacao;
   position: { x: number; y: number };
   onClose: () => void;
+  editable?: boolean;
+  onDelete?: () => void;
 }
 
 const severidadeConfig = {
@@ -51,7 +55,7 @@ const categoriaLabels: Record<string, string> = {
   anomalia: "Anomalia",
 };
 
-export function MarcacaoTooltip({ marcacao, position, onClose }: MarcacaoTooltipProps) {
+export function MarcacaoTooltip({ marcacao, position, onClose, editable, onDelete }: MarcacaoTooltipProps) {
   const config = severidadeConfig[marcacao.severidade] || severidadeConfig.info;
 
   return (
@@ -74,14 +78,25 @@ export function MarcacaoTooltip({ marcacao, position, onClose }: MarcacaoTooltip
           />
           <h4 className="font-semibold text-foreground text-sm">{marcacao.label}</h4>
         </div>
-        <button 
-          onClick={onClose} 
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          {editable && onDelete && (
+            <button 
+              onClick={onDelete} 
+              className="text-destructive hover:text-destructive/80 transition-colors p-1"
+              title="Remover marcação"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          <button 
+            onClick={onClose} 
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div className="flex gap-2 mb-2">
         <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", config.bgClass, config.textClass)}>

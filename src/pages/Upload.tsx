@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Copy, Eye } from "lucide-react";
-import { VisualAnalysis } from "@/components/visual-analysis";
+import { VisualAnalysis, Marcacao } from "@/components/visual-analysis";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,17 +35,6 @@ interface PatientData {
   nome: string;
   dataNascimento: string;
   dataLaudo: string;
-}
-
-interface Marcacao {
-  id: string;
-  tipo: "rect" | "circle" | "polygon" | "ellipse";
-  coords: number[];
-  label: string;
-  descricao: string;
-  cor: string;
-  severidade: "baixa" | "media" | "alta" | "info";
-  categoria: string;
 }
 
 interface VisualAnalysisResult {
@@ -598,6 +587,52 @@ export default function Upload() {
       yPosition = addWrappedText(result.observacoes, yPosition);
     }
 
+    // 10) Análise Visual (if available)
+    if (visualAnalysisResult && visualAnalysisResult.marcacoes.length > 0) {
+      doc.addPage();
+      yPosition = 20;
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text("10) Análise Visual - Estruturas Identificadas", margin, yPosition);
+      yPosition += 10;
+      
+      if (visualAnalysisResult.resumo) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        yPosition = addWrappedText(visualAnalysisResult.resumo, yPosition, 10);
+        yPosition += 5;
+      }
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Marcações Identificadas:", margin, yPosition);
+      yPosition += 7;
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      
+      visualAnalysisResult.marcacoes.forEach((m, index) => {
+        checkPageBreak(20);
+        const severidadeLabel = m.severidade === "alta" ? "⚠️ ALTA" : 
+                                m.severidade === "media" ? "⚡ MÉDIA" : 
+                                m.severidade === "baixa" ? "✓ BAIXA" : "ℹ️ INFO";
+        doc.text(`${index + 1}. ${m.label} [${severidadeLabel}]`, margin, yPosition);
+        yPosition += 5;
+        yPosition = addWrappedText(`   ${m.descricao}`, yPosition, 9);
+        yPosition += 2;
+      });
+      
+      if (visualAnalysisResult.observacoes) {
+        checkPageBreak(20);
+        yPosition += 5;
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        yPosition = addWrappedText(`Observações: ${visualAnalysisResult.observacoes}`, yPosition, 9);
+      }
+    }
+
     // Footer disclaimer
     checkPageBreak(30);
     yPosition += 5;
@@ -607,6 +642,7 @@ export default function Upload() {
     
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
     doc.text("⚠️ Aviso Legal e Ético", margin, yPosition);
     yPosition += 6;
     doc.setFont("helvetica", "normal");
@@ -722,6 +758,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         status: "completed",
         analysis: result as unknown as Json,
         raw_content: rawContent,
+        visual_analysis: visualAnalysisResult as unknown as Json,
       }]).select();
 
       if (error) {
@@ -1244,6 +1281,13 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                   marcacoes={visualAnalysisResult.marcacoes}
                   resumo={visualAnalysisResult.resumo}
                   observacoes={visualAnalysisResult.observacoes}
+                  editable={true}
+                  onMarcacoesChange={(newMarcacoes) => {
+                    setVisualAnalysisResult(prev => prev ? {
+                      ...prev,
+                      marcacoes: newMarcacoes
+                    } : null);
+                  }}
                 />
               )}
             </div>

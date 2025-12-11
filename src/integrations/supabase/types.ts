@@ -27,6 +27,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          visual_analysis: Json | null
         }
         Insert: {
           analysis?: Json | null
@@ -40,6 +41,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          visual_analysis?: Json | null
         }
         Update: {
           analysis?: Json | null
@@ -53,6 +55,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          visual_analysis?: Json | null
         }
         Relationships: []
       }

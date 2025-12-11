@@ -4,9 +4,14 @@ import { MarcacaoTooltip } from "./MarcacaoTooltip";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move } from "lucide-react";
+import { toast } from "sonner";
 
-interface Marcacao {
+export interface Marcacao {
   id: string;
   tipo: "rect" | "circle" | "polygon" | "ellipse";
   coords: number[];
@@ -22,21 +27,53 @@ interface VisualAnalysisProps {
   marcacoes: Marcacao[];
   resumo?: string;
   observacoes?: string;
+  editable?: boolean;
+  onMarcacoesChange?: (marcacoes: Marcacao[]) => void;
 }
 
 const severidadeOrder = ["alta", "media", "baixa", "info"];
 
-export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: VisualAnalysisProps) {
+const severidadeCores: Record<string, string> = {
+  info: "#3B82F6",
+  baixa: "#22C55E",
+  media: "#F59E0B",
+  alta: "#EF4444",
+};
+
+export function VisualAnalysis({ 
+  imageUrl, 
+  marcacoes, 
+  resumo, 
+  observacoes, 
+  editable = false,
+  onMarcacoesChange 
+}: VisualAnalysisProps) {
   const [selectedMarcacao, setSelectedMarcacao] = useState<Marcacao | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showMarcacoes, setShowMarcacoes] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [showList, setShowList] = useState(false);
+  const [editMode, setEditMode] = useState<"none" | "add" | "move">("none");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newMarcacao, setNewMarcacao] = useState<Partial<Marcacao>>({
+    tipo: "rect",
+    severidade: "info",
+    categoria: "anatomia",
+    coords: [10, 10, 10, 10],
+  });
+  const [movingMarcacao, setMovingMarcacao] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const handleMarcacaoClick = (marcacao: Marcacao, event: React.MouseEvent) => {
     event.stopPropagation();
+    
+    if (editMode === "move" && editable) {
+      setMovingMarcacao(marcacao.id);
+      toast.info("Clique na nova posição para mover a marcação");
+      return;
+    }
+    
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
       const x = ((event.clientX - rect.left) / rect.width) * 100;
@@ -46,10 +83,82 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
     setSelectedMarcacao(marcacao);
   };
 
-  const handleBackgroundClick = () => setSelectedMarcacao(null);
+  const handleBackgroundClick = (event: React.MouseEvent) => {
+    if (editMode === "add" && editable) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        setNewMarcacao(prev => ({ ...prev, coords: [x, y, 10, 10] }));
+        setIsAddDialogOpen(true);
+      }
+      return;
+    }
+    
+    if (editMode === "move" && movingMarcacao && editable) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        
+        const updatedMarcacoes = marcacoes.map(m => {
+          if (m.id === movingMarcacao) {
+            const newCoords = [...m.coords];
+            newCoords[0] = x;
+            newCoords[1] = y;
+            return { ...m, coords: newCoords };
+          }
+          return m;
+        });
+        
+        onMarcacoesChange?.(updatedMarcacoes);
+        setMovingMarcacao(null);
+        toast.success("Marcação movida com sucesso!");
+      }
+      return;
+    }
+    
+    setSelectedMarcacao(null);
+  };
+
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
   const handleResetZoom = () => setZoom(1);
+
+  const handleAddMarcacao = () => {
+    if (!newMarcacao.label || !newMarcacao.descricao) {
+      toast.error("Preencha o nome e a descrição");
+      return;
+    }
+
+    const marcacao: Marcacao = {
+      id: `manual_${Date.now()}`,
+      tipo: newMarcacao.tipo as Marcacao["tipo"],
+      coords: newMarcacao.coords || [10, 10, 10, 10],
+      label: newMarcacao.label,
+      descricao: newMarcacao.descricao,
+      cor: severidadeCores[newMarcacao.severidade || "info"],
+      severidade: newMarcacao.severidade as Marcacao["severidade"],
+      categoria: newMarcacao.categoria || "anatomia",
+    };
+
+    onMarcacoesChange?.([...marcacoes, marcacao]);
+    setIsAddDialogOpen(false);
+    setNewMarcacao({
+      tipo: "rect",
+      severidade: "info",
+      categoria: "anatomia",
+      coords: [10, 10, 10, 10],
+    });
+    setEditMode("none");
+    toast.success("Marcação adicionada!");
+  };
+
+  const handleDeleteMarcacao = (id: string) => {
+    onMarcacoesChange?.(marcacoes.filter(m => m.id !== id));
+    setSelectedMarcacao(null);
+    toast.success("Marcação removida!");
+  };
 
   const handleDownload = async () => {
     if (!containerRef.current) return;
@@ -128,6 +237,33 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
         >
           <List className="w-4 h-4 mr-1" /> Lista ({marcacoes.length})
         </Button>
+        
+        {editable && (
+          <>
+            <Button 
+              variant={editMode === "add" ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => {
+                setEditMode(editMode === "add" ? "none" : "add");
+                if (editMode !== "add") toast.info("Clique na imagem para adicionar uma marcação");
+              }}
+            >
+              <Plus className="w-4 h-4 mr-1" /> Adicionar
+            </Button>
+            <Button 
+              variant={editMode === "move" ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => {
+                setEditMode(editMode === "move" ? "none" : "move");
+                setMovingMarcacao(null);
+                if (editMode !== "move") toast.info("Selecione uma marcação para mover");
+              }}
+            >
+              <Move className="w-4 h-4 mr-1" /> Mover
+            </Button>
+          </>
+        )}
+        
         <div className="flex items-center gap-1 ml-auto">
           <Button variant="outline" size="icon" onClick={handleZoomOut}>
             <ZoomOut className="w-4 h-4" />
@@ -145,6 +281,14 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
         </div>
       </div>
 
+      {editMode !== "none" && (
+        <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-sm text-foreground">
+          {editMode === "add" && "Modo Adicionar: Clique na imagem para posicionar uma nova marcação"}
+          {editMode === "move" && !movingMarcacao && "Modo Mover: Clique em uma marcação para selecioná-la"}
+          {editMode === "move" && movingMarcacao && "Clique na nova posição para mover a marcação selecionada"}
+        </div>
+      )}
+
       {resumo && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3">
@@ -157,7 +301,10 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
         <CardContent className="p-0">
           <div 
             ref={containerRef} 
-            className="relative overflow-auto bg-black/5" 
+            className={cn(
+              "relative overflow-auto bg-black/5",
+              editMode !== "none" && "cursor-crosshair"
+            )} 
             style={{ maxHeight: "70vh" }} 
             onClick={handleBackgroundClick}
           >
@@ -175,11 +322,15 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
                 >
                   {marcacoes.map((m) => {
                     const [x, y, w, h] = m.coords;
+                    const isMoving = movingMarcacao === m.id;
                     if (m.tipo === "rect") return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
                         <rect 
                           x={x} y={y} width={w} height={h} 
-                          fill={`${m.cor}20`} stroke={m.cor} strokeWidth={0.3} 
+                          fill={`${m.cor}20`} 
+                          stroke={isMoving ? "#fff" : m.cor} 
+                          strokeWidth={isMoving ? 0.5 : 0.3}
+                          strokeDasharray={isMoving ? "1,1" : "none"}
                           className="transition-all duration-200 hover:fill-opacity-40" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
@@ -192,7 +343,10 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
                         <ellipse 
                           cx={x} cy={y} rx={w} ry={h} 
-                          fill={`${m.cor}20`} stroke={m.cor} strokeWidth={0.3} 
+                          fill={`${m.cor}20`} 
+                          stroke={isMoving ? "#fff" : m.cor} 
+                          strokeWidth={isMoving ? 0.5 : 0.3}
+                          strokeDasharray={isMoving ? "1,1" : "none"}
                           className="transition-all duration-200 hover:fill-opacity-40" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
@@ -205,11 +359,13 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
                   })}
                 </svg>
               )}
-              {selectedMarcacao && (
+              {selectedMarcacao && editMode === "none" && (
                 <MarcacaoTooltip 
                   marcacao={selectedMarcacao} 
                   position={tooltipPosition} 
-                  onClose={() => setSelectedMarcacao(null)} 
+                  onClose={() => setSelectedMarcacao(null)}
+                  editable={editable}
+                  onDelete={() => handleDeleteMarcacao(selectedMarcacao.id)}
                 />
               )}
             </div>
@@ -239,7 +395,22 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-medium text-foreground">{m.label}</span>
-                    {getSeveridadeBadge(m.severidade)}
+                    <div className="flex items-center gap-2">
+                      {getSeveridadeBadge(m.severidade)}
+                      {editable && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMarcacao(m.id);
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground line-clamp-2">{m.descricao}</p>
                 </div>
@@ -259,6 +430,91 @@ export function VisualAnalysis({ imageUrl, marcacoes, resumo, observacoes }: Vis
           </CardContent>
         </Card>
       )}
+
+      {/* Add Marcacao Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Marcação</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="label">Nome da Estrutura *</Label>
+              <Input 
+                id="label"
+                placeholder="Ex: Lesão Periapical"
+                value={newMarcacao.label || ""}
+                onChange={(e) => setNewMarcacao(prev => ({ ...prev, label: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="descricao">Descrição *</Label>
+              <Input 
+                id="descricao"
+                placeholder="Descrição detalhada do achado"
+                value={newMarcacao.descricao || ""}
+                onChange={(e) => setNewMarcacao(prev => ({ ...prev, descricao: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select 
+                  value={newMarcacao.tipo} 
+                  onValueChange={(v) => setNewMarcacao(prev => ({ ...prev, tipo: v as Marcacao["tipo"] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rect">Retângulo</SelectItem>
+                    <SelectItem value="ellipse">Elipse</SelectItem>
+                    <SelectItem value="circle">Círculo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Severidade</Label>
+                <Select 
+                  value={newMarcacao.severidade} 
+                  onValueChange={(v) => setNewMarcacao(prev => ({ ...prev, severidade: v as Marcacao["severidade"] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="info">Info (Azul)</SelectItem>
+                    <SelectItem value="baixa">Baixa (Verde)</SelectItem>
+                    <SelectItem value="media">Média (Amarelo)</SelectItem>
+                    <SelectItem value="alta">Alta (Vermelho)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select 
+                value={newMarcacao.categoria} 
+                onValueChange={(v) => setNewMarcacao(prev => ({ ...prev, categoria: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="anatomia">Estrutura Anatômica</SelectItem>
+                  <SelectItem value="patologia">Achado Patológico</SelectItem>
+                  <SelectItem value="tratamento">Tratamento Prévio</SelectItem>
+                  <SelectItem value="anomalia">Anomalia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddMarcacao}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
