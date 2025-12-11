@@ -104,16 +104,37 @@ const clearDraft = (): void => {
 };
 
 // Save analysis result to sessionStorage
-const saveAnalysisResult = (result: AnalysisResult, rawContent: string | null, patientData: PatientData, examCategory: ExamCategory): void => {
+const saveAnalysisResult = (
+  result: AnalysisResult, 
+  rawContent: string | null, 
+  patientData: PatientData, 
+  examCategory: ExamCategory,
+  visualAnalysis?: VisualAnalysisResult | null,
+  previewUrls?: string[]
+): void => {
   try {
-    sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({ result, rawContent, patientData, examCategory }));
+    sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({ 
+      result, 
+      rawContent, 
+      patientData, 
+      examCategory,
+      visualAnalysis: visualAnalysis || null,
+      previewUrls: previewUrls || []
+    }));
   } catch (e) {
     console.error("Erro ao salvar resultado:", e);
   }
 };
 
 // Load analysis result from sessionStorage
-const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | null; patientData: PatientData; examCategory: ExamCategory | null } | null => {
+const loadAnalysisResult = (): { 
+  result: AnalysisResult; 
+  rawContent: string | null; 
+  patientData: PatientData; 
+  examCategory: ExamCategory | null;
+  visualAnalysis: VisualAnalysisResult | null;
+  previewUrls: string[];
+} | null => {
   // Safety check for SSR
   if (typeof window === 'undefined') return null;
   
@@ -127,7 +148,9 @@ const loadAnalysisResult = (): { result: AnalysisResult; rawContent: string | nu
           result: parsed.result,
           rawContent: parsed.rawContent || null,
           patientData: parsed.patientData || { nome: "", dataNascimento: "", dataLaudo: "" },
-          examCategory: parsed.examCategory || null
+          examCategory: parsed.examCategory || null,
+          visualAnalysis: parsed.visualAnalysis || null,
+          previewUrls: parsed.previewUrls || []
         };
       }
     }
@@ -193,8 +216,20 @@ export default function Upload() {
         setResult(savedResult.result);
         setRawContent(savedResult.rawContent);
         setReportGenerated(true);
-        toast.info("Análise anterior restaurada");
       }
+      
+      // Load visual analysis
+      if (savedResult.visualAnalysis) {
+        setVisualAnalysisResult(savedResult.visualAnalysis);
+        setShowVisualAnalysis(true);
+      }
+      
+      // Load preview URLs
+      if (savedResult.previewUrls && savedResult.previewUrls.length > 0) {
+        setPreviewUrls(savedResult.previewUrls);
+      }
+      
+      toast.info("Análise anterior restaurada");
     } else {
       // Try to load draft if no saved result
       const draft = loadDraftSafe();
@@ -208,6 +243,20 @@ export default function Upload() {
   useEffect(() => {
     saveDraft(patientData);
   }, [patientData]);
+
+  // Auto-save visual analysis and preview URLs when they change
+  useEffect(() => {
+    if (result && examCategory) {
+      saveAnalysisResult(
+        result, 
+        rawContent, 
+        patientData, 
+        examCategory,
+        visualAnalysisResult,
+        previewUrls
+      );
+    }
+  }, [visualAnalysisResult, previewUrls]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -375,7 +424,7 @@ export default function Upload() {
         nome: formattedName,
         dataNascimento: patientData.dataNascimento,
         dataLaudo: patientData.dataLaudo,
-      }, examCategory!);
+      }, examCategory!, null, previewUrls);
       toast.success("Análise concluída com sucesso!");
     } catch (error) {
       console.error("Erro na análise:", error);
