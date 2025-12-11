@@ -690,17 +690,18 @@ export function VisualAnalysis({
                   justify-content: center;
                   background: #111;
                   border-radius: 8px;
-                  overflow: hidden;
+                  overflow: auto;
                 }
                 .image-wrapper {
                   position: relative;
-                  max-width: 100%;
-                  max-height: calc(100vh - 200px);
+                  display: inline-block;
+                  transform-origin: center center;
+                  transition: transform 0.2s ease;
                 }
                 .image-wrapper img {
-                  max-width: 100%;
-                  max-height: calc(100vh - 200px);
                   display: block;
+                  max-width: none;
+                  height: auto;
                 }
                 .svg-overlay {
                   position: absolute;
@@ -709,6 +710,59 @@ export function VisualAnalysis({
                   width: 100%;
                   height: 100%;
                   pointer-events: none;
+                }
+                .zoom-controls {
+                  position: absolute;
+                  bottom: 16px;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  background: rgba(0, 0, 0, 0.8);
+                  padding: 8px 16px;
+                  border-radius: 24px;
+                  z-index: 10;
+                }
+                .zoom-btn {
+                  width: 32px;
+                  height: 32px;
+                  border: none;
+                  border-radius: 50%;
+                  background: #3F8CFF;
+                  color: white;
+                  font-size: 18px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  transition: background 0.2s;
+                }
+                .zoom-btn:hover {
+                  background: #2d7ae8;
+                }
+                .zoom-btn:disabled {
+                  background: #555;
+                  cursor: not-allowed;
+                }
+                .zoom-level {
+                  font-size: 14px;
+                  min-width: 50px;
+                  text-align: center;
+                  color: white;
+                }
+                .zoom-reset {
+                  padding: 6px 12px;
+                  border: none;
+                  border-radius: 16px;
+                  background: #444;
+                  color: white;
+                  font-size: 12px;
+                  cursor: pointer;
+                  transition: background 0.2s;
+                }
+                .zoom-reset:hover {
+                  background: #555;
                 }
                 .controls-panel {
                   width: 380px;
@@ -952,10 +1006,16 @@ export function VisualAnalysis({
               
               <div class="main-content">
                 <div class="image-section">
-                  <div class="image-container">
+                  <div class="image-container" id="imageContainer">
                     <div class="image-wrapper" id="imageWrapper">
                       <img id="mainImage" src="${imageUrl}" alt="Análise Visual" />
-                      <svg id="svgOverlay" class="svg-overlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+                      <svg id="svgOverlay" class="svg-overlay"></svg>
+                    </div>
+                    <div class="zoom-controls">
+                      <button class="zoom-btn" id="zoomOut" onclick="zoomOut()">−</button>
+                      <span class="zoom-level" id="zoomLevel">100%</span>
+                      <button class="zoom-btn" id="zoomIn" onclick="zoomIn()">+</button>
+                      <button class="zoom-reset" onclick="resetZoom()">Reset</button>
                     </div>
                   </div>
                 </div>
@@ -996,6 +1056,41 @@ export function VisualAnalysis({
                 let visibleMarcacoes = new Set(${visibleIds});
                 const analise = ${analiseData};
                 const severidadeOrder = ["alta", "media", "baixa", "info"];
+                let currentZoom = 1;
+                const minZoom = 0.5;
+                const maxZoom = 4;
+                const zoomStep = 0.25;
+                
+                function updateZoomUI() {
+                  document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
+                  document.getElementById('zoomIn').disabled = currentZoom >= maxZoom;
+                  document.getElementById('zoomOut').disabled = currentZoom <= minZoom;
+                }
+                
+                function applyZoom() {
+                  const wrapper = document.getElementById('imageWrapper');
+                  wrapper.style.transform = 'scale(' + currentZoom + ')';
+                  updateZoomUI();
+                }
+                
+                function zoomIn() {
+                  if (currentZoom < maxZoom) {
+                    currentZoom = Math.min(maxZoom, currentZoom + zoomStep);
+                    applyZoom();
+                  }
+                }
+                
+                function zoomOut() {
+                  if (currentZoom > minZoom) {
+                    currentZoom = Math.max(minZoom, currentZoom - zoomStep);
+                    applyZoom();
+                  }
+                }
+                
+                function resetZoom() {
+                  currentZoom = 1;
+                  applyZoom();
+                }
                 
                 function sortMarcacoes(arr) {
                   return [...arr].sort((a, b) => 
@@ -1084,6 +1179,18 @@ export function VisualAnalysis({
                 
                 function renderSvgMarkers() {
                   const svg = document.getElementById('svgOverlay');
+                  const img = document.getElementById('mainImage');
+                  
+                  // Wait for image to load to get natural dimensions
+                  if (!img.naturalWidth) {
+                    img.onload = renderSvgMarkers;
+                    return;
+                  }
+                  
+                  // Set SVG viewBox based on image dimensions for proper coordinate mapping
+                  svg.setAttribute('viewBox', '0 0 100 100');
+                  svg.setAttribute('preserveAspectRatio', 'none');
+                  
                   let svgContent = '';
                   
                   // Render anatomic structures if available
@@ -1104,24 +1211,17 @@ export function VisualAnalysis({
                     svgContent += \`<path d="\${d}" fill="none" stroke="#F59E0B" stroke-width="0.4" stroke-linecap="round" />\`;
                   }
                   
-                  // Render marcacoes
+                  // Render marcacoes - use percentage coordinates directly
                   svgContent += marcacoes
                     .filter(m => visibleMarcacoes.has(m.id))
                     .map(m => {
                       const [x, y, w, h] = m.coords;
-                      if (m.tipo === 'rect') {
-                        return \`
-                          <rect x="\${x}" y="\${y}" width="\${w}" height="\${h}" 
-                                fill="\${m.cor}33" stroke="\${m.cor}" stroke-width="0.3" />
-                          <text x="\${x}" y="\${y - 1}" fill="\${m.cor}" font-size="2" font-weight="bold">\${m.label}</text>
-                        \`;
-                      } else {
-                        return \`
-                          <ellipse cx="\${x}" cy="\${y}" rx="\${w}" ry="\${h}" 
-                                   fill="\${m.cor}33" stroke="\${m.cor}" stroke-width="0.3" />
-                          <text x="\${x - w}" y="\${y - h - 1}" fill="\${m.cor}" font-size="2" font-weight="bold">\${m.label}</text>
-                        \`;
-                      }
+                      // Render small circle at exact position
+                      return \`
+                        <circle cx="\${x}" cy="\${y}" r="0.8" 
+                                fill="\${m.cor}66" stroke="\${m.cor}" stroke-width="0.15" />
+                        <text x="\${x + 1.2}" y="\${y + 0.3}" fill="\${m.cor}" font-size="1.8" font-weight="bold">\${m.label}</text>
+                      \`;
                     }).join('');
                   
                   svg.innerHTML = svgContent;
