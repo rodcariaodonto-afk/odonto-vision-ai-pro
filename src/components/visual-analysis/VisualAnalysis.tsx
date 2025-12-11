@@ -412,7 +412,7 @@ export function VisualAnalysis({
     return elements;
   };
 
-  // Render caries directly from analiseCompleta
+  // Render caries directly from analiseCompleta - círculos pequenos
   const renderCaries = () => {
     if (!analiseCompleta?.caries?.length) return null;
     
@@ -423,17 +423,17 @@ export function VisualAnalysis({
           key={`carie-${i}`}
           cx={carie.posicao[0]}
           cy={carie.posicao[1]}
-          r="1.5"
+          r="0.6"
           fill="#FF0000"
-          fillOpacity="0.7"
+          fillOpacity="0.8"
           stroke="#FF0000"
-          strokeWidth="0.3"
+          strokeWidth="0.15"
         />
       );
     });
   };
 
-  // Render lesoes directly from analiseCompleta
+  // Render lesoes directly from analiseCompleta - círculos pequenos
   const renderLesoes = () => {
     if (!analiseCompleta?.lesoes_suspeitas?.length) return null;
     
@@ -444,17 +444,17 @@ export function VisualAnalysis({
           key={`lesao-${i}`}
           cx={lesao.posicao[0]}
           cy={lesao.posicao[1]}
-          r="2"
+          r="0.8"
           fill="#FFA500"
-          fillOpacity="0.7"
+          fillOpacity="0.8"
           stroke="#FFA500"
-          strokeWidth="0.3"
+          strokeWidth="0.15"
         />
       );
     });
   };
 
-  // Render implantes directly from analiseCompleta
+  // Render implantes directly from analiseCompleta - retângulos pequenos
   const renderImplantes = () => {
     if (!analiseCompleta?.implantes?.length) return null;
     
@@ -463,21 +463,21 @@ export function VisualAnalysis({
       return (
         <rect
           key={`implante-${i}`}
-          x={implante.posicao[0] - 1}
-          y={implante.posicao[1] - 3}
-          width="2"
-          height="6"
+          x={implante.posicao[0] - 0.4}
+          y={implante.posicao[1] - 1.2}
+          width="0.8"
+          height="2.4"
           fill="#00FF00"
-          fillOpacity="0.6"
+          fillOpacity="0.7"
           stroke="#00FF00"
-          strokeWidth="0.3"
-          rx="0.3"
+          strokeWidth="0.1"
+          rx="0.1"
         />
       );
     });
   };
 
-  // Render dentes positions from analiseCompleta
+  // Render dentes positions from analiseCompleta - círculos e texto pequenos
   const renderDentes = () => {
     if (!analiseCompleta?.dentes) return null;
     
@@ -491,20 +491,20 @@ export function VisualAnalysis({
           <circle
             cx={dente.posicao[0]}
             cy={dente.posicao[1]}
-            r="1.8"
-            fill={isHealthy ? "#3B82F6" : "#F59E0B"}
-            fillOpacity="0.5"
+            r="0.8"
+            fill="none"
             stroke={isHealthy ? "#3B82F6" : "#F59E0B"}
-            strokeWidth="0.25"
+            strokeWidth="0.15"
+            strokeOpacity="0.8"
           />
           <text
             x={dente.posicao[0]}
-            y={dente.posicao[1] - 2.5}
+            y={dente.posicao[1] - 1.2}
             textAnchor="middle"
-            fontSize="1.8"
+            fontSize="0.9"
             fill="white"
             fontWeight="bold"
-            style={{ textShadow: "0 0 2px black" }}
+            style={{ textShadow: "0 0 1px black" }}
           >
             {num}
           </text>
@@ -513,7 +513,7 @@ export function VisualAnalysis({
     });
   };
 
-  // Render reabsorcoes
+  // Render reabsorcoes - círculos pequenos
   const renderReabsorcoes = () => {
     if (!analiseCompleta?.reabsorcoes?.length) return null;
     
@@ -524,17 +524,17 @@ export function VisualAnalysis({
           key={`reab-${i}`}
           cx={reab.posicao[0]}
           cy={reab.posicao[1]}
-          r="1.5"
+          r="0.6"
           fill="#EF4444"
-          fillOpacity="0.7"
+          fillOpacity="0.8"
           stroke="#EF4444"
-          strokeWidth="0.3"
+          strokeWidth="0.12"
         />
       );
     });
   };
 
-  // Render fraturas
+  // Render fraturas - linhas finas
   const renderFraturas = () => {
     if (!analiseCompleta?.fraturas?.length) return null;
     
@@ -543,12 +543,12 @@ export function VisualAnalysis({
       return (
         <line
           key={`fratura-${i}`}
-          x1={fratura.posicao[0] - 1}
-          y1={fratura.posicao[1] - 2}
-          x2={fratura.posicao[0] + 1}
-          y2={fratura.posicao[1] + 2}
+          x1={fratura.posicao[0] - 0.4}
+          y1={fratura.posicao[1] - 0.8}
+          x2={fratura.posicao[0] + 0.4}
+          y2={fratura.posicao[1] + 0.8}
           stroke="#EC4899"
-          strokeWidth="0.5"
+          strokeWidth="0.2"
           strokeLinecap="round"
         />
       );
@@ -1618,35 +1618,35 @@ export function VisualAnalysis({
                       <circle
                         cx={highlightedPosition.x}
                         cy={highlightedPosition.y}
-                        r={4}
+                        r={1.5}
                         fill="none"
                         stroke="#FBBF24"
-                        strokeWidth={0.5}
+                        strokeWidth={0.15}
                         className="animate-ping"
                       />
                       <circle
                         cx={highlightedPosition.x}
                         cy={highlightedPosition.y}
-                        r={2}
+                        r={0.8}
                         fill="none"
                         stroke="#FBBF24"
-                        strokeWidth={0.3}
+                        strokeWidth={0.1}
                       />
                       <line
-                        x1={highlightedPosition.x - 3}
+                        x1={highlightedPosition.x - 1.2}
                         y1={highlightedPosition.y}
-                        x2={highlightedPosition.x + 3}
+                        x2={highlightedPosition.x + 1.2}
                         y2={highlightedPosition.y}
                         stroke="#FBBF24"
-                        strokeWidth={0.2}
+                        strokeWidth={0.08}
                       />
                       <line
                         x1={highlightedPosition.x}
-                        y1={highlightedPosition.y - 3}
+                        y1={highlightedPosition.y - 1.2}
                         x2={highlightedPosition.x}
-                        y2={highlightedPosition.y + 3}
+                        y2={highlightedPosition.y + 1.2}
                         stroke="#FBBF24"
-                        strokeWidth={0.2}
+                        strokeWidth={0.08}
                       />
                     </g>
                   )}
@@ -1682,11 +1682,11 @@ export function VisualAnalysis({
                     if (m.tipo === "rect") return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
                         <rect 
-                          x={x} y={y} width={w} height={h} 
+                          x={x} y={y} width={Math.min(w, 2)} height={Math.min(h, 3)} 
                           fill={`${m.cor}25`} 
                           stroke={isMoving ? "#fff" : m.cor} 
-                          strokeWidth={isMoving ? 0.4 : 0.25}
-                          strokeDasharray={isMoving ? "1,1" : "none"}
+                          strokeWidth={isMoving ? 0.15 : 0.1}
+                          strokeDasharray={isMoving ? "0.3,0.3" : "none"}
                           className="transition-all duration-200 hover:fill-opacity-50" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
@@ -1698,27 +1698,27 @@ export function VisualAnalysis({
                             x2={labelCenter.cx}
                             y2={labelY}
                             stroke={m.cor}
-                            strokeWidth={0.1}
+                            strokeWidth={0.05}
                             strokeOpacity={0.5}
-                            strokeDasharray="0.3,0.3"
+                            strokeDasharray="0.2,0.2"
                             className="pointer-events-none"
                           />
                         )}
                         {/* Label background */}
                         <rect
                           x={labelX}
-                          y={labelY - 1.7}
-                          width={m.label.length * 0.9 + 1}
-                          height={2}
-                          fill="rgba(0,0,0,0.8)"
-                          rx={0.3}
+                          y={labelY - 1}
+                          width={m.label.length * 0.4 + 0.5}
+                          height={1.1}
+                          fill="rgba(0,0,0,0.75)"
+                          rx={0.15}
                           className="pointer-events-none"
                         />
                         <text 
-                          x={labelX + 0.5} 
-                          y={labelY} 
+                          x={labelX + 0.25} 
+                          y={labelY - 0.15} 
                           fill={m.cor} 
-                          fontSize={1.4} 
+                          fontSize={0.7} 
                           fontWeight="bold" 
                           className="pointer-events-none select-none"
                         >
@@ -1730,11 +1730,11 @@ export function VisualAnalysis({
                     if (m.tipo === "circle" || m.tipo === "ellipse") return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
                         <ellipse 
-                          cx={x} cy={y} rx={w} ry={h} 
+                          cx={x} cy={y} rx={Math.min(w, 1)} ry={Math.min(h, 1)} 
                           fill={`${m.cor}25`} 
                           stroke={isMoving ? "#fff" : m.cor} 
-                          strokeWidth={isMoving ? 0.4 : 0.25}
-                          strokeDasharray={isMoving ? "1,1" : "none"}
+                          strokeWidth={isMoving ? 0.15 : 0.1}
+                          strokeDasharray={isMoving ? "0.3,0.3" : "none"}
                           className="transition-all duration-200 hover:fill-opacity-50" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
@@ -1746,27 +1746,27 @@ export function VisualAnalysis({
                             x2={labelCenter.cx}
                             y2={labelY}
                             stroke={m.cor}
-                            strokeWidth={0.1}
+                            strokeWidth={0.05}
                             strokeOpacity={0.5}
-                            strokeDasharray="0.3,0.3"
+                            strokeDasharray="0.2,0.2"
                             className="pointer-events-none"
                           />
                         )}
                         {/* Label background for ellipse */}
                         <rect
                           x={labelX}
-                          y={labelY - 1.7}
-                          width={m.label.length * 0.9 + 1}
-                          height={2}
-                          fill="rgba(0,0,0,0.8)"
-                          rx={0.3}
+                          y={labelY - 1}
+                          width={m.label.length * 0.4 + 0.5}
+                          height={1.1}
+                          fill="rgba(0,0,0,0.75)"
+                          rx={0.15}
                           className="pointer-events-none"
                         />
                         <text 
-                          x={labelX + 0.5} 
-                          y={labelY} 
+                          x={labelX + 0.25} 
+                          y={labelY - 0.15} 
                           fill={m.cor} 
-                          fontSize={1.4} 
+                          fontSize={0.7} 
                           fontWeight="bold" 
                           className="pointer-events-none select-none"
                         >
