@@ -278,19 +278,29 @@ O laudo deve seguir EXATAMENTE estas 9 seções:
 
 **4) ${labels.findingsLabel}**
 (Descreva DETALHADAMENTE tudo o que é visível ou apresentado nos resultados, aplicando conhecimento de TODAS as especialidades relevantes.)
+Incluir obrigatoriamente:
+• Estrutura óssea geral
+• Estado periodontal
+• Cáries visíveis
+• Lesões radiolúcidas/radiopacas
+• Reabsorções
+• Implantes
+• Ausências dentárias
+• Raízes, ápices, dilacerações
+• Anomalias visíveis
 
 **5) Interpretação Clínica / Radiológica**
-(Explique o significado dos achados usando conhecimento multidisciplinar. Correlacione com relevância odontológica.)
+(Explique o significado dos achados de forma TÉCNICA mas compreensível. Correlacione com relevância odontológica usando conhecimento multidisciplinar.)
 
 **6) Diagnósticos Diferenciais**
-(Lista completa de possibilidades diagnósticas, organizadas por especialidade quando aplicável.)
+(Liste de 2 a 5 hipóteses plausíveis por achado relevante, organizadas por especialidade quando aplicável.)
 
-**7) Riscos, alertas e pontos de atenção**
+**7) Riscos, Alertas e Pontos de Atenção**
 (Alerte sobre achados que necessitam atenção imediata, valores alterados, contraindicações para procedimentos.)
 
-**8) Recomendações Clínicas**
-(Recomendações ESPECÍFICAS por especialidade:
-- Exames complementares indicados
+**8) Recomendações Gerais**
+(Recomendações ESPECÍFICAS:
+- Exames complementares indicados (se necessário)
 - Especialistas para encaminhamento
 - Urgência da avaliação
 - Cuidados pré e pós-operatórios
@@ -299,16 +309,32 @@ SEM indicar tratamentos específicos.)
 **9) Observações**
 (Comentários adicionais, limitações, correlações clínicas necessárias.)
 
+**10) Resumo para o Paciente**
+(Gere um resumo SIMPLES, VISUAL e DIRETO, destinado ao paciente.
+Use frases curtas, sem termos técnicos complexos.
+
+Formato obrigatório:
+• "O que encontramos": liste os achados de forma simples (Ex: "Cárie no dente 14", "Ausência do dente 16")
+• "O que isso significa": explique de forma simples e humana
+• "Próximos passos": recomendações claras (Ex: "É recomendada uma avaliação clínica")
+
+Evite linguagem alarmista. Nunca dê diagnóstico definitivo.)
+
 -------------------------------------------------------------------
 ⚠️ AVISO LEGAL E ÉTICO
 -------------------------------------------------------------------
-Este laudo é gerado automaticamente por inteligência artificial como ferramenta de apoio ao cirurgião-dentista. 
-Ele NÃO substitui exame clínico, diagnóstico presencial ou julgamento profissional.
+A presente análise é um APOIO ao raciocínio clínico e NÃO substitui a avaliação presencial do cirurgião-dentista.
+Este laudo é gerado automaticamente por inteligência artificial como ferramenta de apoio.
 A interpretação final é sempre responsabilidade do dentista responsável.
 
 -------------------------------------------------------------------
 📝 REGRAS DE QUALIDADE
 -------------------------------------------------------------------
+
+CRÍTICO - NUNCA INVENTE ACHADOS:
+- NUNCA invente achados que não estejam minimamente visíveis.
+- Se algo estiver incerto, declare: "não determinável" ou "indeterminado".
+- Quando em DÚVIDA, relate o achado como SUSPEITO e sugira exames complementares.
 
 CRÍTICO - ORTOGRAFIA E GRAMÁTICA:
 - NÃO cometa erros de português. Revise sua resposta antes de enviar.
@@ -338,7 +364,13 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
   "diagnosticos_diferenciais": ["Lista de diagnósticos diferenciais com justificativas"],
   "riscos_alertas": ["Lista de riscos, alertas e pontos de atenção"],
   "recomendacoes_clinicas": ["Lista de recomendações por especialidade"],
-  "observacoes": "Observações adicionais e aviso legal"
+  "observacoes": "Observações adicionais",
+  "resumo_paciente": {
+    "o_que_encontramos": ["Lista simplificada de achados para o paciente"],
+    "o_que_significa": "Explicação simples e humana dos achados",
+    "proximos_passos": ["Lista de recomendações claras para o paciente"]
+  },
+  "aviso_legal": "A presente análise é um apoio ao raciocínio clínico e não substitui a avaliação presencial do cirurgião-dentista."
 }
 `;
 };

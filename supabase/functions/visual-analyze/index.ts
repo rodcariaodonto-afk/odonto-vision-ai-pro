@@ -151,6 +151,19 @@ RETORNAR APENAS EM FORMATO JSON COM ESTA ESTRUTURA EXATA:
     "Lesão no dente 41 que precisa de avaliação",
     "Estrutura óssea geral saudável"
   ],
+  "resumo_paciente_detalhado": {
+    "o_que_encontramos": [
+      "Cárie no dente 14",
+      "Ausência do dente 16",
+      "Área inflamada perto do dente 41",
+      "Estrutura óssea saudável"
+    ],
+    "o_que_significa": "Explicação simples e humana dos achados para o paciente",
+    "proximos_passos": [
+      "É recomendada uma avaliação clínica",
+      "Pode ser necessário um exame complementar"
+    ]
+  },
   "marcacoes": [
     {
       "id": "identificador_unico",

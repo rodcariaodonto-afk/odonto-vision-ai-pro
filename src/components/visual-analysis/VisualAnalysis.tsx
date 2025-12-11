@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { MarcacaoTooltip } from "./MarcacaoTooltip";
 import { Odontograma } from "./Odontograma";
 import { SvgLegend } from "./SvgLegend";
+import { DrawingCanvas } from "./DrawingCanvas";
 import { calculateLabelPositions, findMarcacaoByDente } from "./labelCollision";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope, Grid3X3, Crosshair } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope, Grid3X3, Crosshair, PenTool } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Marcacao {
@@ -119,6 +120,7 @@ export function VisualAnalysis({
   const [showPatientSummary, setShowPatientSummary] = useState(false);
   const [showClinicalDetails, setShowClinicalDetails] = useState(false);
   const [showOdontograma, setShowOdontograma] = useState(false);
+  const [showDrawingMode, setShowDrawingMode] = useState(false);
   const [showLegend, setShowLegend] = useState(true);
   const [editMode, setEditMode] = useState<"none" | "add" | "move">("none");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -1159,6 +1161,15 @@ export function VisualAnalysis({
           </>
         )}
         
+        {/* Drawing Mode Button */}
+        <Button 
+          variant={showDrawingMode ? "default" : "outline"} 
+          size="sm" 
+          onClick={() => setShowDrawingMode(!showDrawingMode)}
+        >
+          <PenTool className="w-4 h-4 mr-1" /> Desenho Livre
+        </Button>
+        
         {editable && (
           <>
             <Button 
@@ -1579,6 +1590,16 @@ export function VisualAnalysis({
           </div>
         </CardContent>
       </Card>
+
+      {/* Drawing Canvas Mode */}
+      {showDrawingMode && (
+        <DrawingCanvas 
+          imageUrl={imageUrl}
+          onSave={(dataUrl) => {
+            toast.success("Anotações de desenho salvas!");
+          }}
+        />
+      )}
 
       {/* Findings List */}
       {showList && (
