@@ -223,13 +223,14 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
   return (
     <Card className={cn("overflow-hidden", className)}>
       <CardContent className="p-0">
-        {/* Toolbar */}
+        {/* Toolbar - Mobile Optimized */}
         <div className="flex flex-wrap items-center gap-2 p-3 border-b bg-muted/30">
           {/* Tool Selection */}
           <div className="flex gap-1">
             <Button
               variant={tool === "pen" ? "default" : "outline"}
               size="sm"
+              className="min-h-[44px] min-w-[44px] touch-manipulation"
               onClick={() => setTool("pen")}
               title="Caneta"
             >
@@ -238,6 +239,7 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
             <Button
               variant={tool === "eraser" ? "default" : "outline"}
               size="sm"
+              className="min-h-[44px] min-w-[44px] touch-manipulation"
               onClick={() => setTool("eraser")}
               title="Borracha"
             >
@@ -248,21 +250,21 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
           {/* Color Picker */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 min-h-[44px] touch-manipulation">
                 <div
-                  className="w-4 h-4 rounded-full border border-border"
+                  className="w-5 h-5 rounded-full border border-border"
                   style={{ backgroundColor: color }}
                 />
                 <Palette className="w-4 h-4" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-3" align="start">
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-3">
                 {COLORS.map((c) => (
                   <button
                     key={c}
                     className={cn(
-                      "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                      "w-10 h-10 rounded-full border-2 transition-transform hover:scale-110 touch-manipulation",
                       color === c ? "border-primary ring-2 ring-primary/30" : "border-border"
                     )}
                     style={{ backgroundColor: c }}
@@ -273,8 +275,8 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
             </PopoverContent>
           </Popover>
 
-          {/* Brush Size */}
-          <div className="flex items-center gap-2 min-w-[140px]">
+          {/* Brush Size - Hidden on very small screens */}
+          <div className="hidden xs:flex items-center gap-2 min-w-[120px]">
             <Circle className="w-3 h-3 text-muted-foreground" />
             <Slider
               value={[brushSize]}
@@ -287,13 +289,14 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
             <span className="text-xs text-muted-foreground w-5">{brushSize}</span>
           </div>
 
-          <div className="h-6 w-px bg-border mx-1" />
+          <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
 
           {/* Undo/Redo */}
           <div className="flex gap-1">
             <Button
               variant="outline"
               size="sm"
+              className="min-h-[44px] min-w-[44px] touch-manipulation"
               onClick={handleUndo}
               disabled={undoStack.length === 0}
               title="Desfazer"
@@ -303,6 +306,7 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
             <Button
               variant="outline"
               size="sm"
+              className="min-h-[44px] min-w-[44px] touch-manipulation"
               onClick={handleRedo}
               disabled={redoStack.length === 0}
               title="Refazer"
@@ -311,20 +315,23 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
             </Button>
           </div>
 
-          <div className="h-6 w-px bg-border mx-1" />
+          <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
 
           {/* Actions */}
-          <Button variant="outline" size="sm" onClick={handleClear} title="Limpar tudo">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload} title="Baixar imagem">
-            <Download className="w-4 h-4" />
-          </Button>
-          {onSave && (
-            <Button size="sm" onClick={handleSave}>
-              Salvar Anotações
+          <div className="flex gap-1 ml-auto">
+            <Button variant="outline" size="sm" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleClear} title="Limpar tudo">
+              <Trash2 className="w-4 h-4" />
             </Button>
-          )}
+            <Button variant="outline" size="sm" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleDownload} title="Baixar imagem">
+              <Download className="w-4 h-4" />
+            </Button>
+            {onSave && (
+              <Button size="sm" className="min-h-[44px] touch-manipulation" onClick={handleSave}>
+                <span className="hidden sm:inline">Salvar Anotações</span>
+                <span className="sm:hidden">Salvar</span>
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Canvas Container */}
@@ -352,7 +359,7 @@ export function DrawingCanvas({ imageUrl, onSave, className }: DrawingCanvasProp
         </div>
 
         {/* Info */}
-        <div className="p-2 bg-muted/20 border-t text-xs text-muted-foreground text-center">
+        <div className="p-3 bg-muted/20 border-t text-xs text-muted-foreground text-center">
           {paths.length} anotação{paths.length !== 1 ? "ões" : ""} • Desenhe diretamente na radiografia
         </div>
       </CardContent>
