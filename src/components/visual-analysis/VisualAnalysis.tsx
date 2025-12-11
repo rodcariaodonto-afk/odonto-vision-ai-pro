@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Marcacao {
@@ -160,50 +160,217 @@ export function VisualAnalysis({
     toast.success("Marcação removida!");
   };
 
+  const generateImageWithMarkers = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = containerRef.current?.querySelector("img");
+      if (!img) {
+        reject("Imagem não encontrada");
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || 1920;
+      canvas.height = img.naturalHeight || 1080;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject("Erro ao criar canvas");
+        return;
+      }
+
+      const tempImg = new Image();
+      tempImg.crossOrigin = "anonymous";
+      tempImg.onload = () => {
+        ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
+        
+        if (showMarcacoes) {
+          marcacoes.forEach(m => {
+            ctx.strokeStyle = m.cor;
+            ctx.lineWidth = 4;
+            ctx.fillStyle = `${m.cor}33`;
+            const x = (m.coords[0] / 100) * canvas.width;
+            const y = (m.coords[1] / 100) * canvas.height;
+            const w = (m.coords[2] / 100) * canvas.width;
+            const h = (m.coords[3] / 100) * canvas.height;
+            
+            if (m.tipo === "rect") { 
+              ctx.strokeRect(x, y, w, h); 
+              ctx.fillRect(x, y, w, h); 
+            } else if (m.tipo === "circle" || m.tipo === "ellipse") { 
+              ctx.beginPath(); 
+              ctx.ellipse(x, y, w, h, 0, 0, 2 * Math.PI); 
+              ctx.stroke(); 
+              ctx.fill(); 
+            }
+            
+            // Draw label with background for better visibility
+            ctx.font = "bold 16px sans-serif";
+            const textWidth = ctx.measureText(m.label).width;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(x, y - 22, textWidth + 8, 20);
+            ctx.fillStyle = m.cor;
+            ctx.fillText(m.label, x + 4, y - 7);
+          });
+        }
+        
+        resolve(canvas.toDataURL("image/png"));
+      };
+      tempImg.onerror = () => reject("Erro ao carregar imagem");
+      tempImg.src = imageUrl;
+    });
+  };
+
   const handleDownload = async () => {
     if (!containerRef.current) return;
-    const img = containerRef.current.querySelector("img");
-    if (!img) return;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = img.naturalWidth || 1920;
-    canvas.height = img.naturalHeight || 1080;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const tempImg = new Image();
-    tempImg.crossOrigin = "anonymous";
-    tempImg.onload = () => {
-      ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
-      if (showMarcacoes) {
-        marcacoes.forEach(m => {
-          ctx.strokeStyle = m.cor;
-          ctx.lineWidth = 3;
-          ctx.fillStyle = `${m.cor}33`;
-          const x = (m.coords[0] / 100) * canvas.width;
-          const y = (m.coords[1] / 100) * canvas.height;
-          const w = (m.coords[2] / 100) * canvas.width;
-          const h = (m.coords[3] / 100) * canvas.height;
-          if (m.tipo === "rect") { 
-            ctx.strokeRect(x, y, w, h); 
-            ctx.fillRect(x, y, w, h); 
-          } else if (m.tipo === "circle" || m.tipo === "ellipse") { 
-            ctx.beginPath(); 
-            ctx.ellipse(x, y, w, h, 0, 0, 2 * Math.PI); 
-            ctx.stroke(); 
-            ctx.fill(); 
-          }
-          ctx.fillStyle = m.cor;
-          ctx.font = "bold 14px sans-serif";
-          ctx.fillText(m.label, x, y - 5);
-        });
-      }
+    
+    try {
+      toast.loading("Gerando imagem...", { id: "download" });
+      const dataUrl = await generateImageWithMarkers();
       const link = document.createElement("a");
       link.download = "analise-visual-odontovision.png";
-      link.href = canvas.toDataURL("image/png");
+      link.href = dataUrl;
       link.click();
-    };
-    tempImg.src = imageUrl;
+      toast.success("Imagem baixada com sucesso!", { id: "download" });
+    } catch (error) {
+      toast.error("Erro ao gerar imagem", { id: "download" });
+    }
+  };
+
+  const handleOpenInNewWindow = async () => {
+    if (!containerRef.current) return;
+    
+    try {
+      toast.loading("Abrindo imagem...", { id: "newwindow" });
+      const dataUrl = await generateImageWithMarkers();
+      
+      const newWindow = window.open("", "_blank");
+      if (newWindow) {
+        newWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Análise Visual - OdontoVision AI Pro</title>
+              <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                  background: #1a1a1a; 
+                  min-height: 100vh; 
+                  display: flex; 
+                  flex-direction: column;
+                  align-items: center; 
+                  padding: 20px;
+                  font-family: system-ui, -apple-system, sans-serif;
+                }
+                .header {
+                  color: white;
+                  text-align: center;
+                  margin-bottom: 20px;
+                  width: 100%;
+                }
+                .header h1 {
+                  font-size: 24px;
+                  margin-bottom: 8px;
+                  color: #3F8CFF;
+                }
+                .header p {
+                  font-size: 14px;
+                  color: #888;
+                }
+                .image-container {
+                  flex: 1;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 100%;
+                }
+                img { 
+                  max-width: 100%; 
+                  max-height: calc(100vh - 150px); 
+                  border-radius: 8px;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                }
+                .legend {
+                  margin-top: 20px;
+                  padding: 16px;
+                  background: #2a2a2a;
+                  border-radius: 8px;
+                  color: white;
+                  max-width: 800px;
+                  width: 100%;
+                }
+                .legend h3 {
+                  margin-bottom: 12px;
+                  font-size: 16px;
+                  color: #3F8CFF;
+                }
+                .legend-item {
+                  display: flex;
+                  align-items: flex-start;
+                  gap: 12px;
+                  padding: 8px 0;
+                  border-bottom: 1px solid #3a3a3a;
+                }
+                .legend-item:last-child {
+                  border-bottom: none;
+                }
+                .legend-color {
+                  width: 16px;
+                  height: 16px;
+                  border-radius: 4px;
+                  flex-shrink: 0;
+                  margin-top: 2px;
+                }
+                .legend-text strong {
+                  display: block;
+                  margin-bottom: 4px;
+                }
+                .legend-text span {
+                  font-size: 13px;
+                  color: #aaa;
+                }
+                .footer {
+                  margin-top: 20px;
+                  color: #666;
+                  font-size: 12px;
+                  text-align: center;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>OdontoVision AI Pro</h1>
+                <p>Análise Visual - ${new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div class="image-container">
+                <img src="${dataUrl}" alt="Análise Visual" />
+              </div>
+              ${marcacoes.length > 0 ? `
+                <div class="legend">
+                  <h3>Achados Identificados (${marcacoes.length})</h3>
+                  ${sortedMarcacoes.map(m => `
+                    <div class="legend-item">
+                      <div class="legend-color" style="background: ${m.cor}"></div>
+                      <div class="legend-text">
+                        <strong>${m.label}</strong>
+                        <span>${m.descricao}</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+              <div class="footer">
+                Este documento é gerado automaticamente pelo OdontoVision AI Pro e serve apenas como apoio diagnóstico.
+              </div>
+            </body>
+          </html>
+        `);
+        newWindow.document.close();
+        toast.success("Imagem aberta em nova janela!", { id: "newwindow" });
+      } else {
+        toast.error("Bloqueador de pop-up ativo. Permita pop-ups para esta função.", { id: "newwindow" });
+      }
+    } catch (error) {
+      toast.error("Erro ao abrir imagem", { id: "newwindow" });
+    }
   };
 
   const sortedMarcacoes = [...marcacoes].sort(
@@ -272,11 +439,14 @@ export function VisualAnalysis({
           <Button variant="outline" size="icon" onClick={handleZoomIn}>
             <ZoomIn className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleResetZoom}>
+          <Button variant="outline" size="icon" onClick={handleResetZoom} title="Resetar zoom">
             <RotateCcw className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleDownload}>
+          <Button variant="outline" size="icon" onClick={handleDownload} title="Baixar imagem">
             <Download className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={handleOpenInNewWindow} title="Abrir em nova janela">
+            <ExternalLink className="w-4 h-4" />
           </Button>
         </div>
       </div>
