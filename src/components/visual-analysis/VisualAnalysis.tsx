@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { MarcacaoTooltip } from "./MarcacaoTooltip";
 import { Odontograma } from "./Odontograma";
 import { SvgLegend } from "./SvgLegend";
+import { calculateLabelPositions, findMarcacaoByDente } from "./labelCollision";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope, Grid3X3 } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope, Grid3X3, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Marcacao {
@@ -129,13 +130,52 @@ export function VisualAnalysis({
   });
   const [movingMarcacao, setMovingMarcacao] = useState<string | null>(null);
   const [showAnatomicStructures, setShowAnatomicStructures] = useState(true);
+  const [highlightedPosition, setHighlightedPosition] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const imageWrapperRef = useRef<HTMLDivElement>(null);
 
   // Sync visible marcacoes when marcacoes change
   useEffect(() => {
     setVisibleMarcacoes(new Set(marcacoes.map(m => m.id)));
   }, [marcacoes]);
+
+  // Calculate label positions with collision detection
+  const labelPositions = useMemo(() => {
+    return calculateLabelPositions(marcacoes, visibleMarcacoes);
+  }, [marcacoes, visibleMarcacoes]);
+
+  // Handle tooth click from odontogram - scroll to and highlight position
+  const handleToothClick = useCallback((denteNum: string) => {
+    const position = findMarcacaoByDente(marcacoes, denteNum, analiseCompleta);
+    
+    if (position) {
+      // Highlight the position
+      setHighlightedPosition(position);
+      
+      // Scroll to the position
+      if (containerRef.current && imageWrapperRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const wrapperRect = imageWrapperRef.current.getBoundingClientRect();
+        
+        const targetX = (position.x / 100) * wrapperRect.width * zoom;
+        const targetY = (position.y / 100) * wrapperRect.height * zoom;
+        
+        containerRef.current.scrollTo({
+          left: targetX - containerRect.width / 2,
+          top: targetY - containerRect.height / 2,
+          behavior: "smooth"
+        });
+      }
+      
+      toast.success(`Dente ${denteNum} localizado`, { duration: 2000 });
+      
+      // Clear highlight after animation
+      setTimeout(() => setHighlightedPosition(null), 3000);
+    } else {
+      toast.info(`Posição do dente ${denteNum} não mapeada na análise`);
+    }
+  }, [marcacoes, analiseCompleta, zoom]);
 
   const handleMarcacaoClick = (marcacao: Marcacao, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -1311,9 +1351,7 @@ export function VisualAnalysis({
       {showOdontograma && analiseCompleta && (
         <Odontograma 
           analiseCompleta={analiseCompleta} 
-          onToothClick={(dente) => {
-            toast.info(`Dente ${dente} selecionado`);
-          }}
+          onToothClick={handleToothClick}
         />
       )}
 
@@ -1338,6 +1376,7 @@ export function VisualAnalysis({
             onClick={handleBackgroundClick}
           >
             <div 
+              ref={imageWrapperRef}
               className="relative inline-block transition-transform duration-200" 
               style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
             >
@@ -1361,13 +1400,72 @@ export function VisualAnalysis({
                   {renderSeioMaxilar()}
                   {renderCanalMandibular()}
                   
-                  {/* Render marcacoes with better spacing for labels */}
-                  {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m, index) => {
+                  {/* Highlighted position indicator from odontogram click */}
+                  {highlightedPosition && (
+                    <g className="animate-pulse">
+                      <circle
+                        cx={highlightedPosition.x}
+                        cy={highlightedPosition.y}
+                        r={4}
+                        fill="none"
+                        stroke="#FBBF24"
+                        strokeWidth={0.5}
+                        className="animate-ping"
+                      />
+                      <circle
+                        cx={highlightedPosition.x}
+                        cy={highlightedPosition.y}
+                        r={2}
+                        fill="none"
+                        stroke="#FBBF24"
+                        strokeWidth={0.3}
+                      />
+                      <line
+                        x1={highlightedPosition.x - 3}
+                        y1={highlightedPosition.y}
+                        x2={highlightedPosition.x + 3}
+                        y2={highlightedPosition.y}
+                        stroke="#FBBF24"
+                        strokeWidth={0.2}
+                      />
+                      <line
+                        x1={highlightedPosition.x}
+                        y1={highlightedPosition.y - 3}
+                        x2={highlightedPosition.x}
+                        y2={highlightedPosition.y + 3}
+                        stroke="#FBBF24"
+                        strokeWidth={0.2}
+                      />
+                    </g>
+                  )}
+                  
+                  {/* Render marcacoes with collision-aware labels */}
+                  {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
                     const [x, y, w, h] = m.coords;
                     const isMoving = movingMarcacao === m.id;
                     
-                    // Calculate label offset to prevent overlap
-                    const labelOffsetY = Math.max(y - 2, 3);
+                    // Get calculated label position from collision detection
+                    const labelPos = labelPositions.get(m.id);
+                    const labelX = labelPos?.x ?? x;
+                    const labelY = labelPos?.y ?? Math.max(y - 2, 3);
+                    const labelSide = labelPos?.side ?? "top";
+                    
+                    // Calculate connector line points
+                    const shapeCenter = m.tipo === "rect" 
+                      ? { cx: x + (w || 0) / 2, cy: y + (h || 0) / 2 }
+                      : { cx: x, cy: y };
+                    
+                    const labelCenter = {
+                      cx: labelX + (m.label.length * 0.9 + 1) / 2,
+                      cy: labelY - 0.8
+                    };
+                    
+                    // Only draw connector if label is not directly adjacent
+                    const distance = Math.sqrt(
+                      Math.pow(shapeCenter.cx - labelCenter.cx, 2) + 
+                      Math.pow(shapeCenter.cy - labelCenter.cy, 2)
+                    );
+                    const showConnector = distance > 5;
                     
                     if (m.tipo === "rect") return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
@@ -1380,21 +1478,35 @@ export function VisualAnalysis({
                           className="transition-all duration-200 hover:fill-opacity-50" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
+                        {/* Connector line if label is far */}
+                        {showConnector && (
+                          <line
+                            x1={shapeCenter.cx}
+                            y1={labelSide === "bottom" ? y + (h || 0) : y}
+                            x2={labelCenter.cx}
+                            y2={labelY}
+                            stroke={m.cor}
+                            strokeWidth={0.1}
+                            strokeOpacity={0.5}
+                            strokeDasharray="0.3,0.3"
+                            className="pointer-events-none"
+                          />
+                        )}
                         {/* Label background */}
                         <rect
-                          x={x}
-                          y={labelOffsetY - 1.8}
+                          x={labelX}
+                          y={labelY - 1.7}
                           width={m.label.length * 0.9 + 1}
                           height={2}
-                          fill="rgba(0,0,0,0.7)"
+                          fill="rgba(0,0,0,0.8)"
                           rx={0.3}
                           className="pointer-events-none"
                         />
                         <text 
-                          x={x + 0.5} 
-                          y={labelOffsetY} 
+                          x={labelX + 0.5} 
+                          y={labelY} 
                           fill={m.cor} 
-                          fontSize={1.5} 
+                          fontSize={1.4} 
                           fontWeight="bold" 
                           className="pointer-events-none select-none"
                         >
@@ -1414,23 +1526,36 @@ export function VisualAnalysis({
                           className="transition-all duration-200 hover:fill-opacity-50" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
+                        {/* Connector line if label is far */}
+                        {showConnector && (
+                          <line
+                            x1={x}
+                            y1={labelSide === "bottom" ? y + (h || 0) : y - (h || 0)}
+                            x2={labelCenter.cx}
+                            y2={labelY}
+                            stroke={m.cor}
+                            strokeWidth={0.1}
+                            strokeOpacity={0.5}
+                            strokeDasharray="0.3,0.3"
+                            className="pointer-events-none"
+                          />
+                        )}
                         {/* Label background for ellipse */}
                         <rect
-                          x={x - m.label.length * 0.45}
-                          y={y - h - 2.8}
+                          x={labelX}
+                          y={labelY - 1.7}
                           width={m.label.length * 0.9 + 1}
                           height={2}
-                          fill="rgba(0,0,0,0.7)"
+                          fill="rgba(0,0,0,0.8)"
                           rx={0.3}
                           className="pointer-events-none"
                         />
                         <text 
-                          x={x} 
-                          y={y - h - 1} 
+                          x={labelX + 0.5} 
+                          y={labelY} 
                           fill={m.cor} 
-                          fontSize={1.5} 
+                          fontSize={1.4} 
                           fontWeight="bold" 
-                          textAnchor="middle" 
                           className="pointer-events-none select-none"
                         >
                           {m.label}
