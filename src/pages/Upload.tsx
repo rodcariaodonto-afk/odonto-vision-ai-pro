@@ -844,27 +844,46 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
   };
 
   const handleVisualAnalysis = async () => {
-    if (!selectedFiles.length || examCategory === "laboratorial") {
+    if (examCategory === "laboratorial") {
       toast.error("Análise visual disponível apenas para imagens");
       return;
     }
+    
+    // Try to find image from files first, then from previewUrls
+    let imageBase64 = "";
+    let imageType = "image/jpeg";
+    
     const imageFile = selectedFiles.find(f => f.type.startsWith("image/"));
-    if (!imageFile) {
-      toast.error("Nenhuma imagem encontrada para análise visual");
-      return;
-    }
-    setIsAnalyzingVisual(true);
-    toast.info("Iniciando análise visual...");
-    try {
+    if (imageFile) {
+      // Use file directly
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
+      imageBase64 = await new Promise<string>((resolve, reject) => {
         reader.onloadend = () => resolve(reader.result as string);
         reader.onerror = reject;
         reader.readAsDataURL(imageFile);
       });
-      const imageBase64 = await base64Promise;
+      imageType = imageFile.type;
+    } else {
+      // Use previewUrl if available (restored from session)
+      const imagePreview = previewUrls.find(p => p !== "pdf" && p.startsWith("data:image"));
+      if (imagePreview) {
+        imageBase64 = imagePreview;
+        // Extract type from data URL
+        const match = imagePreview.match(/^data:([^;]+);/);
+        if (match) imageType = match[1];
+      }
+    }
+    
+    if (!imageBase64) {
+      toast.error("Nenhuma imagem encontrada para análise visual");
+      return;
+    }
+    
+    setIsAnalyzingVisual(true);
+    toast.info("Iniciando análise visual...");
+    try {
       const { data, error } = await supabase.functions.invoke("visual-analyze", {
-        body: { imageBase64, imageType: imageFile.type },
+        body: { imageBase64, imageType },
       });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
@@ -1298,7 +1317,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
           </div>
 
           {/* Visual Analysis Button and Component */}
-          {examCategory !== "laboratorial" && previewUrls.some(p => p !== "pdf") && (
+          {examCategory !== "laboratorial" && previewUrls.some(p => p !== "pdf" && (p.startsWith("data:image") || p.startsWith("blob:"))) && (
             <div className="space-y-4">
               <Button
                 variant={showVisualAnalysis ? "default" : "outline"}
