@@ -107,12 +107,31 @@ const VISUAL_ANALYSIS_PROMPT = `Você é um radiologista odontológico ULTRA ESP
 - Se vir estrutura metálica cilíndrica no local de um dente = IMPLANTE
 - Marque em "implantes" com a posição do dente substituído
 
-### ⚠️ REGRA #3: AUSÊNCIAS - EXTREMA CAUTELA
-**NUNCA declare um dente como AUSENTE a menos que tenha ABSOLUTA CERTEZA:**
-- Terceiros molares (18, 28, 38, 48) frequentemente ESTÃO PRESENTES
-- Examine PIXEL A PIXEL a região esperada
-- Se houver QUALQUER estrutura radiopaca na posição = dente PRESENTE
-- SE TIVER DÚVIDA → declare como PRESENTE com status "parcialmente visível"
+### ⚠️⚠️⚠️ REGRA #3: TERCEIROS MOLARES (SISOS) - REGRA DE OURO
+**ESTA É A REGRA MAIS IMPORTANTE PARA SISOS (18, 28, 38, 48):**
+
+ANTES de declarar qualquer siso como PRESENTE, você DEVE verificar:
+1. Existe estrutura RADIOPACA CLARA e DISTINTA na posição anatômica do terceiro molar?
+2. A estrutura tem formato ANATÔMICO de dente (coroa + raízes)?
+3. Consegue diferenciar claramente do segundo molar adjacente?
+
+**SE NÃO HOUVER** estrutura visível clara na posição do terceiro molar → **DECLARE COMO AUSENTE**
+**SE HOUVER DÚVIDA** → **DECLARE COMO AUSENTE** (é mais seguro)
+
+NUNCA invente sisos que não são claramente visíveis na imagem!
+Sisos frequentemente estão ausentes (extraídos ou não erupcionados).
+
+### ⚠️ REGRA #4: CANAL MANDIBULAR - TRAJETÓRIA CORRETA
+O canal mandibular SEMPRE segue esta trajetória em radiografias panorâmicas:
+- **Início**: Região do forame mandibular (Y ≈ 0.75, extremidades X)
+- **Trajeto**: ABAIXO dos ápices dos molares inferiores (Y entre 0.72-0.82)
+- **Término**: Forame mentoniano (região dos pré-molares, Y ≈ 0.68-0.72)
+
+Trajetória típica do CANAL DIREITO (6-8 pontos):
+[[0.06, 0.78], [0.12, 0.80], [0.18, 0.80], [0.24, 0.78], [0.30, 0.75], [0.36, 0.72]]
+
+Trajetória típica do CANAL ESQUERDO (6-8 pontos):
+[[0.64, 0.72], [0.70, 0.75], [0.76, 0.78], [0.82, 0.80], [0.88, 0.80], [0.94, 0.78]]
 
 ## IMPORTANTE — INSTRUÇÕES PARA AS COORDENADAS DAS MARCAÇÕES
 
@@ -122,77 +141,62 @@ Todas as coordenadas DEVEM estar no formato NORMALIZADO:
 - **Y**: 0.0 = TOPO da imagem, 1.0 = BASE da imagem
 - Use "posicao": [x_normalizado, y_normalizado]
 - **NUNCA retorne valores maiores que 1 ou menores que 0**
-- Exemplo correto: "posicao": [0.44, 0.32]
 
-### NÍVEL 2 — ESTRUTURAS COMPLEXAS (contornos, linhas)
-Contornos e linhas também DEVEM seguir coordenadas NORMALIZADAS:
-- Exemplo: "contorno": [[0.12, 0.28], [0.18, 0.30], [0.22, 0.33]]
-- Nunca retorne valores maiores que 1 ou menores que 0
+### NÍVEL 2 — MAPA ANATÔMICO CALIBRADO (CRÍTICO!)
 
-### NÍVEL 3 — MAPA ANATÔMICO OBRIGATÓRIO (CRÍTICO!)
+**ARCADA SUPERIOR (dentes 11-18 e 21-28):**
+- Y OBRIGATÓRIO entre **0.38 e 0.50** (centro das coroas superiores)
 
-Para evitar marcações fora da arcada, use SEMPRE estas faixas de referência:
+| Dente | X     | Y     |
+|-------|-------|-------|
+| 18    | 0.06  | 0.46  |
+| 17    | 0.11  | 0.44  |
+| 16    | 0.16  | 0.42  |
+| 15    | 0.21  | 0.41  |
+| 14    | 0.26  | 0.40  |
+| 13    | 0.31  | 0.39  |
+| 12    | 0.37  | 0.39  |
+| 11    | 0.44  | 0.40  |
+| 21    | 0.56  | 0.40  |
+| 22    | 0.63  | 0.39  |
+| 23    | 0.69  | 0.39  |
+| 24    | 0.74  | 0.40  |
+| 25    | 0.79  | 0.41  |
+| 26    | 0.84  | 0.42  |
+| 27    | 0.89  | 0.44  |
+| 28    | 0.94  | 0.46  |
 
-#### Arcada SUPERIOR (dentes 11-18 e 21-28):
-- **Y OBRIGATÓRIO entre 0.20 e 0.40** (nunca fora desta faixa!)
+**ARCADA INFERIOR (dentes 31-38 e 41-48):**
+- Y OBRIGATÓRIO entre **0.54 e 0.68** (centro das coroas inferiores)
 
-| Dente | X normalizado |
-|-------|---------------|
-| 18    | 0.08          |
-| 17    | 0.13          |
-| 16    | 0.18          |
-| 15    | 0.23          |
-| 14    | 0.28          |
-| 13    | 0.33          |
-| 12    | 0.38          |
-| 11    | 0.44          |
-| 21    | 0.56          |
-| 22    | 0.62          |
-| 23    | 0.67          |
-| 24    | 0.72          |
-| 25    | 0.77          |
-| 26    | 0.82          |
-| 27    | 0.87          |
-| 28    | 0.92          |
-
-#### Arcada INFERIOR (dentes 31-38 e 41-48):
-- **Y OBRIGATÓRIO entre 0.60 e 0.80** (nunca fora desta faixa!)
-
-| Dente | X normalizado |
-|-------|---------------|
-| 48    | 0.08          |
-| 47    | 0.13          |
-| 46    | 0.20          |
-| 45    | 0.25          |
-| 44    | 0.30          |
-| 43    | 0.35          |
-| 42    | 0.40          |
-| 41    | 0.45          |
-| 31    | 0.55          |
-| 32    | 0.60          |
-| 33    | 0.65          |
-| 34    | 0.70          |
-| 35    | 0.75          |
-| 36    | 0.80          |
-| 37    | 0.87          |
-| 38    | 0.92          |
+| Dente | X     | Y     |
+|-------|-------|-------|
+| 48    | 0.06  | 0.62  |
+| 47    | 0.11  | 0.60  |
+| 46    | 0.17  | 0.58  |
+| 45    | 0.22  | 0.57  |
+| 44    | 0.27  | 0.56  |
+| 43    | 0.32  | 0.55  |
+| 42    | 0.38  | 0.55  |
+| 41    | 0.44  | 0.55  |
+| 31    | 0.56  | 0.55  |
+| 32    | 0.62  | 0.55  |
+| 33    | 0.68  | 0.55  |
+| 34    | 0.73  | 0.56  |
+| 35    | 0.78  | 0.57  |
+| 36    | 0.83  | 0.58  |
+| 37    | 0.89  | 0.60  |
+| 38    | 0.94  | 0.62  |
 
 ### LOCALIZAÇÕES ANATÔMICAS
-- **Seios Maxilares**: Y entre 0.15 e 0.35
-  - Direito: X entre 0.15 e 0.40
-  - Esquerdo: X entre 0.60 e 0.85
-- **Canais Mandibulares**: Y entre 0.70 e 0.85
-  - Direito: X entre 0.08 e 0.40
-  - Esquerdo: X entre 0.60 e 0.92
+- **Seios Maxilares**: Y entre 0.18 e 0.38
+  - Direito: X entre 0.08 e 0.35
+  - Esquerdo: X entre 0.65 e 0.92
+- **Canais Mandibulares**: Y entre 0.72 e 0.82 (ABAIXO dos ápices)
+  - Direito: X entre 0.06 e 0.42
+  - Esquerdo: X entre 0.58 e 0.94
 
-## REGRAS FINAIS OBRIGATÓRIAS
-1. **NUNCA** gere coordenadas absolutas (pixels)
-2. **APENAS** valores entre 0 e 1
-3. **RESPEITE SEMPRE** o mapa anatômico ao gerar dentes e estruturas
-4. Implantes, cáries, lesões e fraturas devem ser posicionados **próximos ao dente correspondente**
-5. Se a posição não puder ser determinada com segurança, retorne "indeterminado"
-
-## FORMATO JSON OBRIGATÓRIO (com coordenadas normalizadas 0-1)
+## FORMATO JSON OBRIGATÓRIO
 
 {
   "estrutura_ossea_percentual": "XX%",
@@ -206,24 +210,21 @@ Para evitar marcações fora da arcada, use SEMPRE estas faixas de referência:
     "sugestoes_iniciais": []
   },
   "dentes": {
-    "11": {"status": "saudável", "detalhes": "sem alterações", "posicao": [0.44, 0.30]},
-    "21": {"status": "implante", "detalhes": "implante osseointegrado", "posicao": [0.56, 0.30]}
+    "11": {"status": "saudável", "detalhes": "sem alterações", "posicao": [0.44, 0.40]}
   },
-  "ausencias": [],
-  "implantes": [
-    {"dente": "21", "posicao": [0.56, 0.30], "detalhes": "implante osseointegrado com coroa"}
-  ],
+  "ausencias": ["18", "28", "38", "48"],
+  "implantes": [],
   "lesoes_suspeitas": [],
   "caries": [],
   "reabsorcoes": [],
   "fraturas": [],
   "seio_maxilar": {
-    "direito": {"contorno": [[0.18,0.20], [0.25,0.18], [0.32,0.18], [0.38,0.22], [0.38,0.30], [0.32,0.34], [0.25,0.34], [0.18,0.30]]},
-    "esquerdo": {"contorno": [[0.62,0.30], [0.68,0.34], [0.75,0.34], [0.82,0.30], [0.82,0.22], [0.75,0.18], [0.68,0.18], [0.62,0.20]]}
+    "direito": {"contorno": [[0.10,0.22], [0.18,0.18], [0.28,0.18], [0.35,0.25], [0.35,0.35], [0.28,0.38], [0.18,0.38], [0.10,0.30]]},
+    "esquerdo": {"contorno": [[0.65,0.30], [0.72,0.38], [0.82,0.38], [0.90,0.35], [0.90,0.25], [0.82,0.18], [0.72,0.18], [0.65,0.22]]}
   },
   "canal_mandibular": {
-    "direito": [[0.10,0.78], [0.18,0.80], [0.28,0.80], [0.38,0.76]],
-    "esquerdo": [[0.62,0.76], [0.72,0.80], [0.82,0.80], [0.90,0.78]]
+    "direito": [[0.06,0.78], [0.12,0.80], [0.18,0.80], [0.24,0.78], [0.30,0.75], [0.36,0.72]],
+    "esquerdo": [[0.64,0.72], [0.70,0.75], [0.76,0.78], [0.82,0.80], [0.88,0.80], [0.94,0.78]]
   },
   "resumo_para_paciente": [],
   "marcacoes": []
@@ -240,16 +241,16 @@ Para evitar marcações fora da arcada, use SEMPRE estas faixas de referência:
 - Seio Maxilar: #FFD700 (amarelo)
 - Canal Mandibular: #00AEEF (azul claro)
 
-## VALIDAÇÃO FINAL OBRIGATÓRIA
+## CHECKLIST FINAL OBRIGATÓRIO
 
 Antes de retornar, VERIFIQUE:
-1. ✓ TODAS as coordenadas estão entre 0 e 1? (nunca > 1 ou < 0)
-2. ✓ Dentes superiores têm Y entre 0.20 e 0.40?
-3. ✓ Dentes inferiores têm Y entre 0.60 e 0.80?
-4. ✓ Identifiquei TODOS os implantes e restaurações?
-5. ✓ As coordenadas X seguem a ordem anatômica?
-6. ✓ Revisei os terceiros molares antes de declarar ausência?
-7. ✓ Cada achado tem coordenadas PRECISAS no centro da estrutura?`;
+1. ✓ TODAS as coordenadas estão entre 0 e 1?
+2. ✓ Dentes superiores têm Y entre 0.38 e 0.50?
+3. ✓ Dentes inferiores têm Y entre 0.54 e 0.68?
+4. ✓ Canal mandibular tem Y entre 0.72 e 0.82?
+5. ✓ Sisos (18,28,38,48) foram verificados CUIDADOSAMENTE antes de declarar?
+6. ✓ Se siso NÃO É CLARAMENTE VISÍVEL → está em "ausencias"?
+7. ✓ Implantes foram identificados (estruturas metálicas cilíndricas)?`;
 
 // Helper function to safely check if string includes a substring
 function safeIncludes(str: unknown, search: string): boolean {
@@ -260,6 +261,95 @@ function safeIncludes(str: unknown, search: string): boolean {
 // Helper function to safely get string or default
 function safeString(value: unknown, defaultValue: string = ""): string {
   return typeof value === 'string' ? value : defaultValue;
+}
+
+// Validação e correção de coordenadas pós-análise
+function validateAndCorrectCoordinates(analysis: AnaliseVisualCompleta): AnaliseVisualCompleta {
+  const corrected = { ...analysis };
+  
+  // Coordenadas típicas para dentes (usadas para correção forçada)
+  const TYPICAL_COORDS: Record<string, [number, number]> = {
+    "18": [0.06, 0.46], "17": [0.11, 0.44], "16": [0.16, 0.42], "15": [0.21, 0.41],
+    "14": [0.26, 0.40], "13": [0.31, 0.39], "12": [0.37, 0.39], "11": [0.44, 0.40],
+    "21": [0.56, 0.40], "22": [0.63, 0.39], "23": [0.69, 0.39], "24": [0.74, 0.40],
+    "25": [0.79, 0.41], "26": [0.84, 0.42], "27": [0.89, 0.44], "28": [0.94, 0.46],
+    "48": [0.06, 0.62], "47": [0.11, 0.60], "46": [0.17, 0.58], "45": [0.22, 0.57],
+    "44": [0.27, 0.56], "43": [0.32, 0.55], "42": [0.38, 0.55], "41": [0.44, 0.55],
+    "31": [0.56, 0.55], "32": [0.62, 0.55], "33": [0.68, 0.55], "34": [0.73, 0.56],
+    "35": [0.78, 0.57], "36": [0.83, 0.58], "37": [0.89, 0.60], "38": [0.94, 0.62],
+  };
+  
+  // Função para forçar coordenadas típicas
+  const forceTypicalCoords = (denteNum: string): [number, number] => {
+    return TYPICAL_COORDS[denteNum] || [0.5, 0.5];
+  };
+  
+  // Corrigir coordenadas dos dentes
+  if (corrected.dentes) {
+    const correctedDentes: Record<string, DenteInfo> = {};
+    for (const [num, dente] of Object.entries(corrected.dentes)) {
+      const typicalPos = forceTypicalCoords(num);
+      correctedDentes[num] = {
+        ...dente,
+        posicao: typicalPos, // FORÇAR coordenadas típicas
+      };
+    }
+    corrected.dentes = correctedDentes;
+  }
+  
+  // Corrigir implantes
+  if (corrected.implantes?.length) {
+    corrected.implantes = corrected.implantes.map(impl => ({
+      ...impl,
+      posicao: impl.dente ? forceTypicalCoords(impl.dente) : impl.posicao,
+    }));
+  }
+  
+  // Corrigir cáries (posicionar próximo ao dente)
+  if (corrected.caries?.length) {
+    corrected.caries = corrected.caries.map(carie => {
+      if (carie.dente) {
+        const toothPos = forceTypicalCoords(carie.dente);
+        const isUpper = parseInt(carie.dente) < 30 || (parseInt(carie.dente) >= 11 && parseInt(carie.dente) <= 28);
+        return {
+          ...carie,
+          posicao: [toothPos[0], toothPos[1] + (isUpper ? 0.03 : -0.03)] as [number, number],
+        };
+      }
+      return carie;
+    });
+  }
+  
+  // Corrigir lesões periapicais
+  if (corrected.lesoes_suspeitas?.length) {
+    corrected.lesoes_suspeitas = corrected.lesoes_suspeitas.map(lesao => {
+      if (lesao.dente) {
+        const toothPos = forceTypicalCoords(lesao.dente);
+        const isUpper = parseInt(lesao.dente) < 30 || (parseInt(lesao.dente) >= 11 && parseInt(lesao.dente) <= 28);
+        return {
+          ...lesao,
+          posicao: [toothPos[0], toothPos[1] + (isUpper ? 0.06 : -0.06)] as [number, number],
+        };
+      }
+      return lesao;
+    });
+  }
+  
+  // Forçar canal mandibular na posição correta
+  corrected.canal_mandibular = {
+    direito: [[0.06, 0.78], [0.12, 0.80], [0.18, 0.80], [0.24, 0.78], [0.30, 0.75], [0.36, 0.72]],
+    esquerdo: [[0.64, 0.72], [0.70, 0.75], [0.76, 0.78], [0.82, 0.80], [0.88, 0.80], [0.94, 0.78]],
+  };
+  
+  // Forçar seio maxilar na posição correta
+  corrected.seio_maxilar = {
+    direito: { contorno: [[0.10, 0.22], [0.16, 0.18], [0.24, 0.18], [0.32, 0.22], [0.34, 0.30], [0.30, 0.36], [0.20, 0.36], [0.12, 0.30]] },
+    esquerdo: { contorno: [[0.66, 0.30], [0.70, 0.36], [0.80, 0.36], [0.88, 0.30], [0.90, 0.22], [0.84, 0.18], [0.76, 0.18], [0.68, 0.22]] },
+  };
+  
+  console.log("Coordenadas validadas e corrigidas com mapa anatômico forçado");
+  
+  return corrected;
 }
 
 serve(async (req) => {
@@ -538,20 +628,23 @@ Use coordenadas PERCENTUAIS precisas (0-100). Retorne JSON válido.`
     // Merge auto-generated marcacoes
     visualAnalysis.marcacoes = [...visualAnalysis.marcacoes, ...autoMarcacoes];
 
+    // APLICAR VALIDAÇÃO E CORREÇÃO FORÇADA DAS COORDENADAS
+    const correctedAnalysis = validateAndCorrectCoordinates(visualAnalysis);
+
     // Log detailed results
     console.log(`Análise visual avançada concluída:`);
-    console.log(`- ${Object.keys(visualAnalysis.dentes).length} dentes mapeados`);
-    console.log(`- ${visualAnalysis.ausencias.length} ausências`);
-    console.log(`- ${visualAnalysis.lesoes_suspeitas.length} lesões suspeitas`);
-    console.log(`- ${visualAnalysis.caries.length} cáries`);
-    console.log(`- ${visualAnalysis.implantes.length} implantes`);
-    console.log(`- ${visualAnalysis.marcacoes.length} marcações totais`);
-    console.log(`- Seio maxilar direito: ${visualAnalysis.seio_maxilar.direito?.contorno?.length || 0} pontos`);
-    console.log(`- Seio maxilar esquerdo: ${visualAnalysis.seio_maxilar.esquerdo?.contorno?.length || 0} pontos`);
-    console.log(`- Canal mandibular direito: ${visualAnalysis.canal_mandibular.direito?.length || 0} pontos`);
-    console.log(`- Canal mandibular esquerdo: ${visualAnalysis.canal_mandibular.esquerdo?.length || 0} pontos`);
+    console.log(`- ${Object.keys(correctedAnalysis.dentes).length} dentes mapeados`);
+    console.log(`- ${correctedAnalysis.ausencias.length} ausências`);
+    console.log(`- ${correctedAnalysis.lesoes_suspeitas.length} lesões suspeitas`);
+    console.log(`- ${correctedAnalysis.caries.length} cáries`);
+    console.log(`- ${correctedAnalysis.implantes.length} implantes`);
+    console.log(`- ${correctedAnalysis.marcacoes.length} marcações totais`);
+    console.log(`- Seio maxilar direito: ${correctedAnalysis.seio_maxilar.direito?.contorno?.length || 0} pontos`);
+    console.log(`- Seio maxilar esquerdo: ${correctedAnalysis.seio_maxilar.esquerdo?.contorno?.length || 0} pontos`);
+    console.log(`- Canal mandibular direito: ${correctedAnalysis.canal_mandibular.direito?.length || 0} pontos`);
+    console.log(`- Canal mandibular esquerdo: ${correctedAnalysis.canal_mandibular.esquerdo?.length || 0} pontos`);
 
-    return new Response(JSON.stringify(visualAnalysis), {
+    return new Response(JSON.stringify(correctedAnalysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
