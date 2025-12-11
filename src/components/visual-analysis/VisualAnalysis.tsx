@@ -1,6 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { MarcacaoTooltip } from "./MarcacaoTooltip";
+import { Odontograma } from "./Odontograma";
+import { SvgLegend } from "./SvgLegend";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink, User, Activity, Stethoscope, Grid3X3 } from "lucide-react";
 import { toast } from "sonner";
 
 export interface Marcacao {
@@ -114,6 +117,8 @@ export function VisualAnalysis({
   const [showList, setShowList] = useState(false);
   const [showPatientSummary, setShowPatientSummary] = useState(false);
   const [showClinicalDetails, setShowClinicalDetails] = useState(false);
+  const [showOdontograma, setShowOdontograma] = useState(false);
+  const [showLegend, setShowLegend] = useState(true);
   const [editMode, setEditMode] = useState<"none" | "add" | "move">("none");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newMarcacao, setNewMarcacao] = useState<Partial<Marcacao>>({
@@ -126,6 +131,11 @@ export function VisualAnalysis({
   const [showAnatomicStructures, setShowAnatomicStructures] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Sync visible marcacoes when marcacoes change
+  useEffect(() => {
+    setVisibleMarcacoes(new Set(marcacoes.map(m => m.id)));
+  }, [marcacoes]);
 
   const handleMarcacaoClick = (marcacao: Marcacao, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -1093,6 +1103,13 @@ export function VisualAnalysis({
               <Stethoscope className="w-4 h-4 mr-1" /> Detalhes Clínicos
             </Button>
             <Button 
+              variant={showOdontograma ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setShowOdontograma(!showOdontograma)}
+            >
+              <Grid3X3 className="w-4 h-4 mr-1" /> Odontograma
+            </Button>
+            <Button 
               variant={showAnatomicStructures ? "default" : "outline"} 
               size="sm" 
               onClick={() => setShowAnatomicStructures(!showAnatomicStructures)}
@@ -1129,6 +1146,14 @@ export function VisualAnalysis({
         )}
         
         <div className="flex items-center gap-1 ml-auto">
+          <Button 
+            variant={showLegend ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setShowLegend(!showLegend)}
+            title="Mostrar/ocultar legenda"
+          >
+            Legenda
+          </Button>
           <Button variant="outline" size="icon" onClick={handleZoomOut}>
             <ZoomOut className="w-4 h-4" />
           </Button>
@@ -1282,6 +1307,16 @@ export function VisualAnalysis({
         </Card>
       )}
 
+      {/* Odontograma Interativo */}
+      {showOdontograma && analiseCompleta && (
+        <Odontograma 
+          analiseCompleta={analiseCompleta} 
+          onToothClick={(dente) => {
+            toast.info(`Dente ${dente} selecionado`);
+          }}
+        />
+      )}
+
       {resumo && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3">
@@ -1307,6 +1342,14 @@ export function VisualAnalysis({
               style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
             >
               <img src={imageUrl} alt="Radiografia com análise visual" className="max-w-full h-auto" />
+              
+              {/* SVG Legend Overlay */}
+              {showLegend && showMarcacoes && (
+                <div className="absolute bottom-3 left-3 z-10">
+                  <SvgLegend showAnatomicStructures={showAnatomicStructures} />
+                </div>
+              )}
+              
               {showMarcacoes && (
                 <svg 
                   ref={svgRef} 
@@ -1318,38 +1361,78 @@ export function VisualAnalysis({
                   {renderSeioMaxilar()}
                   {renderCanalMandibular()}
                   
-                  {/* Render marcacoes */}
-                  {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
+                  {/* Render marcacoes with better spacing for labels */}
+                  {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m, index) => {
                     const [x, y, w, h] = m.coords;
                     const isMoving = movingMarcacao === m.id;
+                    
+                    // Calculate label offset to prevent overlap
+                    const labelOffsetY = Math.max(y - 2, 3);
+                    
                     if (m.tipo === "rect") return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
                         <rect 
                           x={x} y={y} width={w} height={h} 
-                          fill={`${m.cor}20`} 
+                          fill={`${m.cor}25`} 
                           stroke={isMoving ? "#fff" : m.cor} 
-                          strokeWidth={isMoving ? 0.5 : 0.3}
+                          strokeWidth={isMoving ? 0.4 : 0.25}
                           strokeDasharray={isMoving ? "1,1" : "none"}
-                          className="transition-all duration-200 hover:fill-opacity-40" 
+                          className="transition-all duration-200 hover:fill-opacity-50" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
-                        <text x={x} y={y - 1} fill={m.cor} fontSize={2} fontWeight="bold" className="pointer-events-none select-none">
+                        {/* Label background */}
+                        <rect
+                          x={x}
+                          y={labelOffsetY - 1.8}
+                          width={m.label.length * 0.9 + 1}
+                          height={2}
+                          fill="rgba(0,0,0,0.7)"
+                          rx={0.3}
+                          className="pointer-events-none"
+                        />
+                        <text 
+                          x={x + 0.5} 
+                          y={labelOffsetY} 
+                          fill={m.cor} 
+                          fontSize={1.5} 
+                          fontWeight="bold" 
+                          className="pointer-events-none select-none"
+                        >
                           {m.label}
                         </text>
                       </g>
                     );
+                    
                     if (m.tipo === "circle" || m.tipo === "ellipse") return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
                         <ellipse 
                           cx={x} cy={y} rx={w} ry={h} 
-                          fill={`${m.cor}20`} 
+                          fill={`${m.cor}25`} 
                           stroke={isMoving ? "#fff" : m.cor} 
-                          strokeWidth={isMoving ? 0.5 : 0.3}
+                          strokeWidth={isMoving ? 0.4 : 0.25}
                           strokeDasharray={isMoving ? "1,1" : "none"}
-                          className="transition-all duration-200 hover:fill-opacity-40" 
+                          className="transition-all duration-200 hover:fill-opacity-50" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
-                        <text x={x} y={y - h - 1} fill={m.cor} fontSize={2} fontWeight="bold" textAnchor="middle" className="pointer-events-none select-none">
+                        {/* Label background for ellipse */}
+                        <rect
+                          x={x - m.label.length * 0.45}
+                          y={y - h - 2.8}
+                          width={m.label.length * 0.9 + 1}
+                          height={2}
+                          fill="rgba(0,0,0,0.7)"
+                          rx={0.3}
+                          className="pointer-events-none"
+                        />
+                        <text 
+                          x={x} 
+                          y={y - h - 1} 
+                          fill={m.cor} 
+                          fontSize={1.5} 
+                          fontWeight="bold" 
+                          textAnchor="middle" 
+                          className="pointer-events-none select-none"
+                        >
                           {m.label}
                         </text>
                       </g>
