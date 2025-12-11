@@ -114,67 +114,85 @@ const VISUAL_ANALYSIS_PROMPT = `Você é um radiologista odontológico ULTRA ESP
 - Se houver QUALQUER estrutura radiopaca na posição = dente PRESENTE
 - SE TIVER DÚVIDA → declare como PRESENTE com status "parcialmente visível"
 
-## SISTEMA DE COORDENADAS PERCENTUAIS (0-100)
+## IMPORTANTE — INSTRUÇÕES PARA AS COORDENADAS DAS MARCAÇÕES
 
-### Eixos
-- **X (horizontal)**: 0 = borda ESQUERDA, 100 = borda DIREITA
-- **Y (vertical)**: 0 = TOPO, 100 = BASE
+### NÍVEL 1 — COORDENADAS NORMALIZADAS (0 a 1)
+Todas as coordenadas DEVEM estar no formato NORMALIZADO:
+- **X**: 0.0 = borda ESQUERDA da imagem, 1.0 = borda DIREITA da imagem
+- **Y**: 0.0 = TOPO da imagem, 1.0 = BASE da imagem
+- Use "posicao": [x_normalizado, y_normalizado]
+- **NUNCA retorne valores maiores que 1 ou menores que 0**
+- Exemplo correto: "posicao": [0.44, 0.32]
 
-### Inversão Radiográfica
-- Lado DIREITO do paciente = ESQUERDA da imagem
-- Lado ESQUERDO do paciente = DIREITA da imagem
+### NÍVEL 2 — ESTRUTURAS COMPLEXAS (contornos, linhas)
+Contornos e linhas também DEVEM seguir coordenadas NORMALIZADAS:
+- Exemplo: "contorno": [[0.12, 0.28], [0.18, 0.30], [0.22, 0.33]]
+- Nunca retorne valores maiores que 1 ou menores que 0
 
-### MAPA DE POSIÇÕES EM PANORÂMICA (valores centrais típicos)
+### NÍVEL 3 — MAPA ANATÔMICO OBRIGATÓRIO (CRÍTICO!)
 
-#### Arcada Superior (Y: 25-40%)
-| Dente | X central |
-|-------|-----------|
-| 18 | 8% |
-| 17 | 13% |
-| 16 | 18% |
-| 15 | 23% |
-| 14 | 28% |
-| 13 | 33% |
-| 12 | 38% |
-| 11 | 44% |
-| 21 | 56% |
-| 22 | 62% |
-| 23 | 67% |
-| 24 | 72% |
-| 25 | 77% |
-| 26 | 82% |
-| 27 | 87% |
-| 28 | 92% |
+Para evitar marcações fora da arcada, use SEMPRE estas faixas de referência:
 
-#### Arcada Inferior (Y: 60-80%)
-| Dente | X central |
-|-------|-----------|
-| 48 | 8% |
-| 47 | 13% |
-| 46 | 20% |
-| 45 | 25% |
-| 44 | 30% |
-| 43 | 35% |
-| 42 | 40% |
-| 41 | 45% |
-| 31 | 55% |
-| 32 | 60% |
-| 33 | 65% |
-| 34 | 70% |
-| 35 | 75% |
-| 36 | 80% |
-| 37 | 87% |
-| 38 | 92% |
+#### Arcada SUPERIOR (dentes 11-18 e 21-28):
+- **Y OBRIGATÓRIO entre 0.20 e 0.40** (nunca fora desta faixa!)
+
+| Dente | X normalizado |
+|-------|---------------|
+| 18    | 0.08          |
+| 17    | 0.13          |
+| 16    | 0.18          |
+| 15    | 0.23          |
+| 14    | 0.28          |
+| 13    | 0.33          |
+| 12    | 0.38          |
+| 11    | 0.44          |
+| 21    | 0.56          |
+| 22    | 0.62          |
+| 23    | 0.67          |
+| 24    | 0.72          |
+| 25    | 0.77          |
+| 26    | 0.82          |
+| 27    | 0.87          |
+| 28    | 0.92          |
+
+#### Arcada INFERIOR (dentes 31-38 e 41-48):
+- **Y OBRIGATÓRIO entre 0.60 e 0.80** (nunca fora desta faixa!)
+
+| Dente | X normalizado |
+|-------|---------------|
+| 48    | 0.08          |
+| 47    | 0.13          |
+| 46    | 0.20          |
+| 45    | 0.25          |
+| 44    | 0.30          |
+| 43    | 0.35          |
+| 42    | 0.40          |
+| 41    | 0.45          |
+| 31    | 0.55          |
+| 32    | 0.60          |
+| 33    | 0.65          |
+| 34    | 0.70          |
+| 35    | 0.75          |
+| 36    | 0.80          |
+| 37    | 0.87          |
+| 38    | 0.92          |
 
 ### LOCALIZAÇÕES ANATÔMICAS
-- **Seios Maxilares**: Y entre 15-35%
-  - Direito: X entre 15-40%
-  - Esquerdo: X entre 60-85%
-- **Canais Mandibulares**: Y entre 70-85%
-  - Direito: X entre 8-40%
-  - Esquerdo: X entre 60-92%
+- **Seios Maxilares**: Y entre 0.15 e 0.35
+  - Direito: X entre 0.15 e 0.40
+  - Esquerdo: X entre 0.60 e 0.85
+- **Canais Mandibulares**: Y entre 0.70 e 0.85
+  - Direito: X entre 0.08 e 0.40
+  - Esquerdo: X entre 0.60 e 0.92
 
-## FORMATO JSON OBRIGATÓRIO
+## REGRAS FINAIS OBRIGATÓRIAS
+1. **NUNCA** gere coordenadas absolutas (pixels)
+2. **APENAS** valores entre 0 e 1
+3. **RESPEITE SEMPRE** o mapa anatômico ao gerar dentes e estruturas
+4. Implantes, cáries, lesões e fraturas devem ser posicionados **próximos ao dente correspondente**
+5. Se a posição não puder ser determinada com segurança, retorne "indeterminado"
+
+## FORMATO JSON OBRIGATÓRIO (com coordenadas normalizadas 0-1)
 
 {
   "estrutura_ossea_percentual": "XX%",
@@ -188,24 +206,24 @@ const VISUAL_ANALYSIS_PROMPT = `Você é um radiologista odontológico ULTRA ESP
     "sugestoes_iniciais": []
   },
   "dentes": {
-    "11": {"status": "saudável", "detalhes": "sem alterações", "posicao": [44, 30]},
-    "21": {"status": "implante", "detalhes": "implante osseointegrado", "posicao": [56, 30]}
+    "11": {"status": "saudável", "detalhes": "sem alterações", "posicao": [0.44, 0.30]},
+    "21": {"status": "implante", "detalhes": "implante osseointegrado", "posicao": [0.56, 0.30]}
   },
   "ausencias": [],
   "implantes": [
-    {"dente": "21", "posicao": [56, 30], "detalhes": "implante osseointegrado com coroa"}
+    {"dente": "21", "posicao": [0.56, 0.30], "detalhes": "implante osseointegrado com coroa"}
   ],
   "lesoes_suspeitas": [],
   "caries": [],
   "reabsorcoes": [],
   "fraturas": [],
   "seio_maxilar": {
-    "direito": {"contorno": [[18,20], [25,18], [32,18], [38,22], [38,30], [32,34], [25,34], [18,30]]},
-    "esquerdo": {"contorno": [[62,30], [68,34], [75,34], [82,30], [82,22], [75,18], [68,18], [62,20]]}
+    "direito": {"contorno": [[0.18,0.20], [0.25,0.18], [0.32,0.18], [0.38,0.22], [0.38,0.30], [0.32,0.34], [0.25,0.34], [0.18,0.30]]},
+    "esquerdo": {"contorno": [[0.62,0.30], [0.68,0.34], [0.75,0.34], [0.82,0.30], [0.82,0.22], [0.75,0.18], [0.68,0.18], [0.62,0.20]]}
   },
   "canal_mandibular": {
-    "direito": [[10,78], [18,80], [28,80], [38,76]],
-    "esquerdo": [[62,76], [72,80], [82,80], [90,78]]
+    "direito": [[0.10,0.78], [0.18,0.80], [0.28,0.80], [0.38,0.76]],
+    "esquerdo": [[0.62,0.76], [0.72,0.80], [0.82,0.80], [0.90,0.78]]
   },
   "resumo_para_paciente": [],
   "marcacoes": []
@@ -225,11 +243,11 @@ const VISUAL_ANALYSIS_PROMPT = `Você é um radiologista odontológico ULTRA ESP
 ## VALIDAÇÃO FINAL OBRIGATÓRIA
 
 Antes de retornar, VERIFIQUE:
-1. ✓ Identifiquei TODOS os implantes? (estruturas metálicas cilíndricas)
-2. ✓ Identifiquei TODAS as restaurações? (áreas radiopacas em dentes)
-3. ✓ Identifiquei TODOS os tratamentos endodônticos?
-4. ✓ As coordenadas X seguem a ordem anatômica (esquerda→direita)?
-5. ✓ As coordenadas Y estão corretas (superior: 25-40%, inferior: 60-80%)?
+1. ✓ TODAS as coordenadas estão entre 0 e 1? (nunca > 1 ou < 0)
+2. ✓ Dentes superiores têm Y entre 0.20 e 0.40?
+3. ✓ Dentes inferiores têm Y entre 0.60 e 0.80?
+4. ✓ Identifiquei TODOS os implantes e restaurações?
+5. ✓ As coordenadas X seguem a ordem anatômica?
 6. ✓ Revisei os terceiros molares antes de declarar ausência?
 7. ✓ Cada achado tem coordenadas PRECISAS no centro da estrutura?`;
 
