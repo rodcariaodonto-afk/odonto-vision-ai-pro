@@ -39,8 +39,34 @@ interface PatientData {
 
 interface VisualAnalysisResult {
   marcacoes: Marcacao[];
-  resumo: string;
-  observacoes: string;
+  resumo?: string;
+  observacoes?: string;
+  estrutura_ossea_percentual?: string;
+  avaliacao_periodontal?: {
+    perda_ossea_global_percentual: string;
+    comentarios: string;
+  };
+  avaliacao_ortodontica?: {
+    alinhamento: string;
+    inclinacoes_relevantes: string[];
+    sugestoes_iniciais: string[];
+  };
+  dentes?: Record<string, { status: string; detalhes: string; posicao: [number, number] }>;
+  ausencias?: string[];
+  implantes?: Array<{ dente: string; posicao: [number, number]; detalhes?: string }>;
+  lesoes_suspeitas?: Array<{ dente: string; descricao: string; posicao: [number, number]; tipo?: string }>;
+  caries?: Array<{ dente: string; superficie: string; posicao: [number, number] }>;
+  reabsorcoes?: Array<{ dente: string; tipo: string; posicao: [number, number] }>;
+  fraturas?: Array<{ dente: string; descricao: string; posicao: [number, number] }>;
+  seio_maxilar?: {
+    direito?: { contorno: Array<[number, number]> };
+    esquerdo?: { contorno: Array<[number, number]> };
+  };
+  canal_mandibular?: {
+    direito?: Array<[number, number]>;
+    esquerdo?: Array<[number, number]>;
+  };
+  resumo_para_paciente?: string[];
 }
 
 const EXAM_CATEGORIES: { id: ExamCategory; label: string; description: string; icon: string }[] = [
@@ -1347,9 +1373,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               {showVisualAnalysis && visualAnalysisResult && previewUrls[0] && previewUrls[0] !== "pdf" && (
                 <VisualAnalysis
                   imageUrl={previewUrls[0]}
-                  marcacoes={visualAnalysisResult.marcacoes}
-                  resumo={visualAnalysisResult.resumo}
-                  observacoes={visualAnalysisResult.observacoes}
+                  marcacoes={visualAnalysisResult.marcacoes || []}
+                  resumo={visualAnalysisResult.resumo || visualAnalysisResult.resumo_para_paciente?.join(" ") || ""}
+                  observacoes={visualAnalysisResult.observacoes || ""}
                   editable={true}
                   onMarcacoesChange={(newMarcacoes) => {
                     setVisualAnalysisResult(prev => prev ? {
@@ -1357,6 +1383,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                       marcacoes: newMarcacoes
                     } : null);
                   }}
+                  analiseCompleta={visualAnalysisResult as any}
                 />
               )}
             </div>
