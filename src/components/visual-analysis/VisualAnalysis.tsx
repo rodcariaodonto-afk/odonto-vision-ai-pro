@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, List, Plus, Trash2, Edit2, Move, ExternalLink } from "lucide-react";
@@ -51,6 +52,7 @@ export function VisualAnalysis({
   const [selectedMarcacao, setSelectedMarcacao] = useState<Marcacao | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showMarcacoes, setShowMarcacoes] = useState(true);
+  const [visibleMarcacoes, setVisibleMarcacoes] = useState<Set<string>>(new Set(marcacoes.map(m => m.id)));
   const [zoom, setZoom] = useState(1);
   const [showList, setShowList] = useState(false);
   const [editMode, setEditMode] = useState<"none" | "add" | "move">("none");
@@ -143,6 +145,7 @@ export function VisualAnalysis({
     };
 
     onMarcacoesChange?.([...marcacoes, marcacao]);
+    setVisibleMarcacoes(prev => new Set([...prev, marcacao.id]));
     setIsAddDialogOpen(false);
     setNewMarcacao({
       tipo: "rect",
@@ -156,8 +159,33 @@ export function VisualAnalysis({
 
   const handleDeleteMarcacao = (id: string) => {
     onMarcacoesChange?.(marcacoes.filter(m => m.id !== id));
+    setVisibleMarcacoes(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
     setSelectedMarcacao(null);
     toast.success("Marcação removida!");
+  };
+
+  const toggleMarcacaoVisibility = (id: string) => {
+    setVisibleMarcacoes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllMarcacoes = (visible: boolean) => {
+    if (visible) {
+      setVisibleMarcacoes(new Set(marcacoes.map(m => m.id)));
+    } else {
+      setVisibleMarcacoes(new Set());
+    }
   };
 
   const generateImageWithMarkers = (): Promise<string> => {
@@ -183,7 +211,8 @@ export function VisualAnalysis({
         ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
         
         if (showMarcacoes) {
-          marcacoes.forEach(m => {
+          // Only draw visible markers
+          marcacoes.filter(m => visibleMarcacoes.has(m.id)).forEach(m => {
             ctx.strokeStyle = m.cor;
             ctx.lineWidth = 4;
             ctx.fillStyle = `${m.cor}33`;
@@ -490,7 +519,7 @@ export function VisualAnalysis({
                   viewBox="0 0 100 100" 
                   preserveAspectRatio="none"
                 >
-                  {marcacoes.map((m) => {
+                  {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
                     const [x, y, w, h] = m.coords;
                     const isMoving = movingMarcacao === m.id;
                     if (m.tipo === "rect") return (
@@ -547,8 +576,20 @@ export function VisualAnalysis({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Achados Identificados</CardTitle>
-            <CardDescription>
-              {marcacoes.length} estrutura{marcacoes.length !== 1 ? "s" : ""} identificada{marcacoes.length !== 1 ? "s" : ""}
+            <CardDescription className="flex items-center justify-between">
+              <span>{marcacoes.length} estrutura{marcacoes.length !== 1 ? "s" : ""} identificada{marcacoes.length !== 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs">
+                  {visibleMarcacoes.size}/{marcacoes.length} visíveis
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => toggleAllMarcacoes(visibleMarcacoes.size < marcacoes.length)}
+                >
+                  {visibleMarcacoes.size === marcacoes.length ? "Ocultar Todas" : "Mostrar Todas"}
+                </Button>
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -557,32 +598,45 @@ export function VisualAnalysis({
                 <div 
                   key={m.id} 
                   className={cn(
-                    "p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50", 
-                    selectedMarcacao?.id === m.id && "ring-2 ring-primary"
+                    "p-3 rounded-lg border transition-colors hover:bg-muted/50", 
+                    selectedMarcacao?.id === m.id && "ring-2 ring-primary",
+                    !visibleMarcacoes.has(m.id) && "opacity-50"
                   )} 
                   style={{ borderLeftColor: m.cor, borderLeftWidth: 4 }} 
-                  onClick={() => setSelectedMarcacao(m)}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-foreground">{m.label}</span>
-                    <div className="flex items-center gap-2">
-                      {getSeveridadeBadge(m.severidade)}
-                      {editable && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-6 w-6"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteMarcacao(m.id);
-                          }}
-                        >
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
-                      )}
+                  <div className="flex items-center gap-3 mb-1">
+                    <Checkbox
+                      id={`visibility-${m.id}`}
+                      checked={visibleMarcacoes.has(m.id)}
+                      onCheckedChange={() => toggleMarcacaoVisibility(m.id)}
+                      className="data-[state=checked]:bg-primary"
+                    />
+                    <div 
+                      className="flex-1 cursor-pointer"
+                      onClick={() => setSelectedMarcacao(m)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-foreground">{m.label}</span>
+                        <div className="flex items-center gap-2">
+                          {getSeveridadeBadge(m.severidade)}
+                          {editable && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteMarcacao(m.id);
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{m.descricao}</p>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{m.descricao}</p>
                 </div>
               ))}
             </div>
