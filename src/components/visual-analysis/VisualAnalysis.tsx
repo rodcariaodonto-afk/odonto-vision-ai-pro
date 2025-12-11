@@ -5,6 +5,7 @@ import { Odontograma } from "./Odontograma";
 import { SvgLegend } from "./SvgLegend";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { calculateLabelPositions, findMarcacaoByDente } from "./labelCollision";
+import { correctAnalysisCoordinates, TYPICAL_TOOTH_COORDINATES } from "./toothCoordinates";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +115,11 @@ export function VisualAnalysis({
   // Ensure marcacoes is always an array
   const safeMarcacoes = Array.isArray(marcacoes) ? marcacoes : [];
   
+  // Aplicar correção automática de coordenadas baseada em posições anatômicas típicas
+  const correctedAnalise = useMemo(() => {
+    return correctAnalysisCoordinates(analiseCompleta);
+  }, [analiseCompleta]);
+  
   const [selectedMarcacao, setSelectedMarcacao] = useState<Marcacao | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showMarcacoes, setShowMarcacoes] = useState(true);
@@ -152,7 +158,7 @@ export function VisualAnalysis({
 
   // Handle tooth click from odontogram - scroll to and highlight position
   const handleToothClick = useCallback((denteNum: string) => {
-    const position = findMarcacaoByDente(safeMarcacoes, denteNum, analiseCompleta);
+    const position = findMarcacaoByDente(safeMarcacoes, denteNum, correctedAnalise);
     
     if (position) {
       // Highlight the position
@@ -180,7 +186,7 @@ export function VisualAnalysis({
     } else {
       toast.info(`Posição do dente ${denteNum} não mapeada na análise`);
     }
-  }, [safeMarcacoes, analiseCompleta, zoom]);
+  }, [safeMarcacoes, correctedAnalise, zoom]);
 
   const handleMarcacaoClick = (marcacao: Marcacao, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -303,16 +309,16 @@ export function VisualAnalysis({
     }
   };
 
-  // Render seio maxilar contours - usando polyline como no exemplo do usuário
+  // Render seio maxilar contours - usando polyline
   const renderSeioMaxilar = () => {
-    if (!analiseCompleta?.seio_maxilar || !showAnatomicStructures) return null;
+    if (!correctedAnalise?.seio_maxilar || !showAnatomicStructures) return null;
     
     const elements: JSX.Element[] = [];
     
     // Seio maxilar direito
-    if (analiseCompleta.seio_maxilar.direito?.contorno?.length >= 3) {
-      const points = analiseCompleta.seio_maxilar.direito.contorno
-        .map(([x, y]) => `${x},${y}`).join(" ");
+    if (correctedAnalise.seio_maxilar.direito?.contorno?.length >= 3) {
+      const points = correctedAnalise.seio_maxilar.direito.contorno
+        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
       elements.push(
         <polyline
           key="seio-direito"
@@ -324,8 +330,8 @@ export function VisualAnalysis({
         />
       );
       // Fechar o polígono conectando último ao primeiro ponto
-      const firstPoint = analiseCompleta.seio_maxilar.direito.contorno[0];
-      const lastPoint = analiseCompleta.seio_maxilar.direito.contorno[analiseCompleta.seio_maxilar.direito.contorno.length - 1];
+      const firstPoint = correctedAnalise.seio_maxilar.direito.contorno[0];
+      const lastPoint = correctedAnalise.seio_maxilar.direito.contorno[correctedAnalise.seio_maxilar.direito.contorno.length - 1];
       elements.push(
         <line
           key="seio-direito-close"
@@ -340,9 +346,9 @@ export function VisualAnalysis({
     }
     
     // Seio maxilar esquerdo
-    if (analiseCompleta.seio_maxilar.esquerdo?.contorno?.length >= 3) {
-      const points = analiseCompleta.seio_maxilar.esquerdo.contorno
-        .map(([x, y]) => `${x},${y}`).join(" ");
+    if (correctedAnalise.seio_maxilar.esquerdo?.contorno?.length >= 3) {
+      const points = correctedAnalise.seio_maxilar.esquerdo.contorno
+        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
       elements.push(
         <polyline
           key="seio-esquerdo"
@@ -354,8 +360,8 @@ export function VisualAnalysis({
         />
       );
       // Fechar o polígono
-      const firstPoint = analiseCompleta.seio_maxilar.esquerdo.contorno[0];
-      const lastPoint = analiseCompleta.seio_maxilar.esquerdo.contorno[analiseCompleta.seio_maxilar.esquerdo.contorno.length - 1];
+      const firstPoint = correctedAnalise.seio_maxilar.esquerdo.contorno[0];
+      const lastPoint = correctedAnalise.seio_maxilar.esquerdo.contorno[correctedAnalise.seio_maxilar.esquerdo.contorno.length - 1];
       elements.push(
         <line
           key="seio-esquerdo-close"
@@ -372,16 +378,16 @@ export function VisualAnalysis({
     return elements;
   };
 
-  // Render canal mandibular paths - usando polyline como no exemplo do usuário
+  // Render canal mandibular paths
   const renderCanalMandibular = () => {
-    if (!analiseCompleta?.canal_mandibular || !showAnatomicStructures) return null;
+    if (!correctedAnalise?.canal_mandibular || !showAnatomicStructures) return null;
     
     const elements: JSX.Element[] = [];
     
     // Canal mandibular direito
-    if (analiseCompleta.canal_mandibular.direito?.length >= 2) {
-      const points = analiseCompleta.canal_mandibular.direito
-        .map(([x, y]) => `${x},${y}`).join(" ");
+    if (correctedAnalise.canal_mandibular.direito?.length >= 2) {
+      const points = correctedAnalise.canal_mandibular.direito
+        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
       elements.push(
         <polyline
           key="canal-direito"
@@ -396,9 +402,9 @@ export function VisualAnalysis({
     }
     
     // Canal mandibular esquerdo
-    if (analiseCompleta.canal_mandibular.esquerdo?.length >= 2) {
-      const points = analiseCompleta.canal_mandibular.esquerdo
-        .map(([x, y]) => `${x},${y}`).join(" ");
+    if (correctedAnalise.canal_mandibular.esquerdo?.length >= 2) {
+      const points = correctedAnalise.canal_mandibular.esquerdo
+        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
       elements.push(
         <polyline
           key="canal-esquerdo"
@@ -415,11 +421,11 @@ export function VisualAnalysis({
     return elements;
   };
 
-  // Render caries directly from analiseCompleta - círculos vermelhos
+  // Render caries - apenas círculos SEM texto
   const renderCaries = () => {
-    if (!analiseCompleta?.caries?.length) return null;
+    if (!correctedAnalise?.caries?.length) return null;
     
-    return analiseCompleta.caries.map((carie, i) => {
+    return correctedAnalise.caries.map((carie: any, i: number) => {
       if (!carie.posicao) return null;
       return (
         <circle
@@ -436,11 +442,11 @@ export function VisualAnalysis({
     });
   };
 
-  // Render lesoes directly from analiseCompleta - círculos laranjas
+  // Render lesoes - apenas círculos SEM texto
   const renderLesoes = () => {
-    if (!analiseCompleta?.lesoes_suspeitas?.length) return null;
+    if (!correctedAnalise?.lesoes_suspeitas?.length) return null;
     
-    return analiseCompleta.lesoes_suspeitas.map((lesao, i) => {
+    return correctedAnalise.lesoes_suspeitas.map((lesao: any, i: number) => {
       if (!lesao.posicao) return null;
       return (
         <circle
@@ -457,11 +463,11 @@ export function VisualAnalysis({
     });
   };
 
-  // Render implantes directly from analiseCompleta - ícone roxo distintivo
+  // Render implantes - apenas ícone SEM texto
   const renderImplantes = () => {
-    if (!analiseCompleta?.implantes?.length) return null;
+    if (!correctedAnalise?.implantes?.length) return null;
     
-    return analiseCompleta.implantes.map((implante, i) => {
+    return correctedAnalise.implantes.map((implante: any, i: number) => {
       if (!implante.posicao) return null;
       return (
         <g key={`implante-${i}`}>
@@ -486,11 +492,11 @@ export function VisualAnalysis({
     });
   };
 
-  // Render dentes positions from analiseCompleta - apenas círculos SEM texto
+  // Render dentes positions - apenas círculos pequenos SEM texto
   const renderDentes = () => {
-    if (!analiseCompleta?.dentes) return null;
+    if (!correctedAnalise?.dentes) return null;
     
-    return Object.entries(analiseCompleta.dentes).map(([num, dente]) => {
+    return Object.entries(correctedAnalise.dentes).map(([num, dente]: [string, any]) => {
       if (!dente.posicao) return null;
       const status = dente.status?.toLowerCase() || "";
       const isHealthy = status.includes("saudável") || status.includes("normal") || status.includes("hígido");
@@ -508,20 +514,20 @@ export function VisualAnalysis({
           key={`dente-${num}`}
           cx={dente.posicao[0]}
           cy={dente.posicao[1]}
-          r="1.2"
+          r="1.0"
           fill={`${color}40`}
           stroke={color}
-          strokeWidth="0.25"
+          strokeWidth="0.2"
         />
       );
     });
   };
 
-  // Render reabsorcoes - círculos pequenos
+  // Render reabsorcoes - círculos pequenos SEM texto
   const renderReabsorcoes = () => {
-    if (!analiseCompleta?.reabsorcoes?.length) return null;
+    if (!correctedAnalise?.reabsorcoes?.length) return null;
     
-    return analiseCompleta.reabsorcoes.map((reab, i) => {
+    return correctedAnalise.reabsorcoes.map((reab: any, i: number) => {
       if (!reab.posicao) return null;
       return (
         <circle
@@ -538,11 +544,11 @@ export function VisualAnalysis({
     });
   };
 
-  // Render fraturas - linhas finas
+  // Render fraturas - linhas finas SEM texto
   const renderFraturas = () => {
-    if (!analiseCompleta?.fraturas?.length) return null;
+    if (!correctedAnalise?.fraturas?.length) return null;
     
-    return analiseCompleta.fraturas.map((fratura, i) => {
+    return correctedAnalise.fraturas.map((fratura: any, i: number) => {
       if (!fratura.posicao) return null;
       return (
         <line
@@ -582,6 +588,7 @@ export function VisualAnalysis({
         ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
         
         if (showMarcacoes) {
+          // Desenhar apenas formas coloridas SEM texto
           safeMarcacoes.filter(m => visibleMarcacoes.has(m.id)).forEach(m => {
             ctx.strokeStyle = m.cor;
             ctx.lineWidth = 4;
@@ -600,13 +607,7 @@ export function VisualAnalysis({
               ctx.stroke(); 
               ctx.fill(); 
             }
-            
-            ctx.font = "bold 16px sans-serif";
-            const textWidth = ctx.measureText(m.label).width;
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(x, y - 22, textWidth + 8, 20);
-            ctx.fillStyle = m.cor;
-            ctx.fillText(m.label, x + 4, y - 7);
+            // NÃO renderizar texto/labels para manter imagem limpa
           });
         }
         
@@ -643,7 +644,7 @@ export function VisualAnalysis({
       if (newWindow) {
         const marcacoesData = JSON.stringify(safeMarcacoes);
         const visibleIds = JSON.stringify(Array.from(visibleMarcacoes));
-        const analiseData = analiseCompleta ? JSON.stringify(analiseCompleta) : "null";
+        const analiseData = correctedAnalise ? JSON.stringify(correctedAnalise) : "null";
         
         newWindow.document.write(`
           <!DOCTYPE html>

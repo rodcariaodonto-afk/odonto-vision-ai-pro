@@ -4,4 +4,10 @@ export { Odontograma } from "./Odontograma";
 export { SvgLegend } from "./SvgLegend";
 export { DrawingCanvas } from "./DrawingCanvas";
 export { calculateLabelPositions, findMarcacaoByDente } from "./labelCollision";
+export { 
+  correctAnalysisCoordinates, 
+  correctToothCoordinates, 
+  TYPICAL_TOOTH_COORDINATES,
+  getToothInfo 
+} from "./toothCoordinates";
 export type { Marcacao, AnaliseVisualCompleta } from "./VisualAnalysis";
