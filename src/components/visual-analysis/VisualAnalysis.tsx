@@ -1394,11 +1394,7 @@ export function VisualAnalysis({
               <img src={imageUrl} alt="Radiografia com análise visual" className="max-w-full h-auto" />
               
               {/* SVG Legend Overlay */}
-              {showLegend && showMarcacoes && (
-                <div className="absolute bottom-3 left-3 z-10">
-                  <SvgLegend showAnatomicStructures={showAnatomicStructures} />
-                </div>
-              )}
+              {/* Legend moved outside the image container */}
               
               {showMarcacoes && (
                 <svg 
@@ -1590,6 +1586,11 @@ export function VisualAnalysis({
           </div>
         </CardContent>
       </Card>
+
+      {/* Legend below the image card */}
+      {showLegend && showMarcacoes && (
+        <SvgLegend showAnatomicStructures={showAnatomicStructures} className="w-full" />
+      )}
 
       {/* Drawing Canvas Mode */}
       {showDrawingMode && (

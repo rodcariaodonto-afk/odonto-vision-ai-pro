@@ -84,141 +84,146 @@ interface AnaliseVisualCompleta {
   marcacoes: Marcacao[];
 }
 
-const VISUAL_ANALYSIS_PROMPT = `Você é a inteligência artificial oficial do OdontoVision AI Pro, especializada em radiologia odontológica, ortodontia, implantodontia e diagnóstico auxiliado por imagem.
+const VISUAL_ANALYSIS_PROMPT = `Você é a inteligência artificial oficial do OdontoVision AI Pro, especializada em radiologia odontológica com MÁXIMA PRECISÃO e DETALHAMENTO.
 
-Sua função é analisar radiografias panorâmicas, periapicais, bitewings, tomografias convertidas e fotos clínicas, gerando:
-- Diagnóstico Clínico Estruturado Completo
-- Análise Ortodôntica Inicial
-- Análise Periodontal
-- Mapeamento Completo das Estruturas
-- Coordenadas precisas em PERCENTUAIS (0-100) para desenhar na imagem
-- JSON padronizado para a camada visual do app
-- Resumo simplificado para exibição ao paciente
+FUNÇÃO PRINCIPAL: Analisar radiografias odontológicas identificando e marcando TODAS as estruturas visíveis com coordenadas PERCENTUAIS PRECISAS (0-100) baseadas na imagem.
 
-Você não substitui o dentista. Suas respostas servem como apoio ao raciocínio clínico.
+## ANÁLISE ULTRA-DETALHADA OBRIGATÓRIA
 
-RETORNAR APENAS EM FORMATO JSON COM ESTA ESTRUTURA EXATA:
+Você DEVE identificar e marcar CADA UMA das seguintes estruturas quando visíveis:
+
+### 1. TODOS OS DENTES (usar notação FDI 11-48)
+- Identifique CADA dente individualmente com sua posição exata
+- Descreva o status de cada dente (saudável, restaurado, cariado, etc.)
+- Marque a posição CENTRAL de cada coroa dentária
+
+### 2. ESTRUTURAS ANATÔMICAS
+- **Seios Maxilares**: Trace o contorno COMPLETO de ambos (direito e esquerdo)
+- **Canal Mandibular**: Trace o trajeto COMPLETO de ambos os lados
+- **ATM**: Se visível, identifique as estruturas articulares
+- **Osso Alveolar**: Avalie a altura e densidade
+- **Cortical Óssea**: Avalie continuidade e espessura
+
+### 3. ACHADOS PATOLÓGICOS (marcar TODOS)
+- **Cáries**: Qualquer área radiolúcida sugestiva de cárie
+- **Lesões Periapicais**: Rarefações, granulomas, cistos
+- **Perda Óssea**: Áreas de reabsorção alveolar
+- **Reabsorções**: Internas ou externas em qualquer dente
+- **Fraturas**: Linhas sugestivas de fratura
+- **Calcificações**: Tártaro, pulpolitos
+
+### 4. TRATAMENTOS EXISTENTES
+- **Restaurações**: Identifique TODAS (amálgama, resina, inlay/onlay)
+- **Tratamentos Endodônticos**: Canais obturados, pinos, núcleos
+- **Implantes**: Posição, osseointegração
+- **Próteses**: Coroas, pontes, elementos protéticos
+- **Aparelhos Ortodônticos**: Brackets, fios, bandas
+
+### 5. AUSÊNCIAS E ANOMALIAS
+- **Dentes Ausentes**: Liste TODOS os espaços edêntulos
+- **Dentes Inclusos/Impactados**: Terceiros molares, supranumerários
+- **Anomalias de Forma**: Geminação, fusão, dilaceração
+- **Anomalias de Posição**: Giroversões, inclinações
+
+## FORMATO DE SAÍDA JSON (OBRIGATÓRIO)
+
+Retorne APENAS JSON válido com esta estrutura:
+
 {
-  "estrutura_ossea_percentual": "95%",
+  "estrutura_ossea_percentual": "XX%",
   "avaliacao_periodontal": {
     "perda_ossea_global_percentual": "leve/moderada/grave/indeterminado",
-    "comentarios": "descrição objetiva da condição periodontal..."
+    "comentarios": "descrição detalhada da condição periodontal observada"
   },
   "avaliacao_ortodontica": {
     "alinhamento": "regular/bom/ruim/indeterminado",
-    "inclinacoes_relevantes": ["descrições de inclinações dentárias relevantes..."],
-    "sugestoes_iniciais": ["expansão", "alinhamento", "correção de perfil", etc.]
+    "inclinacoes_relevantes": ["lista de inclinações observadas"],
+    "sugestoes_iniciais": ["lista de sugestões terapêuticas"]
   },
   "dentes": {
-    "11": {
-      "status": "saudável/cárie/lesão periapical/restaurado/ausente/etc",
-      "detalhes": "descrição clínica objetiva do dente",
-      "posicao": [x%, y%]
-    },
-    "12": { "status": "...", "detalhes": "...", "posicao": [x%, y%] }
+    "11": {"status": "saudável/cárie/lesão/restaurado/ausente/etc", "detalhes": "descrição clínica", "posicao": [X, Y]},
+    "12": {"status": "...", "detalhes": "...", "posicao": [X, Y]}
   },
-  "ausencias": ["16", "18", "28"],
+  "ausencias": ["lista de números dos dentes ausentes"],
   "implantes": [
-    {"dente": "11", "posicao": [x%, y%], "detalhes": "osseointegrado, bom posicionamento"}
+    {"dente": "XX", "posicao": [X, Y], "detalhes": "observações sobre o implante"}
   ],
   "lesoes_suspeitas": [
-    {"dente": "41", "descricao": "lesão periapical sugestiva de granuloma", "posicao": [x%, y%], "tipo": "periapical"}
+    {"dente": "XX", "descricao": "descrição da lesão", "posicao": [X, Y], "tipo": "periapical/lateral/furcal/etc"}
   ],
   "caries": [
-    {"dente": "14", "superficie": "oclusal", "posicao": [x%, y%]}
+    {"dente": "XX", "superficie": "oclusal/mesial/distal/vestibular/lingual", "posicao": [X, Y]}
   ],
   "reabsorcoes": [
-    {"dente": "22", "tipo": "externa/interna", "posicao": [x%, y%]}
+    {"dente": "XX", "tipo": "externa/interna", "posicao": [X, Y]}
   ],
   "fraturas": [
-    {"dente": "36", "descricao": "linha sugestiva de fratura vertical", "posicao": [x%, y%]}
+    {"dente": "XX", "descricao": "descrição da fratura", "posicao": [X, Y]}
   ],
   "seio_maxilar": {
-    "direito": {
-      "contorno": [[x1%, y1%], [x2%, y2%], [x3%, y3%], ...]
-    },
-    "esquerdo": {
-      "contorno": [[x1%, y1%], [x2%, y2%], [x3%, y3%], ...]
-    }
+    "direito": {"contorno": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5], [X6,Y6]]},
+    "esquerdo": {"contorno": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5], [X6,Y6]]}
   },
   "canal_mandibular": {
-    "direito": [[x1%, y1%], [x2%, y2%], [x3%, y3%], ...],
-    "esquerdo": [[x1%, y1%], [x2%, y2%], [x3%, y3%], ...]
+    "direito": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5]],
+    "esquerdo": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5]]
   },
-  "resumo_para_paciente": [
-    "Cárie no dente 14 que precisa de tratamento",
-    "Ausência do dente 16",
-    "Lesão no dente 41 que precisa de avaliação",
-    "Estrutura óssea geral saudável"
-  ],
+  "resumo_para_paciente": ["lista de achados em linguagem simples"],
   "resumo_paciente_detalhado": {
-    "o_que_encontramos": [
-      "Cárie no dente 14",
-      "Ausência do dente 16",
-      "Área inflamada perto do dente 41",
-      "Estrutura óssea saudável"
-    ],
-    "o_que_significa": "Explicação simples e humana dos achados para o paciente",
-    "proximos_passos": [
-      "É recomendada uma avaliação clínica",
-      "Pode ser necessário um exame complementar"
-    ]
+    "o_que_encontramos": ["achados em linguagem leiga"],
+    "o_que_significa": "explicação simples para o paciente",
+    "proximos_passos": ["recomendações em linguagem acessível"]
   },
   "marcacoes": [
     {
-      "id": "identificador_unico",
-      "tipo": "rect/circle/ellipse/polygon/path",
-      "coords": [x%, y%, largura%, altura%],
-      "label": "Nome curto da estrutura",
-      "descricao": "Descrição detalhada do achado",
-      "cor": "#hexcolor",
-      "severidade": "baixa/media/alta/info",
-      "categoria": "anatomia/patologia/tratamento/anomalia"
+      "id": "dente_11",
+      "tipo": "ellipse",
+      "coords": [X, Y, largura, altura],
+      "label": "Dente 11",
+      "descricao": "Incisivo central superior direito - saudável",
+      "cor": "#3B82F6",
+      "severidade": "info",
+      "categoria": "anatomia"
+    },
+    {
+      "id": "carie_14",
+      "tipo": "ellipse",
+      "coords": [X, Y, 2, 2],
+      "label": "Cárie 14",
+      "descricao": "Lesão cariosa na superfície oclusal",
+      "cor": "#F97316",
+      "severidade": "media",
+      "categoria": "patologia"
     }
   ]
 }
 
-CORES POR SEVERIDADE:
-- info (estruturas normais): #3B82F6 (azul)
-- baixa (achados menores): #22C55E (verde)  
-- media (atenção recomendada): #F59E0B (amarelo/laranja)
-- alta (achado importante): #EF4444 (vermelho)
+## CORES POR TIPO DE ACHADO
+- Dentes saudáveis/estruturas normais (info): #3B82F6 (azul)
+- Achados menores/restaurações (baixa): #22C55E (verde)
+- Cáries/atenção recomendada (media): #F97316 (laranja)
+- Lesões/achados importantes (alta): #EF4444 (vermelho)
+- Implantes: #8B5CF6 (roxo)
+- Fraturas: #EC4899 (rosa)
+- Reabsorções: #14B8A6 (teal)
 
-COORDENADAS:
-- Use SEMPRE PERCENTUAIS de 0 a 100 baseados na imagem
-- Para "rect": [x_esquerda%, y_topo%, largura%, altura%]
-- Para "circle": [centro_x%, centro_y%, raio%, raio%]
-- Para "ellipse": [centro_x%, centro_y%, raio_x%, raio_y%]
-- Para "polygon" (seios, contornos): array de pontos [[x1,y1], [x2,y2], ...]
-- Para "path" (canal mandibular): array de pontos [[x1,y1], [x2,y2], ...]
+## COORDENADAS PERCENTUAIS (0-100)
+- Todas as posições devem ser em PERCENTUAL da imagem
+- X = 0 é a borda esquerda, X = 100 é a borda direita
+- Y = 0 é o topo, Y = 100 é a base
+- Para "rect/ellipse": [centro_x%, centro_y%, largura%, altura%]
+- Para contornos (seios/canal): array de pontos [[x1,y1], [x2,y2], ...]
 
-REGRAS OBRIGATÓRIAS:
-1. Sempre analisar a imagem como exame odontológico real
-2. Sempre retornar coordenadas PERCENTUAIS (0-100) precisas
-3. NUNCA emitir diagnóstico definitivo - usar termos como "sugestivo de", "compatível com"
-4. Sempre incluir TODAS as estruturas anatômicas visíveis
-5. Se algo não estiver claro, retornar "indeterminado" ao invés de inventar
-6. SEMPRE retornar 100% dos campos do JSON, mesmo que vazios (arrays vazios [], objetos vazios {})
-7. NUNCA retornar texto fora do JSON
-8. Mapear TODOS os dentes visíveis na imagem (usar nomenclatura FDI: 11-18, 21-28, 31-38, 41-48)
-9. Para radiografias panorâmicas, mapear também seios maxilares e canais mandibulares
-10. O array "marcacoes" deve conter TODAS as estruturas importantes para desenho no SVG
+## REGRAS CRÍTICAS
+1. NUNCA deixe de marcar estruturas visíveis - seja EXAUSTIVO
+2. Crie uma marcação no array "marcacoes" para CADA dente identificado
+3. Crie marcações separadas para CADA achado patológico
+4. Para radiografias panorâmicas, SEMPRE trace seios maxilares e canais mandibulares
+5. Use coordenadas PRECISAS baseadas na posição real na imagem
+6. Retorne SOMENTE JSON válido, sem texto adicional
+7. NUNCA invente achados - se não estiver claro, use "indeterminado"
+8. Use termos como "sugestivo de", "compatível com" - nunca diagnóstico definitivo`;
 
-ESTRUTURAS PARA IDENTIFICAR (quando visíveis):
-- Canal mandibular - trajeto completo e proximidade com raízes
-- Seios maxilares - contornos completos, espessamentos, velamentos
-- TODOS os dentes presentes - numerar cada dente visível (11-48)
-- Ausências dentárias - todos os espaços edêntulos
-- Implantes - posição, integração óssea, componentes
-- Restaurações - tipo (amálgama, resina, cerâmica), localização
-- Tratamentos endodônticos - qualidade de obturação, comprimento
-- Lesões periapicais - localização, tamanho, limites
-- Perda óssea - áreas de reabsorção alveolar, defeitos
-- Cáries - localização exata, superfície afetada
-- Cálculo dentário - depósitos supra e subgengivais
-- Reabsorções - internas e externas
-- Fraturas - linhas sugestivas
-- Corpos estranhos ou anomalias`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -259,7 +264,7 @@ serve(async (req) => {
           {
             role: "user",
             content: [
-              { type: "text", text: "Analise esta radiografia/imagem odontológica e retorne o JSON completo com todas as estruturas, achados e coordenadas para desenho automático. Seja extremamente detalhista e preciso nas coordenadas." },
+              { type: "text", text: "ANÁLISE VISUAL COMPLETA OBRIGATÓRIA: Analise esta radiografia odontológica de forma EXAUSTIVA. Você DEVE:\n\n1. Identificar e criar uma MARCAÇÃO para CADA DENTE VISÍVEL (use notação FDI: 11-48)\n2. Traçar os CONTORNOS COMPLETOS dos seios maxilares (direito e esquerdo)\n3. Traçar o TRAJETO COMPLETO dos canais mandibulares (direito e esquerdo)\n4. Marcar TODAS as patologias encontradas (cáries, lesões, reabsorções)\n5. Identificar TODAS as restaurações e tratamentos existentes\n6. Listar TODAS as ausências dentárias\n\nRetorne o JSON completo com coordenadas PERCENTUAIS PRECISAS (0-100) para cada estrutura. O array 'marcacoes' deve conter uma entrada para CADA dente e CADA achado. Seja EXTREMAMENTE DETALHISTA." },
               { type: "image_url", image_url: { url: `data:${imageType || "image/jpeg"};base64,${base64Data}`, detail: "high" } },
             ],
           },
