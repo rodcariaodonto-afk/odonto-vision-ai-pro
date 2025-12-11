@@ -104,17 +104,20 @@ const severidadeCores: Record<string, string> = {
 
 export function VisualAnalysis({ 
   imageUrl, 
-  marcacoes, 
-  resumo, 
-  observacoes, 
+  marcacoes = [], 
+  resumo = "", 
+  observacoes = "", 
   editable = false,
   onMarcacoesChange,
   analiseCompleta
 }: VisualAnalysisProps) {
+  // Ensure marcacoes is always an array
+  const safeMarcacoes = Array.isArray(marcacoes) ? marcacoes : [];
+  
   const [selectedMarcacao, setSelectedMarcacao] = useState<Marcacao | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showMarcacoes, setShowMarcacoes] = useState(true);
-  const [visibleMarcacoes, setVisibleMarcacoes] = useState<Set<string>>(new Set(marcacoes.map(m => m.id)));
+  const [visibleMarcacoes, setVisibleMarcacoes] = useState<Set<string>>(new Set(safeMarcacoes.map(m => m.id)));
   const [zoom, setZoom] = useState(1);
   const [showList, setShowList] = useState(false);
   const [showPatientSummary, setShowPatientSummary] = useState(false);
@@ -139,17 +142,17 @@ export function VisualAnalysis({
 
   // Sync visible marcacoes when marcacoes change
   useEffect(() => {
-    setVisibleMarcacoes(new Set(marcacoes.map(m => m.id)));
-  }, [marcacoes]);
+    setVisibleMarcacoes(new Set(safeMarcacoes.map(m => m.id)));
+  }, [safeMarcacoes]);
 
   // Calculate label positions with collision detection
   const labelPositions = useMemo(() => {
-    return calculateLabelPositions(marcacoes, visibleMarcacoes);
-  }, [marcacoes, visibleMarcacoes]);
+    return calculateLabelPositions(safeMarcacoes, visibleMarcacoes);
+  }, [safeMarcacoes, visibleMarcacoes]);
 
   // Handle tooth click from odontogram - scroll to and highlight position
   const handleToothClick = useCallback((denteNum: string) => {
-    const position = findMarcacaoByDente(marcacoes, denteNum, analiseCompleta);
+    const position = findMarcacaoByDente(safeMarcacoes, denteNum, analiseCompleta);
     
     if (position) {
       // Highlight the position
@@ -177,7 +180,7 @@ export function VisualAnalysis({
     } else {
       toast.info(`Posição do dente ${denteNum} não mapeada na análise`);
     }
-  }, [marcacoes, analiseCompleta, zoom]);
+  }, [safeMarcacoes, analiseCompleta, zoom]);
 
   const handleMarcacaoClick = (marcacao: Marcacao, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -215,7 +218,7 @@ export function VisualAnalysis({
         const x = ((event.clientX - rect.left) / rect.width) * 100;
         const y = ((event.clientY - rect.top) / rect.height) * 100;
         
-        const updatedMarcacoes = marcacoes.map(m => {
+        const updatedMarcacoes = safeMarcacoes.map(m => {
           if (m.id === movingMarcacao) {
             const newCoords = [...m.coords];
             newCoords[0] = x;
@@ -256,7 +259,7 @@ export function VisualAnalysis({
       categoria: newMarcacao.categoria || "anatomia",
     };
 
-    onMarcacoesChange?.([...marcacoes, marcacao]);
+    onMarcacoesChange?.([...safeMarcacoes, marcacao]);
     setVisibleMarcacoes(prev => new Set([...prev, marcacao.id]));
     setIsAddDialogOpen(false);
     setNewMarcacao({
@@ -270,7 +273,7 @@ export function VisualAnalysis({
   };
 
   const handleDeleteMarcacao = (id: string) => {
-    onMarcacoesChange?.(marcacoes.filter(m => m.id !== id));
+    onMarcacoesChange?.(safeMarcacoes.filter(m => m.id !== id));
     setVisibleMarcacoes(prev => {
       const newSet = new Set(prev);
       newSet.delete(id);
@@ -294,7 +297,7 @@ export function VisualAnalysis({
 
   const toggleAllMarcacoes = (visible: boolean) => {
     if (visible) {
-      setVisibleMarcacoes(new Set(marcacoes.map(m => m.id)));
+      setVisibleMarcacoes(new Set(safeMarcacoes.map(m => m.id)));
     } else {
       setVisibleMarcacoes(new Set());
     }
@@ -578,7 +581,7 @@ export function VisualAnalysis({
         ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
         
         if (showMarcacoes) {
-          marcacoes.filter(m => visibleMarcacoes.has(m.id)).forEach(m => {
+          safeMarcacoes.filter(m => visibleMarcacoes.has(m.id)).forEach(m => {
             ctx.strokeStyle = m.cor;
             ctx.lineWidth = 4;
             ctx.fillStyle = `${m.cor}33`;
@@ -637,7 +640,7 @@ export function VisualAnalysis({
       
       const newWindow = window.open("", "_blank");
       if (newWindow) {
-        const marcacoesData = JSON.stringify(marcacoes);
+        const marcacoesData = JSON.stringify(safeMarcacoes);
         const visibleIds = JSON.stringify(Array.from(visibleMarcacoes));
         const analiseData = analiseCompleta ? JSON.stringify(analiseCompleta) : "null";
         
@@ -1025,7 +1028,7 @@ export function VisualAnalysis({
                   <div class="panel-section" id="patientSection"></div>
                   <div class="panel-section">
                     <div class="controls-header">
-                      <h3>Achados (${marcacoes.length})</h3>
+                      <h3>Achados (\${marcacoes.length})</h3>
                       <div class="toggle-all-btns">
                         <button class="btn-show-all" onclick="toggleAll(true)">Todos</button>
                         <button class="btn-hide-all" onclick="toggleAll(false)">Nenhum</button>
@@ -1308,7 +1311,7 @@ export function VisualAnalysis({
     }
   };
 
-  const sortedMarcacoes = [...marcacoes].sort(
+  const sortedMarcacoes = [...safeMarcacoes].sort(
     (a, b) => severidadeOrder.indexOf(a.severidade) - severidadeOrder.indexOf(b.severidade)
   );
 
@@ -1397,7 +1400,7 @@ export function VisualAnalysis({
             onClick={() => setShowList(!showList)}
           >
             <List className="w-4 h-4 mr-1" /> 
-            <span>Lista ({marcacoes.length})</span>
+            <span>Lista ({safeMarcacoes.length})</span>
           </Button>
           
           {/* Drawing Mode Button */}
@@ -1752,7 +1755,7 @@ export function VisualAnalysis({
                   )}
                   
                   {/* Render marcacoes with collision-aware labels */}
-                  {marcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
+                  {safeMarcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
                     const [x, y, w, h] = m.coords;
                     const isMoving = movingMarcacao === m.id;
                     
@@ -1913,17 +1916,17 @@ export function VisualAnalysis({
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Achados Identificados</CardTitle>
             <CardDescription className="flex items-center justify-between">
-              <span>{marcacoes.length} estrutura{marcacoes.length !== 1 ? "s" : ""} identificada{marcacoes.length !== 1 ? "s" : ""}</span>
+              <span>{safeMarcacoes.length} estrutura{safeMarcacoes.length !== 1 ? "s" : ""} identificada{safeMarcacoes.length !== 1 ? "s" : ""}</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs">
-                  {visibleMarcacoes.size}/{marcacoes.length} visíveis
+                  {visibleMarcacoes.size}/{safeMarcacoes.length} visíveis
                 </span>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => toggleAllMarcacoes(visibleMarcacoes.size < marcacoes.length)}
+                  onClick={() => toggleAllMarcacoes(visibleMarcacoes.size < safeMarcacoes.length)}
                 >
-                  {visibleMarcacoes.size === marcacoes.length ? "Ocultar Todas" : "Mostrar Todas"}
+                  {visibleMarcacoes.size === safeMarcacoes.length ? "Ocultar Todas" : "Mostrar Todas"}
                 </Button>
               </div>
             </CardDescription>
