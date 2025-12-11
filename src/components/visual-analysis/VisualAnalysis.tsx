@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { Odontograma } from "./Odontograma";
 import { DrawingCanvas } from "./DrawingCanvas";
+import { OdontogramaInterativo, TipoMarcacao, MarcacaoManual } from "./OdontogramaInterativo";
+import { RadiografiaInterativa } from "./RadiografiaInterativa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 // Interface simplificada para análise visual
@@ -76,6 +76,8 @@ interface VisualAnalysisProps {
   observacoes?: string;
   editable?: boolean;
   onMarcacoesChange?: (marcacoes: Marcacao[]) => void;
+  onMarcacoesManualChange?: (marcacoes: MarcacaoManual[]) => void;
+  marcacoesManuals?: MarcacaoManual[];
   analiseCompleta?: AnaliseVisualCompleta;
   analiseSimplificada?: AnaliseVisualSimplificada;
 }
@@ -87,6 +89,8 @@ export function VisualAnalysis({
   observacoes = "", 
   editable = false,
   onMarcacoesChange,
+  onMarcacoesManualChange,
+  marcacoesManuals: externalMarcacoesManuals,
   analiseCompleta,
   analiseSimplificada
 }: VisualAnalysisProps) {
@@ -96,17 +100,28 @@ export function VisualAnalysis({
   const [showClinicalDetails, setShowClinicalDetails] = useState(true);
   const [showOdontograma, setShowOdontograma] = useState(false);
   const [showDrawingMode, setShowDrawingMode] = useState(false);
+  const [showMarcacoes, setShowMarcacoes] = useState(true);
+  const [modoAtivo, setModoAtivo] = useState<{ dente: string | null; tipo: TipoMarcacao | null }>({ dente: null, tipo: null });
+  const [internalMarcacoesManuals, setInternalMarcacoesManuals] = useState<MarcacaoManual[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Use external or internal marcacoes
+  const marcacoesManuals = externalMarcacoesManuals ?? internalMarcacoesManuals;
+  const setMarcacoesManuals = useCallback((newMarcacoes: MarcacaoManual[]) => {
+    if (onMarcacoesManualChange) {
+      onMarcacoesManualChange(newMarcacoes);
+    } else {
+      setInternalMarcacoesManuals(newMarcacoes);
+    }
+  }, [onMarcacoesManualChange]);
 
   // Usar análise simplificada como fonte principal
   const analise = analiseSimplificada;
   
   // Fallback para dados do analiseCompleta se não houver simplificada
-  const getSeioMaxilar = () => {
+  const getSeioMaxilar = useCallback(() => {
     if (analise?.seio_maxilar) return analise.seio_maxilar;
     if (analiseCompleta?.seio_maxilar) {
-      // Converter formato antigo para novo
       return {
         direito: analiseCompleta.seio_maxilar.direito?.contorno 
           ? { contorno_normalizado: analiseCompleta.seio_maxilar.direito.contorno }
@@ -116,113 +131,46 @@ export function VisualAnalysis({
           : undefined,
       };
     }
-    return null;
-  };
+    return undefined;
+  }, [analise, analiseCompleta]);
   
-  const getCanalMandibular = () => {
+  const getCanalMandibular = useCallback(() => {
     if (analise?.canal_mandibular) return analise.canal_mandibular;
-    return analiseCompleta?.canal_mandibular || null;
-  };
+    return analiseCompleta?.canal_mandibular || undefined;
+  }, [analise, analiseCompleta]);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
   const handleResetZoom = () => setZoom(1);
 
-  // Converter coordenadas normalizadas (0-1) para percentuais (0-100)
-  const toPercentage = (point: [number, number]): [number, number] => {
-    const [x, y] = point;
-    return [x > 1 ? x : x * 100, y > 1 ? y : y * 100];
-  };
+  // Marcações manuais handlers
+  const handleAddMarcacao = useCallback((marcacao: MarcacaoManual) => {
+    setMarcacoesManuals([...marcacoesManuals, marcacao]);
+    toast.success(`${marcacao.tipo} adicionado ao dente ${marcacao.dente}`);
+    // Reset mode after adding
+    setModoAtivo({ dente: null, tipo: null });
+  }, [marcacoesManuals, setMarcacoesManuals]);
 
-  // Renderizar seios maxilares (polígonos amarelos)
-  const renderSeioMaxilar = () => {
-    const seio = getSeioMaxilar();
-    if (!seio || !showAnatomicStructures) return null;
-    
-    const elements: JSX.Element[] = [];
-    
-    // Seio maxilar direito
-    if (seio.direito?.contorno_normalizado?.length >= 3) {
-      const points = seio.direito.contorno_normalizado
-        .map((p: [number, number]) => toPercentage(p))
-        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polygon
-          key="seio-direito"
-          points={points}
-          fill="rgba(255, 215, 0, 0.2)"
-          stroke="#FFD700"
-          strokeWidth="0.4"
-          strokeDasharray="2,1"
-        />
-      );
-    }
-    
-    // Seio maxilar esquerdo
-    if (seio.esquerdo?.contorno_normalizado?.length >= 3) {
-      const points = seio.esquerdo.contorno_normalizado
-        .map((p: [number, number]) => toPercentage(p))
-        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polygon
-          key="seio-esquerdo"
-          points={points}
-          fill="rgba(255, 215, 0, 0.2)"
-          stroke="#FFD700"
-          strokeWidth="0.4"
-          strokeDasharray="2,1"
-        />
-      );
-    }
-    
-    return elements;
-  };
+  const handleMoveMarcacao = useCallback((id: string, x: number, y: number) => {
+    setMarcacoesManuals(marcacoesManuals.map(m => 
+      m.id === id ? { ...m, x, y } : m
+    ));
+  }, [marcacoesManuals, setMarcacoesManuals]);
 
-  // Renderizar canais mandibulares (linhas cianas)
-  const renderCanalMandibular = () => {
-    const canal = getCanalMandibular();
-    if (!canal || !showAnatomicStructures) return null;
-    
-    const elements: JSX.Element[] = [];
-    
-    // Canal mandibular direito
-    if (canal.direito?.length >= 2) {
-      const points = canal.direito
-        .map((p: [number, number]) => toPercentage(p))
-        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polyline
-          key="canal-direito"
-          points={points}
-          fill="none"
-          stroke="#00AEEF"
-          strokeWidth="0.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      );
-    }
-    
-    // Canal mandibular esquerdo
-    if (canal.esquerdo?.length >= 2) {
-      const points = canal.esquerdo
-        .map((p: [number, number]) => toPercentage(p))
-        .map(([x, y]: [number, number]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polyline
-          key="canal-esquerdo"
-          points={points}
-          fill="none"
-          stroke="#00AEEF"
-          strokeWidth="0.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      );
-    }
-    
-    return elements;
-  };
+  const handleDeleteMarcacao = useCallback((id: string) => {
+    setMarcacoesManuals(marcacoesManuals.filter(m => m.id !== id));
+    toast.success("Marcação removida");
+  }, [marcacoesManuals, setMarcacoesManuals]);
+
+  const handleResetMarcacoes = useCallback(() => {
+    setMarcacoesManuals([]);
+    setModoAtivo({ dente: null, tipo: null });
+    toast.success("Todas as marcações foram removidas");
+  }, [setMarcacoesManuals]);
+
+  const handleModoChange = useCallback((dente: string | null, tipo: TipoMarcacao | null) => {
+    setModoAtivo({ dente, tipo });
+  }, []);
 
   // Download da imagem com marcações
   const handleDownload = useCallback(async () => {
@@ -302,7 +250,7 @@ export function VisualAnalysis({
       console.error("Erro ao gerar imagem:", error);
       toast.error("Erro ao baixar imagem");
     }
-  }, [imageUrl, showAnatomicStructures, analise, analiseCompleta]);
+  }, [imageUrl, showAnatomicStructures, getSeioMaxilar, getCanalMandibular]);
 
   // Abrir em nova janela
   const handleOpenInNewWindow = useCallback(() => {
@@ -425,6 +373,19 @@ export function VisualAnalysis({
           </Button>
           
           <Button
+            variant={showMarcacoes ? "outline" : "secondary"}
+            size="sm"
+            onClick={() => setShowMarcacoes(!showMarcacoes)}
+            className="min-h-[44px]"
+          >
+            {showMarcacoes ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
+            <span className="hidden xs:inline">Marcações</span>
+            {marcacoesManuals.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">{marcacoesManuals.length}</Badge>
+            )}
+          </Button>
+          
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setShowPatientSummary(!showPatientSummary)}
@@ -445,7 +406,7 @@ export function VisualAnalysis({
           </Button>
           
           <Button
-            variant="outline"
+            variant={showOdontograma ? "default" : "outline"}
             size="sm"
             onClick={() => setShowOdontograma(!showOdontograma)}
             className="min-h-[44px]"
@@ -486,36 +447,20 @@ export function VisualAnalysis({
         </div>
       </div>
 
-      {/* Container da imagem */}
-      <div 
-        ref={containerRef}
-        className="relative overflow-auto bg-muted/30 rounded-lg border"
-        style={{ maxHeight: "70vh" }}
-      >
-        <div 
-          ref={imageWrapperRef}
-          className="relative inline-block min-w-full"
-          style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
-        >
-          {/* Imagem base */}
-          <img 
-            src={imageUrl} 
-            alt="Radiografia" 
-            className="block w-full h-auto"
-            draggable={false}
-          />
-          
-          {/* SVG overlay para estruturas anatômicas */}
-          <svg 
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-          >
-            {renderSeioMaxilar()}
-            {renderCanalMandibular()}
-          </svg>
-        </div>
-      </div>
+      {/* Radiografia Interativa */}
+      <RadiografiaInterativa
+        imageUrl={imageUrl}
+        zoom={zoom}
+        marcacoesManuals={marcacoesManuals}
+        onAddMarcacao={handleAddMarcacao}
+        onMoveMarcacao={handleMoveMarcacao}
+        onDeleteMarcacao={handleDeleteMarcacao}
+        modoAtivo={modoAtivo}
+        showMarcacoes={showMarcacoes}
+        showAnatomicStructures={showAnatomicStructures}
+        seioMaxilar={getSeioMaxilar()}
+        canalMandibular={getCanalMandibular()}
+      />
       
       {/* Modo de desenho */}
       {showDrawingMode && editable && (
@@ -534,6 +479,15 @@ export function VisualAnalysis({
             <span className="text-muted-foreground">Canal Mandibular</span>
           </div>
         </div>
+      )}
+
+      {/* Odontograma Interativo */}
+      {showOdontograma && (
+        <OdontogramaInterativo
+          modoAtivo={modoAtivo}
+          onModoChange={handleModoChange}
+          onResetMarcacoes={handleResetMarcacoes}
+        />
       )}
 
       {/* Achados Clínicos (textual) */}
@@ -646,7 +600,7 @@ export function VisualAnalysis({
               <CardTitle className="text-sm">Avaliações</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {analise.avaliacao_periodontal && (
+              {analise?.avaliacao_periodontal && (
                 <div>
                   <p className="text-xs font-medium mb-1">Periodontal:</p>
                   <Badge variant={
@@ -660,7 +614,7 @@ export function VisualAnalysis({
                   )}
                 </div>
               )}
-              {analise.avaliacao_ortodontica && (
+              {analise?.avaliacao_ortodontica && (
                 <div>
                   <p className="text-xs font-medium mb-1">Ortodôntica:</p>
                   <Badge variant="outline">{analise.avaliacao_ortodontica.alinhamento}</Badge>
@@ -682,6 +636,44 @@ export function VisualAnalysis({
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">{achados.observacoes}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de Marcações Manuais */}
+      {marcacoesManuals.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center justify-between">
+              Marcações Manuais
+              <div className="flex gap-2">
+                <Badge variant="secondary">{marcacoesManuals.length}</Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetMarcacoes}
+                  className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Limpar
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {marcacoesManuals.map((m) => (
+                <Badge
+                  key={m.id}
+                  variant="outline"
+                  className="cursor-pointer hover:bg-destructive/10"
+                  onClick={() => handleDeleteMarcacao(m.id)}
+                >
+                  {m.tipo} - Dente {m.dente}
+                  <span className="ml-1 text-destructive">×</span>
+                </Badge>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
