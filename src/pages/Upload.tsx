@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Copy } from "lucide-react";
+import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Copy, Eye } from "lucide-react";
+import { VisualAnalysis } from "@/components/visual-analysis";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +35,23 @@ interface PatientData {
   nome: string;
   dataNascimento: string;
   dataLaudo: string;
+}
+
+interface Marcacao {
+  id: string;
+  tipo: "rect" | "circle" | "polygon" | "ellipse";
+  coords: number[];
+  label: string;
+  descricao: string;
+  cor: string;
+  severidade: "baixa" | "media" | "alta" | "info";
+  categoria: string;
+}
+
+interface VisualAnalysisResult {
+  marcacoes: Marcacao[];
+  resumo: string;
+  observacoes: string;
 }
 
 const EXAM_CATEGORIES: { id: ExamCategory; label: string; description: string; icon: string }[] = [
@@ -160,6 +178,11 @@ export default function Upload() {
     dataNascimento: "",
     dataLaudo: getTodayFormatted(),
   });
+
+  // Visual analysis states
+  const [isAnalyzingVisual, setIsAnalyzingVisual] = useState(false);
+  const [visualAnalysisResult, setVisualAnalysisResult] = useState<VisualAnalysisResult | null>(null);
+  const [showVisualAnalysis, setShowVisualAnalysis] = useState(false);
 
   // Load saved data on mount (client-side only)
   useEffect(() => {
@@ -724,12 +747,50 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setRawContent(null);
     setReportGenerated(false);
     setExamCategory(null);
+    setVisualAnalysisResult(null);
+    setShowVisualAnalysis(false);
     clearDraft();
     setPatientData({
       nome: "",
       dataNascimento: "",
       dataLaudo: getTodayFormatted(),
     });
+  };
+
+  const handleVisualAnalysis = async () => {
+    if (!selectedFiles.length || examCategory === "laboratorial") {
+      toast.error("Análise visual disponível apenas para imagens");
+      return;
+    }
+    const imageFile = selectedFiles.find(f => f.type.startsWith("image/"));
+    if (!imageFile) {
+      toast.error("Nenhuma imagem encontrada para análise visual");
+      return;
+    }
+    setIsAnalyzingVisual(true);
+    toast.info("Iniciando análise visual...");
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+      const imageBase64 = await base64Promise;
+      const { data, error } = await supabase.functions.invoke("visual-analyze", {
+        body: { imageBase64, imageType: imageFile.type },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      setVisualAnalysisResult(data);
+      setShowVisualAnalysis(true);
+      toast.success(`${data.marcacoes?.length || 0} estruturas identificadas!`);
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error(error instanceof Error ? error.message : "Erro na análise visual");
+    } finally {
+      setIsAnalyzingVisual(false);
+    }
   };
 
   const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo && examCategory && selectedFiles.length > 0;
@@ -1149,6 +1210,44 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </CardContent>
             </Card>
           </div>
+
+          {/* Visual Analysis Button and Component */}
+          {examCategory !== "laboratorial" && previewUrls.some(p => p !== "pdf") && (
+            <div className="space-y-4">
+              <Button
+                variant={showVisualAnalysis ? "default" : "outline"}
+                className="w-full"
+                onClick={() => visualAnalysisResult ? setShowVisualAnalysis(!showVisualAnalysis) : handleVisualAnalysis()}
+                disabled={isAnalyzingVisual}
+              >
+                {isAnalyzingVisual ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analisando...
+                  </>
+                ) : visualAnalysisResult ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    {showVisualAnalysis ? "Ocultar" : "Ver"} Análise Visual
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    Gerar Análise Visual
+                  </>
+                )}
+              </Button>
+
+              {showVisualAnalysis && visualAnalysisResult && previewUrls[0] && previewUrls[0] !== "pdf" && (
+                <VisualAnalysis
+                  imageUrl={previewUrls[0]}
+                  marcacoes={visualAnalysisResult.marcacoes}
+                  resumo={visualAnalysisResult.resumo}
+                  observacoes={visualAnalysisResult.observacoes}
+                />
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col gap-4">
             {/* Botões de Download e Copiar */}
