@@ -1110,117 +1110,147 @@ export function VisualAnalysis({
         </div>
       )}
 
-      {/* Control Buttons */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button 
-          variant={showMarcacoes ? "default" : "outline"} 
-          size="sm" 
-          onClick={() => setShowMarcacoes(!showMarcacoes)}
-        >
-          {showMarcacoes ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />} 
-          Marcações
-        </Button>
-        <Button 
-          variant={showList ? "default" : "outline"} 
-          size="sm" 
-          onClick={() => setShowList(!showList)}
-        >
-          <List className="w-4 h-4 mr-1" /> Lista ({marcacoes.length})
-        </Button>
-        
+      {/* Control Buttons - Mobile optimized */}
+      <div className="space-y-3">
+        {/* Primary controls row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant={showMarcacoes ? "default" : "outline"} 
+            size="sm" 
+            className="min-h-[44px] touch-manipulation active:opacity-80"
+            onClick={() => setShowMarcacoes(!showMarcacoes)}
+          >
+            {showMarcacoes ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />} 
+            <span className="hidden xs:inline">Marcações</span>
+          </Button>
+          <Button 
+            variant={showList ? "default" : "outline"} 
+            size="sm" 
+            className="min-h-[44px] touch-manipulation active:opacity-80"
+            onClick={() => setShowList(!showList)}
+          >
+            <List className="w-4 h-4 mr-1" /> 
+            <span>Lista ({marcacoes.length})</span>
+          </Button>
+          
+          {/* Drawing Mode Button */}
+          <Button 
+            variant={showDrawingMode ? "default" : "outline"} 
+            size="sm" 
+            className="min-h-[44px] touch-manipulation active:opacity-80"
+            onClick={() => setShowDrawingMode(!showDrawingMode)}
+          >
+            <PenTool className="w-4 h-4 mr-1" /> 
+            <span className="hidden sm:inline">Desenho Livre</span>
+            <span className="sm:hidden">Desenho</span>
+          </Button>
+          
+          {editable && (
+            <>
+              <Button 
+                variant={editMode === "add" ? "default" : "outline"} 
+                size="sm" 
+                className="min-h-[44px] touch-manipulation active:opacity-80"
+                onClick={() => {
+                  setEditMode(editMode === "add" ? "none" : "add");
+                  if (editMode !== "add") toast.info("Clique na imagem para adicionar uma marcação");
+                }}
+              >
+                <Plus className="w-4 h-4 mr-1" /> 
+                <span className="hidden sm:inline">Adicionar</span>
+              </Button>
+              <Button 
+                variant={editMode === "move" ? "default" : "outline"} 
+                size="sm" 
+                className="min-h-[44px] touch-manipulation active:opacity-80"
+                onClick={() => {
+                  setEditMode(editMode === "move" ? "none" : "move");
+                  setMovingMarcacao(null);
+                  if (editMode !== "move") toast.info("Selecione uma marcação para mover");
+                }}
+              >
+                <Move className="w-4 h-4 mr-1" /> 
+                <span className="hidden sm:inline">Mover</span>
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Secondary controls row - clinical details */}
         {analiseCompleta && (
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             <Button 
               variant={showPatientSummary ? "default" : "outline"} 
               size="sm" 
+              className="min-h-[44px] touch-manipulation active:opacity-80"
               onClick={() => setShowPatientSummary(!showPatientSummary)}
             >
-              <User className="w-4 h-4 mr-1" /> Resumo Paciente
+              <User className="w-4 h-4 mr-1" /> 
+              <span className="hidden sm:inline">Resumo Paciente</span>
+              <span className="sm:hidden">Paciente</span>
             </Button>
             <Button 
               variant={showClinicalDetails ? "default" : "outline"} 
               size="sm" 
+              className="min-h-[44px] touch-manipulation active:opacity-80"
               onClick={() => setShowClinicalDetails(!showClinicalDetails)}
             >
-              <Stethoscope className="w-4 h-4 mr-1" /> Detalhes Clínicos
+              <Stethoscope className="w-4 h-4 mr-1" /> 
+              <span className="hidden sm:inline">Detalhes Clínicos</span>
+              <span className="sm:hidden">Clínico</span>
             </Button>
             <Button 
               variant={showOdontograma ? "default" : "outline"} 
               size="sm" 
+              className="min-h-[44px] touch-manipulation active:opacity-80"
               onClick={() => setShowOdontograma(!showOdontograma)}
             >
-              <Grid3X3 className="w-4 h-4 mr-1" /> Odontograma
+              <Grid3X3 className="w-4 h-4 mr-1" /> 
+              <span className="hidden sm:inline">Odontograma</span>
+              <span className="sm:hidden">Odonto</span>
             </Button>
             <Button 
               variant={showAnatomicStructures ? "default" : "outline"} 
               size="sm" 
+              className="min-h-[44px] touch-manipulation active:opacity-80"
               onClick={() => setShowAnatomicStructures(!showAnatomicStructures)}
             >
-              <Activity className="w-4 h-4 mr-1" /> Estruturas
+              <Activity className="w-4 h-4 mr-1" /> 
+              <span className="hidden sm:inline">Estruturas</span>
             </Button>
-          </>
+          </div>
         )}
         
-        {/* Drawing Mode Button */}
-        <Button 
-          variant={showDrawingMode ? "default" : "outline"} 
-          size="sm" 
-          onClick={() => setShowDrawingMode(!showDrawingMode)}
-        >
-          <PenTool className="w-4 h-4 mr-1" /> Desenho Livre
-        </Button>
-        
-        {editable && (
-          <>
-            <Button 
-              variant={editMode === "add" ? "default" : "outline"} 
-              size="sm" 
-              onClick={() => {
-                setEditMode(editMode === "add" ? "none" : "add");
-                if (editMode !== "add") toast.info("Clique na imagem para adicionar uma marcação");
-              }}
-            >
-              <Plus className="w-4 h-4 mr-1" /> Adicionar
-            </Button>
-            <Button 
-              variant={editMode === "move" ? "default" : "outline"} 
-              size="sm" 
-              onClick={() => {
-                setEditMode(editMode === "move" ? "none" : "move");
-                setMovingMarcacao(null);
-                if (editMode !== "move") toast.info("Selecione uma marcação para mover");
-              }}
-            >
-              <Move className="w-4 h-4 mr-1" /> Mover
-            </Button>
-          </>
-        )}
-        
-        <div className="flex items-center gap-1 ml-auto">
+        {/* Zoom and tools row */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button 
             variant={showLegend ? "default" : "outline"} 
             size="sm" 
+            className="min-h-[44px] touch-manipulation active:opacity-80"
             onClick={() => setShowLegend(!showLegend)}
             title="Mostrar/ocultar legenda"
           >
             Legenda
           </Button>
-          <Button variant="outline" size="icon" onClick={handleZoomOut}>
-            <ZoomOut className="w-4 h-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground px-2">{Math.round(zoom * 100)}%</span>
-          <Button variant="outline" size="icon" onClick={handleZoomIn}>
-            <ZoomIn className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleResetZoom} title="Resetar zoom">
-            <RotateCcw className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleDownload} title="Baixar imagem">
-            <Download className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleOpenInNewWindow} title="Abrir em nova janela">
-            <ExternalLink className="w-4 h-4" />
-          </Button>
+          
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleZoomOut}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground px-2 min-w-[48px] text-center">{Math.round(zoom * 100)}%</span>
+            <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleZoomIn}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleResetZoom} title="Resetar zoom">
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleDownload} title="Baixar imagem">
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="min-h-[44px] min-w-[44px] touch-manipulation" onClick={handleOpenInNewWindow} title="Abrir em nova janela">
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

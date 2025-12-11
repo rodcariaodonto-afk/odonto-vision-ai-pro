@@ -1302,24 +1302,25 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
             <div className="space-y-4">
               <Button
                 variant={showVisualAnalysis ? "default" : "outline"}
-                className="w-full"
+                size="lg"
+                className="w-full min-h-[56px] text-base touch-manipulation active:bg-muted"
                 onClick={() => visualAnalysisResult ? setShowVisualAnalysis(!showVisualAnalysis) : handleVisualAnalysis()}
                 disabled={isAnalyzingVisual}
               >
                 {isAnalyzingVisual ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Analisando...
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Analisando estruturas...</span>
                   </>
                 ) : visualAnalysisResult ? (
                   <>
-                    <Eye className="w-4 h-4" />
-                    {showVisualAnalysis ? "Ocultar" : "Ver"} Análise Visual
+                    <Eye className="w-5 h-5" />
+                    <span>{showVisualAnalysis ? "Ocultar" : "Ver"} Análise Visual</span>
                   </>
                 ) : (
                   <>
-                    <Eye className="w-4 h-4" />
-                    Gerar Análise Visual
+                    <Eye className="w-5 h-5" />
+                    <span>Gerar Análise Visual</span>
                   </>
                 )}
               </Button>
@@ -1342,48 +1343,56 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {/* Botões de Download e Copiar */}
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button 
                 variant="hero"
-                className="flex-1"
+                size="lg"
+                className="flex-1 min-h-[52px] touch-manipulation active:opacity-80"
                 onClick={handleDownloadPDF}
               >
-                <Download className="w-4 h-4" />
-                Baixar PDF
+                <Download className="w-5 h-5" />
+                <span>Baixar PDF</span>
               </Button>
               <Button 
                 variant="outline"
-                className="flex-1"
+                size="lg"
+                className="flex-1 min-h-[52px] touch-manipulation active:bg-muted"
                 onClick={handleCopyToClipboard}
               >
-                <Copy className="w-4 h-4" />
-                Copiar Texto
+                <Copy className="w-5 h-5" />
+                <span>Copiar Texto</span>
               </Button>
             </div>
 
             {/* Botões de Ação */}
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button 
                 variant="success" 
-                className="flex-1"
+                size="lg"
+                className="flex-1 min-h-[52px] touch-manipulation active:opacity-80"
                 onClick={handleSaveCase}
                 disabled={isSaving}
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Salvando...
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Salvando...</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-4 h-4" />
-                    Salvar Caso
+                    <Save className="w-5 h-5" />
+                    <span>Salvar Caso</span>
                   </>
                 )}
               </Button>
-              <Button variant="outline" onClick={clearFiles}>
+              <Button 
+                variant="outline" 
+                size="lg"
+                className="flex-1 min-h-[52px] touch-manipulation active:bg-muted"
+                onClick={clearFiles}
+              >
                 Nova Análise
               </Button>
             </div>

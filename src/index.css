@@ -238,3 +238,55 @@
     transform: scale(1);
   }
 }
+
+/* Mobile Optimizations */
+@layer utilities {
+  /* Touch manipulation for mobile */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Minimum touch target size (44x44 recommended by Apple/Google) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Safe area insets for notched devices */
+  .safe-area-inset {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile-specific button improvements */
+@media (max-width: 640px) {
+  button, [role="button"] {
+    min-height: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Improve text readability on small screens */
+  .text-sm {
+    font-size: 0.9rem;
+  }
+  
+  /* Ensure inputs are easy to tap */
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+}
+
+/* Prevent double-tap zoom on touch devices */
+* {
+  touch-action: manipulation;
+}
+
+/* Improve scrolling performance */
+.overflow-auto, .overflow-scroll, .overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}

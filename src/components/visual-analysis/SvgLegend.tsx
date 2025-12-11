@@ -66,9 +66,9 @@ const legendItems = [
 
 export function SvgLegend({ showAnatomicStructures, className }: SvgLegendProps) {
   return (
-    <div className={cn("bg-background/80 backdrop-blur-sm rounded-lg p-3 border", className)}>
-      <p className="text-xs font-semibold mb-2 text-foreground">Legenda</p>
-      <div className="grid grid-cols-2 gap-2">
+    <div className={cn("bg-background/95 backdrop-blur-sm rounded-lg p-3 border shadow-sm", className)}>
+      <p className="text-xs font-semibold mb-2 text-foreground">Legenda das Marcações</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
         {legendItems.map((item) => {
           // Only show anatomic structures if enabled
           if ((item.type === "seio-maxilar" || item.type === "canal-mandibular") && !showAnatomicStructures) {
@@ -77,7 +77,7 @@ export function SvgLegend({ showAnatomicStructures, className }: SvgLegendProps)
           
           return (
             <div key={item.type} className="flex items-center gap-2">
-              <svg width="20" height="12" viewBox="0 0 20 12">
+              <svg width="20" height="12" viewBox="0 0 20 12" className="flex-shrink-0">
                 {item.type === "seio-maxilar" ? (
                   <polygon 
                     points="2,10 10,2 18,10" 
@@ -107,7 +107,7 @@ export function SvgLegend({ showAnatomicStructures, className }: SvgLegendProps)
                   />
                 )}
               </svg>
-              <span className="text-xs text-muted-foreground">{item.label}</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{item.label}</span>
             </div>
           );
         })}
