@@ -244,6 +244,8 @@ serve(async (req) => {
       ? imageBase64.split("base64,")[1] 
       : imageBase64;
 
+    console.log("Chamando API OpenAI com modelo gpt-4o...");
+    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -251,7 +253,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1-2025-04-14",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: VISUAL_ANALYSIS_PROMPT },
           {
@@ -262,7 +264,7 @@ serve(async (req) => {
             ],
           },
         ],
-        max_completion_tokens: 8192,
+        max_tokens: 8192,
         response_format: { type: "json_object" },
       }),
     });
@@ -270,7 +272,8 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenAI API error:", response.status, errorText);
-      throw new Error(`Erro na API OpenAI: ${response.status}`);
+      console.error("Detalhes do erro:", errorText);
+      throw new Error(`Erro na API OpenAI: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
