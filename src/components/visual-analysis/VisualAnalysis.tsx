@@ -1028,7 +1028,7 @@ export function VisualAnalysis({
                   <div class="panel-section" id="patientSection"></div>
                   <div class="panel-section">
                     <div class="controls-header">
-                      <h3>Achados (\${marcacoes.length})</h3>
+                      <h3>Achados (${safeMarcacoes.length})</h3>
                       <div class="toggle-all-btns">
                         <button class="btn-show-all" onclick="toggleAll(true)">Todos</button>
                         <button class="btn-hide-all" onclick="toggleAll(false)">Nenhum</button>
