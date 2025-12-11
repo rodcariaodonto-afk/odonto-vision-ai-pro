@@ -913,11 +913,34 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
-      setVisualAnalysisResult(data);
+      
+      // Validate and normalize the response to ensure all required fields exist
+      const normalizedResult: VisualAnalysisResult = {
+        marcacoes: Array.isArray(data.marcacoes) ? data.marcacoes : [],
+        resumo: data.resumo || "",
+        observacoes: data.observacoes || "",
+        estrutura_ossea_percentual: data.estrutura_ossea_percentual,
+        avaliacao_periodontal: data.avaliacao_periodontal,
+        avaliacao_ortodontica: data.avaliacao_ortodontica,
+        dentes: data.dentes || {},
+        ausencias: Array.isArray(data.ausencias) ? data.ausencias : [],
+        implantes: Array.isArray(data.implantes) ? data.implantes : [],
+        lesoes_suspeitas: Array.isArray(data.lesoes_suspeitas) ? data.lesoes_suspeitas : [],
+        caries: Array.isArray(data.caries) ? data.caries : [],
+        reabsorcoes: Array.isArray(data.reabsorcoes) ? data.reabsorcoes : [],
+        fraturas: Array.isArray(data.fraturas) ? data.fraturas : [],
+        seio_maxilar: data.seio_maxilar || {},
+        canal_mandibular: data.canal_mandibular || {},
+        resumo_para_paciente: Array.isArray(data.resumo_para_paciente) ? data.resumo_para_paciente : [],
+      };
+      
+      console.log("Visual analysis result normalized:", normalizedResult);
+      
+      setVisualAnalysisResult(normalizedResult);
       setShowVisualAnalysis(true);
-      toast.success(`${data.marcacoes?.length || 0} estruturas identificadas!`);
+      toast.success(`${normalizedResult.marcacoes.length} estruturas identificadas!`);
     } catch (error) {
-      console.error("Erro:", error);
+      console.error("Erro na análise visual:", error);
       toast.error(error instanceof Error ? error.message : "Erro na análise visual");
     } finally {
       setIsAnalyzingVisual(false);
