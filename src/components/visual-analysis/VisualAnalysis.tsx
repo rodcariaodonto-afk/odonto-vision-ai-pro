@@ -1216,16 +1216,15 @@ export function VisualAnalysis({
                     svgContent += \`<path d="\${d}" fill="none" stroke="#F59E0B" stroke-width="0.4" stroke-linecap="round" />\`;
                   }
                   
-                  // Render marcacoes - use percentage coordinates directly
+                  // Render marcacoes - APENAS círculos coloridos SEM texto
                   svgContent += marcacoes
                     .filter(m => visibleMarcacoes.has(m.id))
                     .map(m => {
-                      const [x, y, w, h] = m.coords;
-                      // Render small circle at exact position
+                      const [x, y] = m.coords;
+                      // Render apenas círculo pequeno SEM texto
                       return \`
-                        <circle cx="\${x}" cy="\${y}" r="0.8" 
-                                fill="\${m.cor}66" stroke="\${m.cor}" stroke-width="0.15" />
-                        <text x="\${x + 1.2}" y="\${y + 0.3}" fill="\${m.cor}" font-size="1.8" font-weight="bold">\${m.label}</text>
+                        <circle cx="\${x}" cy="\${y}" r="1" 
+                                fill="\${m.cor}50" stroke="\${m.cor}" stroke-width="0.15" />
                       \`;
                     }).join('');
                   
@@ -1756,130 +1755,27 @@ export function VisualAnalysis({
                     </g>
                   )}
                   
-                  {/* Render marcacoes with collision-aware labels */}
+                  {/* Render marcacoes - APENAS círculos coloridos SEM texto */}
                   {safeMarcacoes.filter(m => visibleMarcacoes.has(m.id)).map((m) => {
-                    const [x, y, w, h] = m.coords;
+                    const [x, y] = m.coords;
                     const isMoving = movingMarcacao === m.id;
                     
-                    // Get calculated label position from collision detection
-                    const labelPos = labelPositions.get(m.id);
-                    const labelX = labelPos?.x ?? x;
-                    const labelY = labelPos?.y ?? Math.max(y - 2, 3);
-                    const labelSide = labelPos?.side ?? "top";
-                    
-                    // Calculate connector line points
-                    const shapeCenter = m.tipo === "rect" 
-                      ? { cx: x + (w || 0) / 2, cy: y + (h || 0) / 2 }
-                      : { cx: x, cy: y };
-                    
-                    const labelCenter = {
-                      cx: labelX + (m.label.length * 0.9 + 1) / 2,
-                      cy: labelY - 0.8
-                    };
-                    
-                    // Only draw connector if label is not directly adjacent
-                    const distance = Math.sqrt(
-                      Math.pow(shapeCenter.cx - labelCenter.cx, 2) + 
-                      Math.pow(shapeCenter.cy - labelCenter.cy, 2)
-                    );
-                    const showConnector = distance > 5;
-                    
-                    if (m.tipo === "rect") return (
+                    // Renderizar apenas um círculo pequeno colorido - SEM texto
+                    return (
                       <g key={m.id} className="pointer-events-auto cursor-pointer">
-                        <rect 
-                          x={x} y={y} width={Math.min(w, 2)} height={Math.min(h, 3)} 
-                          fill={`${m.cor}25`} 
+                        <circle 
+                          cx={x} 
+                          cy={y} 
+                          r={1}
+                          fill={`${m.cor}50`} 
                           stroke={isMoving ? "#fff" : m.cor} 
-                          strokeWidth={isMoving ? 0.15 : 0.1}
+                          strokeWidth={isMoving ? 0.2 : 0.15}
                           strokeDasharray={isMoving ? "0.3,0.3" : "none"}
-                          className="transition-all duration-200 hover:fill-opacity-50" 
+                          className="transition-all duration-200 hover:fill-opacity-70" 
                           onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
                         />
-                        {/* Connector line if label is far */}
-                        {showConnector && (
-                          <line
-                            x1={shapeCenter.cx}
-                            y1={labelSide === "bottom" ? y + (h || 0) : y}
-                            x2={labelCenter.cx}
-                            y2={labelY}
-                            stroke={m.cor}
-                            strokeWidth={0.05}
-                            strokeOpacity={0.5}
-                            strokeDasharray="0.2,0.2"
-                            className="pointer-events-none"
-                          />
-                        )}
-                        {/* Label background */}
-                        <rect
-                          x={labelX}
-                          y={labelY - 1}
-                          width={m.label.length * 0.4 + 0.5}
-                          height={1.1}
-                          fill="rgba(0,0,0,0.75)"
-                          rx={0.15}
-                          className="pointer-events-none"
-                        />
-                        <text 
-                          x={labelX + 0.25} 
-                          y={labelY - 0.15} 
-                          fill={m.cor} 
-                          fontSize={0.7} 
-                          fontWeight="bold" 
-                          className="pointer-events-none select-none"
-                        >
-                          {m.label}
-                        </text>
                       </g>
                     );
-                    
-                    if (m.tipo === "circle" || m.tipo === "ellipse") return (
-                      <g key={m.id} className="pointer-events-auto cursor-pointer">
-                        <ellipse 
-                          cx={x} cy={y} rx={Math.min(w, 1)} ry={Math.min(h, 1)} 
-                          fill={`${m.cor}25`} 
-                          stroke={isMoving ? "#fff" : m.cor} 
-                          strokeWidth={isMoving ? 0.15 : 0.1}
-                          strokeDasharray={isMoving ? "0.3,0.3" : "none"}
-                          className="transition-all duration-200 hover:fill-opacity-50" 
-                          onClick={(e) => handleMarcacaoClick(m, e as unknown as React.MouseEvent)} 
-                        />
-                        {/* Connector line if label is far */}
-                        {showConnector && (
-                          <line
-                            x1={x}
-                            y1={labelSide === "bottom" ? y + (h || 0) : y - (h || 0)}
-                            x2={labelCenter.cx}
-                            y2={labelY}
-                            stroke={m.cor}
-                            strokeWidth={0.05}
-                            strokeOpacity={0.5}
-                            strokeDasharray="0.2,0.2"
-                            className="pointer-events-none"
-                          />
-                        )}
-                        {/* Label background for ellipse */}
-                        <rect
-                          x={labelX}
-                          y={labelY - 1}
-                          width={m.label.length * 0.4 + 0.5}
-                          height={1.1}
-                          fill="rgba(0,0,0,0.75)"
-                          rx={0.15}
-                          className="pointer-events-none"
-                        />
-                        <text 
-                          x={labelX + 0.25} 
-                          y={labelY - 0.15} 
-                          fill={m.cor} 
-                          fontSize={0.7} 
-                          fontWeight="bold" 
-                          className="pointer-events-none select-none"
-                        >
-                          {m.label}
-                        </text>
-                      </g>
-                    );
-                    return null;
                   })}
                 </svg>
               )}
