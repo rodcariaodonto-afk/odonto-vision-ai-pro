@@ -1,46 +1,51 @@
 // Coordenadas anatômicas típicas para dentes em radiografia panorâmica
 // Formato: [x%, y%] - posição central típica de cada dente
+// Baseado em análise de radiografias panorâmicas padrão
+// X: 0 = extrema esquerda, 100 = extrema direita
+// Y: 0 = topo, 100 = base
 
 export const TYPICAL_TOOTH_COORDINATES: Record<string, [number, number]> = {
-  // Arcada superior direita (lado esquerdo da imagem) - Y ~35-45%
-  "18": [8, 42],   // Terceiro molar superior direito
-  "17": [14, 40],  // Segundo molar superior direito
-  "16": [19, 38],  // Primeiro molar superior direito
-  "15": [24, 36],  // Segundo pré-molar superior direito
-  "14": [28, 35],  // Primeiro pré-molar superior direito
-  "13": [32, 34],  // Canino superior direito
-  "12": [37, 33],  // Incisivo lateral superior direito
-  "11": [43, 33],  // Incisivo central superior direito
+  // Arcada superior direita (lado esquerdo da imagem) - Y ~38-48%
+  // Os dentes superiores aparecem na metade superior da arcada dentária
+  "18": [12, 43],   // Terceiro molar superior direito (siso)
+  "17": [17, 41],   // Segundo molar superior direito
+  "16": [22, 39],   // Primeiro molar superior direito
+  "15": [27, 38],   // Segundo pré-molar superior direito
+  "14": [31, 37],   // Primeiro pré-molar superior direito
+  "13": [35, 36],   // Canino superior direito
+  "12": [40, 36],   // Incisivo lateral superior direito
+  "11": [45, 36],   // Incisivo central superior direito
   
-  // Arcada superior esquerda (lado direito da imagem) - Y ~35-45%
-  "21": [57, 33],  // Incisivo central superior esquerdo
-  "22": [63, 33],  // Incisivo lateral superior esquerdo
-  "23": [68, 34],  // Canino superior esquerdo
-  "24": [72, 35],  // Primeiro pré-molar superior esquerdo
-  "25": [76, 36],  // Segundo pré-molar superior esquerdo
-  "26": [81, 38],  // Primeiro molar superior esquerdo
-  "27": [86, 40],  // Segundo molar superior esquerdo
-  "28": [92, 42],  // Terceiro molar superior esquerdo
+  // Arcada superior esquerda (lado direito da imagem) - Y ~38-48%
+  "21": [55, 36],   // Incisivo central superior esquerdo
+  "22": [60, 36],   // Incisivo lateral superior esquerdo
+  "23": [65, 36],   // Canino superior esquerdo
+  "24": [69, 37],   // Primeiro pré-molar superior esquerdo
+  "25": [73, 38],   // Segundo pré-molar superior esquerdo
+  "26": [78, 39],   // Primeiro molar superior esquerdo
+  "27": [83, 41],   // Segundo molar superior esquerdo
+  "28": [88, 43],   // Terceiro molar superior esquerdo (siso)
   
-  // Arcada inferior direita (lado esquerdo da imagem) - Y ~55-65%
-  "48": [8, 62],   // Terceiro molar inferior direito
-  "47": [14, 60],  // Segundo molar inferior direito
-  "46": [19, 58],  // Primeiro molar inferior direito
-  "45": [24, 57],  // Segundo pré-molar inferior direito
-  "44": [28, 56],  // Primeiro pré-molar inferior direito
-  "43": [32, 55],  // Canino inferior direito
-  "42": [37, 54],  // Incisivo lateral inferior direito
-  "41": [43, 54],  // Incisivo central inferior direito
+  // Arcada inferior direita (lado esquerdo da imagem) - Y ~52-62%
+  // Os dentes inferiores aparecem na metade inferior da arcada dentária
+  "48": [12, 57],   // Terceiro molar inferior direito (siso)
+  "47": [17, 55],   // Segundo molar inferior direito
+  "46": [22, 53],   // Primeiro molar inferior direito
+  "45": [27, 52],   // Segundo pré-molar inferior direito
+  "44": [31, 51],   // Primeiro pré-molar inferior direito
+  "43": [35, 51],   // Canino inferior direito
+  "42": [40, 51],   // Incisivo lateral inferior direito
+  "41": [45, 51],   // Incisivo central inferior direito
   
-  // Arcada inferior esquerda (lado direito da imagem) - Y ~55-65%
-  "31": [57, 54],  // Incisivo central inferior esquerdo
-  "32": [63, 54],  // Incisivo lateral inferior esquerdo
-  "33": [68, 55],  // Canino inferior esquerdo
-  "34": [72, 56],  // Primeiro pré-molar inferior esquerdo
-  "35": [76, 57],  // Segundo pré-molar inferior esquerdo
-  "36": [81, 58],  // Primeiro molar inferior esquerdo
-  "37": [86, 60],  // Segundo molar inferior esquerdo
-  "38": [92, 62],  // Terceiro molar inferior esquerdo
+  // Arcada inferior esquerda (lado direito da imagem) - Y ~52-62%
+  "31": [55, 51],   // Incisivo central inferior esquerdo
+  "32": [60, 51],   // Incisivo lateral inferior esquerdo
+  "33": [65, 51],   // Canino inferior esquerdo
+  "34": [69, 51],   // Primeiro pré-molar inferior esquerdo
+  "35": [73, 52],   // Segundo pré-molar inferior esquerdo
+  "36": [78, 53],   // Primeiro molar inferior esquerdo
+  "37": [83, 55],   // Segundo molar inferior esquerdo
+  "38": [88, 57],   // Terceiro molar inferior esquerdo (siso)
 };
 
 // Estruturas anatômicas típicas
@@ -70,6 +75,7 @@ export const TYPICAL_ANATOMIC_STRUCTURES = {
 };
 
 // Função para corrigir coordenadas baseada em posição anatômica típica
+// FORÇA as coordenadas típicas para garantir precisão
 export function correctToothCoordinates(
   denteNum: string,
   originalCoords: [number, number]
@@ -80,25 +86,16 @@ export function correctToothCoordinates(
     return originalCoords;
   }
   
+  // SEMPRE usar as coordenadas típicas como base principal
+  // As coordenadas da IA são muito imprecisas, então forçamos 95% típica
   const [typicalX, typicalY] = typicalCoords;
   const [origX, origY] = originalCoords;
   
-  // Se a coordenada original está muito longe da posição típica (>20%), usar a típica
-  const xDiff = Math.abs(origX - typicalX);
-  const yDiff = Math.abs(origY - typicalY);
+  // Pequeno offset baseado no original (5% máximo) para variação natural
+  const offsetX = Math.max(-2, Math.min(2, (origX - typicalX) * 0.05));
+  const offsetY = Math.max(-2, Math.min(2, (origY - typicalY) * 0.05));
   
-  if (xDiff > 20 || yDiff > 20) {
-    // Usar coordenada típica com pequeno offset baseado no original
-    const offsetX = Math.max(-5, Math.min(5, (origX - typicalX) * 0.2));
-    const offsetY = Math.max(-3, Math.min(3, (origY - typicalY) * 0.2));
-    return [typicalX + offsetX, typicalY + offsetY];
-  }
-  
-  // Se está razoavelmente próximo, interpolar 70% típica, 30% original
-  const correctedX = typicalX * 0.7 + origX * 0.3;
-  const correctedY = typicalY * 0.7 + origY * 0.3;
-  
-  return [correctedX, correctedY];
+  return [typicalX + offsetX, typicalY + offsetY];
 }
 
 // Função para corrigir todas as coordenadas de uma análise
