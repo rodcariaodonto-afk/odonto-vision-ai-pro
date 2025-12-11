@@ -300,38 +300,68 @@ export function VisualAnalysis({
     }
   };
 
-  // Render seio maxilar contours
+  // Render seio maxilar contours - usando polyline como no exemplo do usuário
   const renderSeioMaxilar = () => {
     if (!analiseCompleta?.seio_maxilar || !showAnatomicStructures) return null;
     
     const elements: JSX.Element[] = [];
     
-    if (analiseCompleta.seio_maxilar.direito?.contorno?.length) {
+    // Seio maxilar direito
+    if (analiseCompleta.seio_maxilar.direito?.contorno?.length >= 3) {
       const points = analiseCompleta.seio_maxilar.direito.contorno
         .map(([x, y]) => `${x},${y}`).join(" ");
       elements.push(
-        <polygon
+        <polyline
           key="seio-direito"
           points={points}
-          fill="rgba(59, 130, 246, 0.1)"
-          stroke="#3B82F6"
-          strokeWidth="0.2"
-          strokeDasharray="0.5,0.5"
+          fill="rgba(255, 215, 0, 0.15)"
+          stroke="#FFD700"
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+      );
+      // Fechar o polígono conectando último ao primeiro ponto
+      const firstPoint = analiseCompleta.seio_maxilar.direito.contorno[0];
+      const lastPoint = analiseCompleta.seio_maxilar.direito.contorno[analiseCompleta.seio_maxilar.direito.contorno.length - 1];
+      elements.push(
+        <line
+          key="seio-direito-close"
+          x1={lastPoint[0]}
+          y1={lastPoint[1]}
+          x2={firstPoint[0]}
+          y2={firstPoint[1]}
+          stroke="#FFD700"
+          strokeWidth="0.5"
         />
       );
     }
     
-    if (analiseCompleta.seio_maxilar.esquerdo?.contorno?.length) {
+    // Seio maxilar esquerdo
+    if (analiseCompleta.seio_maxilar.esquerdo?.contorno?.length >= 3) {
       const points = analiseCompleta.seio_maxilar.esquerdo.contorno
         .map(([x, y]) => `${x},${y}`).join(" ");
       elements.push(
-        <polygon
+        <polyline
           key="seio-esquerdo"
           points={points}
-          fill="rgba(59, 130, 246, 0.1)"
-          stroke="#3B82F6"
-          strokeWidth="0.2"
-          strokeDasharray="0.5,0.5"
+          fill="rgba(255, 215, 0, 0.15)"
+          stroke="#FFD700"
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+      );
+      // Fechar o polígono
+      const firstPoint = analiseCompleta.seio_maxilar.esquerdo.contorno[0];
+      const lastPoint = analiseCompleta.seio_maxilar.esquerdo.contorno[analiseCompleta.seio_maxilar.esquerdo.contorno.length - 1];
+      elements.push(
+        <line
+          key="seio-esquerdo-close"
+          x1={lastPoint[0]}
+          y1={lastPoint[1]}
+          x2={firstPoint[0]}
+          y2={firstPoint[1]}
+          stroke="#FFD700"
+          strokeWidth="0.5"
         />
       );
     }
@@ -339,53 +369,190 @@ export function VisualAnalysis({
     return elements;
   };
 
-  // Render canal mandibular paths
+  // Render canal mandibular paths - usando polyline como no exemplo do usuário
   const renderCanalMandibular = () => {
     if (!analiseCompleta?.canal_mandibular || !showAnatomicStructures) return null;
     
     const elements: JSX.Element[] = [];
     
-    if (analiseCompleta.canal_mandibular.direito?.length) {
-      const pathPoints = analiseCompleta.canal_mandibular.direito;
-      if (pathPoints.length >= 2) {
-        const d = pathPoints.reduce((acc, [x, y], i) => {
-          if (i === 0) return `M ${x},${y}`;
-          return `${acc} L ${x},${y}`;
-        }, "");
-        elements.push(
-          <path
-            key="canal-direito"
-            d={d}
-            fill="none"
-            stroke="#F59E0B"
-            strokeWidth="0.4"
-            strokeLinecap="round"
-          />
-        );
-      }
+    // Canal mandibular direito
+    if (analiseCompleta.canal_mandibular.direito?.length >= 2) {
+      const points = analiseCompleta.canal_mandibular.direito
+        .map(([x, y]) => `${x},${y}`).join(" ");
+      elements.push(
+        <polyline
+          key="canal-direito"
+          points={points}
+          fill="none"
+          stroke="#00AEEF"
+          strokeWidth="0.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
     }
     
-    if (analiseCompleta.canal_mandibular.esquerdo?.length) {
-      const pathPoints = analiseCompleta.canal_mandibular.esquerdo;
-      if (pathPoints.length >= 2) {
-        const d = pathPoints.reduce((acc, [x, y], i) => {
-          if (i === 0) return `M ${x},${y}`;
-          return `${acc} L ${x},${y}`;
-        }, "");
-        elements.push(
-          <path
-            key="canal-esquerdo"
-            d={d}
-            fill="none"
-            stroke="#F59E0B"
-            strokeWidth="0.4"
-            strokeLinecap="round"
-          />
-        );
-      }
+    // Canal mandibular esquerdo
+    if (analiseCompleta.canal_mandibular.esquerdo?.length >= 2) {
+      const points = analiseCompleta.canal_mandibular.esquerdo
+        .map(([x, y]) => `${x},${y}`).join(" ");
+      elements.push(
+        <polyline
+          key="canal-esquerdo"
+          points={points}
+          fill="none"
+          stroke="#00AEEF"
+          strokeWidth="0.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
     }
     
     return elements;
+  };
+
+  // Render caries directly from analiseCompleta
+  const renderCaries = () => {
+    if (!analiseCompleta?.caries?.length) return null;
+    
+    return analiseCompleta.caries.map((carie, i) => {
+      if (!carie.posicao) return null;
+      return (
+        <circle
+          key={`carie-${i}`}
+          cx={carie.posicao[0]}
+          cy={carie.posicao[1]}
+          r="1.5"
+          fill="#FF0000"
+          fillOpacity="0.7"
+          stroke="#FF0000"
+          strokeWidth="0.3"
+        />
+      );
+    });
+  };
+
+  // Render lesoes directly from analiseCompleta
+  const renderLesoes = () => {
+    if (!analiseCompleta?.lesoes_suspeitas?.length) return null;
+    
+    return analiseCompleta.lesoes_suspeitas.map((lesao, i) => {
+      if (!lesao.posicao) return null;
+      return (
+        <circle
+          key={`lesao-${i}`}
+          cx={lesao.posicao[0]}
+          cy={lesao.posicao[1]}
+          r="2"
+          fill="#FFA500"
+          fillOpacity="0.7"
+          stroke="#FFA500"
+          strokeWidth="0.3"
+        />
+      );
+    });
+  };
+
+  // Render implantes directly from analiseCompleta
+  const renderImplantes = () => {
+    if (!analiseCompleta?.implantes?.length) return null;
+    
+    return analiseCompleta.implantes.map((implante, i) => {
+      if (!implante.posicao) return null;
+      return (
+        <rect
+          key={`implante-${i}`}
+          x={implante.posicao[0] - 1}
+          y={implante.posicao[1] - 3}
+          width="2"
+          height="6"
+          fill="#00FF00"
+          fillOpacity="0.6"
+          stroke="#00FF00"
+          strokeWidth="0.3"
+          rx="0.3"
+        />
+      );
+    });
+  };
+
+  // Render dentes positions from analiseCompleta
+  const renderDentes = () => {
+    if (!analiseCompleta?.dentes) return null;
+    
+    return Object.entries(analiseCompleta.dentes).map(([num, dente]) => {
+      if (!dente.posicao) return null;
+      const isHealthy = dente.status?.toLowerCase().includes("saudável") || 
+                       dente.status?.toLowerCase().includes("normal") ||
+                       dente.status?.toLowerCase().includes("hígido");
+      return (
+        <g key={`dente-${num}`}>
+          <circle
+            cx={dente.posicao[0]}
+            cy={dente.posicao[1]}
+            r="1.8"
+            fill={isHealthy ? "#3B82F6" : "#F59E0B"}
+            fillOpacity="0.5"
+            stroke={isHealthy ? "#3B82F6" : "#F59E0B"}
+            strokeWidth="0.25"
+          />
+          <text
+            x={dente.posicao[0]}
+            y={dente.posicao[1] - 2.5}
+            textAnchor="middle"
+            fontSize="1.8"
+            fill="white"
+            fontWeight="bold"
+            style={{ textShadow: "0 0 2px black" }}
+          >
+            {num}
+          </text>
+        </g>
+      );
+    });
+  };
+
+  // Render reabsorcoes
+  const renderReabsorcoes = () => {
+    if (!analiseCompleta?.reabsorcoes?.length) return null;
+    
+    return analiseCompleta.reabsorcoes.map((reab, i) => {
+      if (!reab.posicao) return null;
+      return (
+        <circle
+          key={`reab-${i}`}
+          cx={reab.posicao[0]}
+          cy={reab.posicao[1]}
+          r="1.5"
+          fill="#EF4444"
+          fillOpacity="0.7"
+          stroke="#EF4444"
+          strokeWidth="0.3"
+        />
+      );
+    });
+  };
+
+  // Render fraturas
+  const renderFraturas = () => {
+    if (!analiseCompleta?.fraturas?.length) return null;
+    
+    return analiseCompleta.fraturas.map((fratura, i) => {
+      if (!fratura.posicao) return null;
+      return (
+        <line
+          key={`fratura-${i}`}
+          x1={fratura.posicao[0] - 1}
+          y1={fratura.posicao[1] - 2}
+          x2={fratura.posicao[0] + 1}
+          y2={fratura.posicao[1] + 2}
+          stroke="#EC4899"
+          strokeWidth="0.5"
+          strokeLinecap="round"
+        />
+      );
+    });
   };
 
   const generateImageWithMarkers = (): Promise<string> => {
@@ -1433,9 +1600,17 @@ export function VisualAnalysis({
                   viewBox="0 0 100 100" 
                   preserveAspectRatio="none"
                 >
-                  {/* Render anatomic structures */}
+                  {/* Render anatomic structures from analiseCompleta */}
                   {renderSeioMaxilar()}
                   {renderCanalMandibular()}
+                  
+                  {/* Render pathologies and findings directly from analiseCompleta */}
+                  {renderDentes()}
+                  {renderCaries()}
+                  {renderLesoes()}
+                  {renderImplantes()}
+                  {renderReabsorcoes()}
+                  {renderFraturas()}
                   
                   {/* Highlighted position indicator from odontogram click */}
                   {highlightedPosition && (

@@ -84,145 +84,113 @@ interface AnaliseVisualCompleta {
   marcacoes: Marcacao[];
 }
 
-const VISUAL_ANALYSIS_PROMPT = `Você é a inteligência artificial oficial do OdontoVision AI Pro, especializada em radiologia odontológica com MÁXIMA PRECISÃO e DETALHAMENTO.
+const VISUAL_ANALYSIS_PROMPT = `Você é o módulo de análise visual do OdontoVision AI Pro. Sua função é analisar radiografias odontológicas e retornar um JSON estruturado com TODAS as estruturas identificadas.
 
-FUNÇÃO PRINCIPAL: Analisar radiografias odontológicas identificando e marcando TODAS as estruturas visíveis com coordenadas PERCENTUAIS PRECISAS (0-100) baseadas na imagem.
+## COORDENADAS PERCENTUAIS (0-100)
+- Todas as coordenadas devem ser PERCENTUAIS da imagem
+- X = 0 é a borda ESQUERDA, X = 100 é a borda DIREITA
+- Y = 0 é o TOPO, Y = 100 é a BASE
+- Para pontos: [x%, y%]
+- Para retângulos/elipses: [centro_x%, centro_y%, largura%, altura%]
 
-## ANÁLISE ULTRA-DETALHADA OBRIGATÓRIA
+## ESTRUTURAS OBRIGATÓRIAS PARA IDENTIFICAR
 
-Você DEVE identificar e marcar CADA UMA das seguintes estruturas quando visíveis:
+### 1. SEIOS MAXILARES (OBRIGATÓRIO para panorâmicas)
+Trace o contorno COMPLETO de cada seio maxilar como um polígono fechado.
+- O seio maxilar DIREITO do paciente aparece no LADO ESQUERDO da imagem (sua direita olhando)
+- O seio maxilar ESQUERDO do paciente aparece no LADO DIREITO da imagem (sua esquerda olhando)
+- Use 8-12 pontos para definir cada contorno de forma precisa
+- Coordenadas típicas: Y entre 15-40%, X entre 5-40% (direito) e 60-95% (esquerdo)
 
-### 1. TODOS OS DENTES (usar notação FDI 11-48)
-- Identifique CADA dente individualmente com sua posição exata
-- Descreva o status de cada dente (saudável, restaurado, cariado, etc.)
-- Marque a posição CENTRAL de cada coroa dentária
+### 2. CANAIS MANDIBULARES (OBRIGATÓRIO para panorâmicas)
+Trace o trajeto COMPLETO de cada canal mandibular como uma linha.
+- Canal DIREITO do paciente: lado ESQUERDO da imagem
+- Canal ESQUERDO do paciente: lado DIREITO da imagem
+- Use 6-10 pontos para definir cada trajeto
+- Coordenadas típicas: Y entre 65-85%, seguindo a curvatura da mandíbula
 
-### 2. ESTRUTURAS ANATÔMICAS
-- **Seios Maxilares**: Trace o contorno COMPLETO de ambos (direito e esquerdo)
-- **Canal Mandibular**: Trace o trajeto COMPLETO de ambos os lados
-- **ATM**: Se visível, identifique as estruturas articulares
-- **Osso Alveolar**: Avalie a altura e densidade
-- **Cortical Óssea**: Avalie continuidade e espessura
+### 3. TODOS OS DENTES VISÍVEIS
+Para CADA dente visível na imagem:
+- Identifique pelo número FDI (11-18, 21-28, 31-38, 41-48)
+- Informe a posição CENTRAL da coroa [x%, y%]
+- Descreva o status (saudável, restaurado, cariado, tratado endodonticamente, etc.)
 
-### 3. ACHADOS PATOLÓGICOS (marcar TODOS)
-- **Cáries**: Qualquer área radiolúcida sugestiva de cárie
-- **Lesões Periapicais**: Rarefações, granulomas, cistos
-- **Perda Óssea**: Áreas de reabsorção alveolar
-- **Reabsorções**: Internas ou externas em qualquer dente
-- **Fraturas**: Linhas sugestivas de fratura
-- **Calcificações**: Tártaro, pulpolitos
+### 4. PATOLOGIAS (marcar TODAS encontradas)
+- **Cáries**: Áreas radiolúcidas na estrutura dentária - cor #FF0000
+- **Lesões periapicais**: Rarefações ao redor dos ápices - cor #FFA500  
+- **Reabsorções**: Internas ou externas - cor #EF4444
+- **Fraturas**: Linhas de descontinuidade - cor #EC4899
 
-### 4. TRATAMENTOS EXISTENTES
-- **Restaurações**: Identifique TODAS (amálgama, resina, inlay/onlay)
-- **Tratamentos Endodônticos**: Canais obturados, pinos, núcleos
-- **Implantes**: Posição, osseointegração
-- **Próteses**: Coroas, pontes, elementos protéticos
-- **Aparelhos Ortodônticos**: Brackets, fios, bandas
+### 5. TRATAMENTOS EXISTENTES
+- **Restaurações**: Áreas radiopacas (amálgama) ou levemente radiopacas (resina) - cor #22C55E
+- **Implantes**: Estruturas metálicas em forma de parafuso - cor #00FF00
+- **Tratamentos endodônticos**: Canais obturados (radiopacos) - cor #8B5CF6
 
-### 5. AUSÊNCIAS E ANOMALIAS
-- **Dentes Ausentes**: Liste TODOS os espaços edêntulos
-- **Dentes Inclusos/Impactados**: Terceiros molares, supranumerários
-- **Anomalias de Forma**: Geminação, fusão, dilaceração
-- **Anomalias de Posição**: Giroversões, inclinações
+### 6. AUSÊNCIAS
+Liste TODOS os espaços edêntulos (dentes ausentes)
 
-## FORMATO DE SAÍDA JSON (OBRIGATÓRIO)
-
-Retorne APENAS JSON válido com esta estrutura:
+## FORMATO DE SAÍDA JSON
 
 {
   "estrutura_ossea_percentual": "XX%",
   "avaliacao_periodontal": {
     "perda_ossea_global_percentual": "leve/moderada/grave/indeterminado",
-    "comentarios": "descrição detalhada da condição periodontal observada"
+    "comentarios": "descrição da condição periodontal"
   },
   "avaliacao_ortodontica": {
-    "alinhamento": "regular/bom/ruim/indeterminado",
-    "inclinacoes_relevantes": ["lista de inclinações observadas"],
-    "sugestoes_iniciais": ["lista de sugestões terapêuticas"]
+    "alinhamento": "bom/regular/ruim/indeterminado",
+    "inclinacoes_relevantes": [],
+    "sugestoes_iniciais": []
   },
   "dentes": {
-    "11": {"status": "saudável/cárie/lesão/restaurado/ausente/etc", "detalhes": "descrição clínica", "posicao": [X, Y]},
-    "12": {"status": "...", "detalhes": "...", "posicao": [X, Y]}
+    "11": {"status": "saudável", "detalhes": "sem alterações", "posicao": [48, 25]},
+    "12": {"status": "restaurado", "detalhes": "restauração MOD", "posicao": [44, 26]}
   },
-  "ausencias": ["lista de números dos dentes ausentes"],
+  "ausencias": ["18", "28", "38", "48"],
   "implantes": [
-    {"dente": "XX", "posicao": [X, Y], "detalhes": "observações sobre o implante"}
+    {"dente": "36", "posicao": [35, 72], "detalhes": "osseointegrado"}
   ],
   "lesoes_suspeitas": [
-    {"dente": "XX", "descricao": "descrição da lesão", "posicao": [X, Y], "tipo": "periapical/lateral/furcal/etc"}
+    {"dente": "46", "descricao": "rarefação periapical", "posicao": [65, 78], "tipo": "periapical"}
   ],
   "caries": [
-    {"dente": "XX", "superficie": "oclusal/mesial/distal/vestibular/lingual", "posicao": [X, Y]}
+    {"dente": "37", "superficie": "oclusal", "posicao": [28, 68]}
   ],
-  "reabsorcoes": [
-    {"dente": "XX", "tipo": "externa/interna", "posicao": [X, Y]}
-  ],
-  "fraturas": [
-    {"dente": "XX", "descricao": "descrição da fratura", "posicao": [X, Y]}
-  ],
+  "reabsorcoes": [],
+  "fraturas": [],
   "seio_maxilar": {
-    "direito": {"contorno": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5], [X6,Y6]]},
-    "esquerdo": {"contorno": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5], [X6,Y6]]}
+    "direito": {"contorno": [[10,18], [15,15], [25,14], [35,16], [38,22], [35,32], [25,35], [15,33], [10,25]]},
+    "esquerdo": {"contorno": [[62,18], [68,15], [78,14], [88,16], [90,22], [88,32], [78,35], [68,33], [62,25]]}
   },
   "canal_mandibular": {
-    "direito": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5]],
-    "esquerdo": [[X1,Y1], [X2,Y2], [X3,Y3], [X4,Y4], [X5,Y5]]
+    "direito": [[8,75], [15,78], [22,80], [28,78], [35,75], [40,72]],
+    "esquerdo": [[60,72], [65,75], [72,78], [78,80], [85,78], [92,75]]
   },
-  "resumo_para_paciente": ["lista de achados em linguagem simples"],
-  "resumo_paciente_detalhado": {
-    "o_que_encontramos": ["achados em linguagem leiga"],
-    "o_que_significa": "explicação simples para o paciente",
-    "proximos_passos": ["recomendações em linguagem acessível"]
-  },
-  "marcacoes": [
-    {
-      "id": "dente_11",
-      "tipo": "ellipse",
-      "coords": [X, Y, largura, altura],
-      "label": "Dente 11",
-      "descricao": "Incisivo central superior direito - saudável",
-      "cor": "#3B82F6",
-      "severidade": "info",
-      "categoria": "anatomia"
-    },
-    {
-      "id": "carie_14",
-      "tipo": "ellipse",
-      "coords": [X, Y, 2, 2],
-      "label": "Cárie 14",
-      "descricao": "Lesão cariosa na superfície oclusal",
-      "cor": "#F97316",
-      "severidade": "media",
-      "categoria": "patologia"
-    }
-  ]
+  "resumo_para_paciente": [
+    "Seus dentes estão em bom estado geral",
+    "Identificamos alguns pontos de atenção"
+  ],
+  "marcacoes": []
 }
 
-## CORES POR TIPO DE ACHADO
-- Dentes saudáveis/estruturas normais (info): #3B82F6 (azul)
-- Achados menores/restaurações (baixa): #22C55E (verde)
-- Cáries/atenção recomendada (media): #F97316 (laranja)
-- Lesões/achados importantes (alta): #EF4444 (vermelho)
-- Implantes: #8B5CF6 (roxo)
+## CORES PADRÃO
+- Seio Maxilar: #FFD700 (dourado) - contorno tracejado
+- Canal Mandibular: #00AEEF (azul claro) - linha contínua
+- Cáries: #FF0000 (vermelho)
+- Lesões: #FFA500 (laranja)
+- Implantes: #00FF00 (verde)
+- Restaurações: #22C55E (verde claro)
 - Fraturas: #EC4899 (rosa)
-- Reabsorções: #14B8A6 (teal)
-
-## COORDENADAS PERCENTUAIS (0-100)
-- Todas as posições devem ser em PERCENTUAL da imagem
-- X = 0 é a borda esquerda, X = 100 é a borda direita
-- Y = 0 é o topo, Y = 100 é a base
-- Para "rect/ellipse": [centro_x%, centro_y%, largura%, altura%]
-- Para contornos (seios/canal): array de pontos [[x1,y1], [x2,y2], ...]
+- Reabsorções: #EF4444 (vermelho)
+- Dentes normais: #3B82F6 (azul)
 
 ## REGRAS CRÍTICAS
-1. NUNCA deixe de marcar estruturas visíveis - seja EXAUSTIVO
-2. Crie uma marcação no array "marcacoes" para CADA dente identificado
-3. Crie marcações separadas para CADA achado patológico
-4. Para radiografias panorâmicas, SEMPRE trace seios maxilares e canais mandibulares
-5. Use coordenadas PRECISAS baseadas na posição real na imagem
-6. Retorne SOMENTE JSON válido, sem texto adicional
-7. NUNCA invente achados - se não estiver claro, use "indeterminado"
-8. Use termos como "sugestivo de", "compatível com" - nunca diagnóstico definitivo`;
+1. SEMPRE trace os seios maxilares e canais mandibulares em panorâmicas
+2. Use coordenadas PERCENTUAIS precisas (0-100)
+3. Lembre-se: lado DIREITO do paciente = lado ESQUERDO da imagem
+4. Retorne APENAS JSON válido, sem texto adicional
+5. NUNCA invente achados - se não estiver claro, use "indeterminado"
+6. Seja EXAUSTIVO - marque TODAS as estruturas visíveis`;
 
 
 serve(async (req) => {
@@ -249,7 +217,7 @@ serve(async (req) => {
       ? imageBase64.split("base64,")[1] 
       : imageBase64;
 
-    console.log("Chamando API OpenAI com modelo gpt-4o...");
+    console.log("Chamando API OpenAI com modelo gpt-4.1...");
     
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -258,18 +226,37 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4.1-2025-04-14",
         messages: [
           { role: "system", content: VISUAL_ANALYSIS_PROMPT },
           {
             role: "user",
             content: [
-              { type: "text", text: "ANÁLISE VISUAL COMPLETA OBRIGATÓRIA: Analise esta radiografia odontológica de forma EXAUSTIVA. Você DEVE:\n\n1. Identificar e criar uma MARCAÇÃO para CADA DENTE VISÍVEL (use notação FDI: 11-48)\n2. Traçar os CONTORNOS COMPLETOS dos seios maxilares (direito e esquerdo)\n3. Traçar o TRAJETO COMPLETO dos canais mandibulares (direito e esquerdo)\n4. Marcar TODAS as patologias encontradas (cáries, lesões, reabsorções)\n5. Identificar TODAS as restaurações e tratamentos existentes\n6. Listar TODAS as ausências dentárias\n\nRetorne o JSON completo com coordenadas PERCENTUAIS PRECISAS (0-100) para cada estrutura. O array 'marcacoes' deve conter uma entrada para CADA dente e CADA achado. Seja EXTREMAMENTE DETALHISTA." },
-              { type: "image_url", image_url: { url: `data:${imageType || "image/jpeg"};base64,${base64Data}`, detail: "high" } },
+              { 
+                type: "text", 
+                text: `ANÁLISE VISUAL COMPLETA - Analise esta radiografia odontológica e retorne o JSON completo.
+
+OBRIGATÓRIO identificar e marcar:
+1. SEIOS MAXILARES - trace o contorno COMPLETO de ambos (8-12 pontos cada)
+2. CANAIS MANDIBULARES - trace o trajeto COMPLETO de ambos (6-10 pontos cada)  
+3. TODOS os dentes visíveis com posição central e status
+4. TODAS as patologias (cáries, lesões, reabsorções)
+5. TODOS os tratamentos existentes (restaurações, implantes, endodontias)
+6. TODAS as ausências dentárias
+
+Use coordenadas PERCENTUAIS (0-100). Retorne JSON válido.` 
+              },
+              { 
+                type: "image_url", 
+                image_url: { 
+                  url: `data:${imageType || "image/jpeg"};base64,${base64Data}`, 
+                  detail: "high" 
+                } 
+              },
             ],
           },
         ],
-        max_tokens: 8192,
+        max_completion_tokens: 8192,
         response_format: { type: "json_object" },
       }),
     });
@@ -277,7 +264,6 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenAI API error:", response.status, errorText);
-      console.error("Detalhes do erro:", errorText);
       throw new Error(`Erro na API OpenAI: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
@@ -334,8 +320,25 @@ serve(async (req) => {
       categoria: m.categoria || "anatomia",
     }));
 
-    // Auto-generate marcacoes from other data if marcacoes array is sparse
+    // Auto-generate marcacoes from dentes if sparse
     const autoMarcacoes: Marcacao[] = [];
+
+    // Add marcacoes for each tooth
+    Object.entries(visualAnalysis.dentes).forEach(([num, dente]) => {
+      if (dente.posicao && !visualAnalysis.marcacoes.some(m => m.id === `dente_${num}`)) {
+        const isHealthy = dente.status.toLowerCase().includes("saudável") || dente.status.toLowerCase().includes("normal");
+        autoMarcacoes.push({
+          id: `dente_${num}`,
+          tipo: "ellipse",
+          coords: [dente.posicao[0], dente.posicao[1], 3, 4],
+          label: `Dente ${num}`,
+          descricao: `${dente.status} - ${dente.detalhes}`,
+          cor: isHealthy ? "#3B82F6" : "#F59E0B",
+          severidade: isHealthy ? "info" : "media",
+          categoria: "anatomia"
+        });
+      }
+    });
 
     // Add marcacoes for lesoes_suspeitas
     visualAnalysis.lesoes_suspeitas.forEach((lesao, i) => {
@@ -343,10 +346,10 @@ serve(async (req) => {
         autoMarcacoes.push({
           id: `lesao_${lesao.dente}_${i}`,
           tipo: "circle",
-          coords: [lesao.posicao[0], lesao.posicao[1], 3, 3],
+          coords: [lesao.posicao[0], lesao.posicao[1], 2.5, 2.5],
           label: `Lesão ${lesao.dente}`,
           descricao: lesao.descricao,
-          cor: "#EF4444",
+          cor: "#FFA500",
           severidade: "alta",
           categoria: "patologia"
         });
@@ -362,7 +365,7 @@ serve(async (req) => {
           coords: [carie.posicao[0], carie.posicao[1], 2, 2],
           label: `Cárie ${carie.dente}`,
           descricao: `Cárie na superfície ${carie.superficie}`,
-          cor: "#F59E0B",
+          cor: "#FF0000",
           severidade: "media",
           categoria: "patologia"
         });
@@ -375,10 +378,10 @@ serve(async (req) => {
         autoMarcacoes.push({
           id: `implante_${implante.dente}_${i}`,
           tipo: "rect",
-          coords: [implante.posicao[0] - 2, implante.posicao[1] - 4, 4, 8],
+          coords: [implante.posicao[0] - 1.5, implante.posicao[1] - 3, 3, 6],
           label: `Implante ${implante.dente}`,
           descricao: implante.detalhes || "Implante dentário",
-          cor: "#8B5CF6",
+          cor: "#00FF00",
           severidade: "info",
           categoria: "tratamento"
         });
@@ -391,10 +394,10 @@ serve(async (req) => {
         autoMarcacoes.push({
           id: `fratura_${fratura.dente}_${i}`,
           tipo: "rect",
-          coords: [fratura.posicao[0] - 1, fratura.posicao[1] - 3, 2, 6],
+          coords: [fratura.posicao[0] - 0.5, fratura.posicao[1] - 2, 1, 4],
           label: `Fratura ${fratura.dente}`,
           descricao: fratura.descricao,
-          cor: "#EF4444",
+          cor: "#EC4899",
           severidade: "alta",
           categoria: "patologia"
         });
@@ -420,12 +423,18 @@ serve(async (req) => {
     // Merge auto-generated marcacoes
     visualAnalysis.marcacoes = [...visualAnalysis.marcacoes, ...autoMarcacoes];
 
+    // Log detailed results
     console.log(`Análise visual avançada concluída:`);
     console.log(`- ${Object.keys(visualAnalysis.dentes).length} dentes mapeados`);
     console.log(`- ${visualAnalysis.ausencias.length} ausências`);
     console.log(`- ${visualAnalysis.lesoes_suspeitas.length} lesões suspeitas`);
     console.log(`- ${visualAnalysis.caries.length} cáries`);
+    console.log(`- ${visualAnalysis.implantes.length} implantes`);
     console.log(`- ${visualAnalysis.marcacoes.length} marcações totais`);
+    console.log(`- Seio maxilar direito: ${visualAnalysis.seio_maxilar.direito?.contorno?.length || 0} pontos`);
+    console.log(`- Seio maxilar esquerdo: ${visualAnalysis.seio_maxilar.esquerdo?.contorno?.length || 0} pontos`);
+    console.log(`- Canal mandibular direito: ${visualAnalysis.canal_mandibular.direito?.length || 0} pontos`);
+    console.log(`- Canal mandibular esquerdo: ${visualAnalysis.canal_mandibular.esquerdo?.length || 0} pontos`);
 
     return new Response(JSON.stringify(visualAnalysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
