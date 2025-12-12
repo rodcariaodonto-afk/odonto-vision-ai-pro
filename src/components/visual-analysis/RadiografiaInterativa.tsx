@@ -286,21 +286,33 @@ export function RadiografiaInterativa({
   return (
     <div 
       ref={containerRef}
-      className="relative overflow-auto bg-black rounded-lg"
-      style={{ maxHeight: "70vh" }}
+      className="relative overflow-auto bg-black rounded-lg border border-border"
+      style={{ 
+        height: "calc(100vh - 350px)", 
+        minHeight: "400px",
+        maxHeight: "70vh"
+      }}
     >
       <div
         style={{
-          transform: `scale(${zoom})`,
-          transformOrigin: "top left",
-          transition: draggingId ? "none" : "transform 0.2s ease",
+          width: `${100 * zoom}%`,
+          height: `${100 * zoom}%`,
+          minWidth: "100%",
+          minHeight: "100%",
         }}
       >
-        <div className="relative inline-block">
+        <div 
+          className="relative"
+          style={{
+            transform: `scale(${zoom})`,
+            transformOrigin: "top left",
+            transition: draggingId ? "none" : "transform 0.2s ease",
+          }}
+        >
           <img
             src={imageUrl}
             alt="Radiografia"
-            className="block max-w-full h-auto"
+            className="block w-full h-auto"
             draggable={false}
           />
           
