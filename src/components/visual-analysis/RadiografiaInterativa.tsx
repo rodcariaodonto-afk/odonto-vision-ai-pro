@@ -437,22 +437,23 @@ export function RadiografiaInterativa({
         </div>
       )}
       
-      {/* Instructions overlay - Estruturas anatômicas (desenho livre) */}
+      {/* Instructions overlay - Estruturas anatômicas (desenho livre) - posicionado ACIMA da imagem */}
       {estruturaAtiva?.tipo && estruturaAtiva?.lado && (
-        <div className="absolute bottom-3 left-3 right-3 bg-black/80 text-white text-xs p-3 rounded pointer-events-auto flex items-center justify-between gap-2">
-          <div className="flex-1 text-center">
-            <span className="font-medium" style={{ color: estruturaConfig[estruturaAtiva.tipo].cor }}>
-              ✏️ {estruturaConfig[estruturaAtiva.tipo].label} ({estruturaAtiva.lado === "direito" ? "Direito" : "Esquerdo"})
-            </span>
-            <span className="ml-2">• Clique e arraste para desenhar a estrutura</span>
-          </div>
+        <div 
+          className="absolute left-0 right-0 bg-black/90 text-white text-xs py-1.5 px-3 flex items-center justify-center gap-3 pointer-events-auto z-50"
+          style={{ top: "-32px" }}
+        >
+          <span className="font-medium" style={{ color: estruturaConfig[estruturaAtiva.tipo].cor }}>
+            ✏️ {estruturaConfig[estruturaAtiva.tipo].label} ({estruturaAtiva.lado === "direito" ? "Direito" : "Esquerdo"})
+          </span>
+          <span className="opacity-80">Desenhe na imagem</span>
           <button
             onClick={() => {
               if (estruturaAtiva.tipo && estruturaAtiva.lado) {
                 onResetEstrutura?.(estruturaAtiva.tipo, estruturaAtiva.lado);
               }
             }}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-medium"
+            className="px-2 py-0.5 bg-red-600 hover:bg-red-500 rounded text-xs"
           >
             Limpar
           </button>
