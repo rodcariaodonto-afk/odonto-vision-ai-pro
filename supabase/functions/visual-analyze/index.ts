@@ -85,6 +85,29 @@ Canal mandibular ESQUERDO (6 pontos):
 - Se NÃO houver estrutura visível → AUSENTE
 - Na DÚVIDA → AUSENTE (sisos frequentemente estão ausentes)
 
+## REGRA CRÍTICA PARA IDENTIFICAÇÃO DE AUSÊNCIAS
+
+### DENTE AUSENTE - Critérios:
+- Espaço edêntulo sem estrutura dental radiopaca
+- Rebordo alveolar contínuo sem raiz visível
+- Área onde deveria haver dente mas NÃO HÁ estrutura dental natural
+
+### IMPLANTE = DENTE AUSENTE + IMPLANTE
+**REGRA FUNDAMENTAL**: Quando há implante em uma região, o DENTE ORIGINAL está AUSENTE!
+- Exemplo: Se há implante na região do 46, então:
+  - Adicionar "46" em dentes_ausentes
+  - Adicionar "Região do 46: implante osseointegrado" em implantes
+  - NÃO adicionar "46" em dentes_presentes
+
+### ERRO GRAVE A EVITAR:
+❌ NUNCA liste um dente com implante como "presente"
+✅ Implante substitui o dente natural → listar como AUSENTE + IMPLANTE
+
+### ORDEM FDI OBRIGATÓRIA
+Listar dentes SEMPRE na ordem padrão:
+Superior: 18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28
+Inferior: 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38
+
 ## DIFERENCIAÇÃO CRÍTICA: IMPLANTE vs TRATAMENTO ENDODÔNTICO
 
 ### IMPLANTE DENTÁRIO (substituição da raiz)

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { OdontogramaInterativo, TipoMarcacao, MarcacaoManual } from "./OdontogramaInterativo";
@@ -8,6 +8,38 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+
+// Ordem FDI padrão para garantir listagem correta de dentes
+const FDI_ORDER = [
+  "18", "17", "16", "15", "14", "13", "12", "11",
+  "21", "22", "23", "24", "25", "26", "27", "28",
+  "48", "47", "46", "45", "44", "43", "42", "41",
+  "31", "32", "33", "34", "35", "36", "37", "38"
+];
+
+// Função para ordenar dentes na ordem FDI
+const sortByFDI = (dentes: string[]): string[] => {
+  return [...dentes].sort((a, b) => {
+    const indexA = FDI_ORDER.indexOf(a);
+    const indexB = FDI_ORDER.indexOf(b);
+    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+};
+
+// Interface para achados clínicos
+interface AchadosClinicos {
+  dentes_presentes: string[];
+  dentes_ausentes: string[];
+  caries_suspeitas: string[];
+  lesoes_suspeitas: string[];
+  implantes: string[];
+  restauracoes: string[];
+  tratamentos_endodonticos: string[];
+  observacoes: string;
+}
 
 // Interface simplificada para análise visual
 export interface AnaliseVisualSimplificada {
@@ -117,6 +149,117 @@ export function VisualAnalysis({
 
   // Usar análise simplificada como fonte principal
   const analise = analiseSimplificada;
+  
+  // Estado para achados modificados (combina IA + marcações manuais)
+  const [achadosModificados, setAchadosModificados] = useState<AchadosClinicos | null>(null);
+  
+  // Inicializar achados modificados quando dados da IA estiverem disponíveis
+  useEffect(() => {
+    if (analise?.achados_clinicos && !achadosModificados) {
+      setAchadosModificados({
+        dentes_presentes: sortByFDI([...analise.achados_clinicos.dentes_presentes]),
+        dentes_ausentes: sortByFDI([...analise.achados_clinicos.dentes_ausentes]),
+        caries_suspeitas: [...analise.achados_clinicos.caries_suspeitas],
+        lesoes_suspeitas: [...analise.achados_clinicos.lesoes_suspeitas],
+        implantes: [...analise.achados_clinicos.implantes],
+        restauracoes: [...analise.achados_clinicos.restauracoes],
+        tratamentos_endodonticos: [...analise.achados_clinicos.tratamentos_endodonticos],
+        observacoes: analise.achados_clinicos.observacoes || "",
+      });
+    }
+  }, [analise?.achados_clinicos]);
+  
+  // Sincronizar marcações manuais com achados
+  useEffect(() => {
+    if (!analise?.achados_clinicos) return;
+    
+    // Criar cópia base dos achados originais da IA
+    const baseAchados: AchadosClinicos = {
+      dentes_presentes: [...analise.achados_clinicos.dentes_presentes],
+      dentes_ausentes: [...analise.achados_clinicos.dentes_ausentes],
+      caries_suspeitas: [...analise.achados_clinicos.caries_suspeitas],
+      lesoes_suspeitas: [...analise.achados_clinicos.lesoes_suspeitas],
+      implantes: [...analise.achados_clinicos.implantes],
+      restauracoes: [...analise.achados_clinicos.restauracoes],
+      tratamentos_endodonticos: [...analise.achados_clinicos.tratamentos_endodonticos],
+      observacoes: analise.achados_clinicos.observacoes || "",
+    };
+    
+    // Aplicar marcações manuais
+    marcacoesManuals.forEach(m => {
+      const denteNum = m.dente;
+      
+      switch (m.tipo) {
+        case "ausente":
+          // Adicionar a ausentes e remover de presentes
+          if (!baseAchados.dentes_ausentes.includes(denteNum)) {
+            baseAchados.dentes_ausentes.push(denteNum);
+          }
+          baseAchados.dentes_presentes = baseAchados.dentes_presentes.filter(d => d !== denteNum);
+          break;
+          
+        case "carie":
+          const cariesEntry = `Dente ${denteNum}: cárie (marcação manual)`;
+          if (!baseAchados.caries_suspeitas.some(c => c.includes(`Dente ${denteNum}`))) {
+            baseAchados.caries_suspeitas.push(cariesEntry);
+          }
+          break;
+          
+        case "restauracao":
+          const restEntry = `Dente ${denteNum}: restauração (marcação manual)`;
+          if (!baseAchados.restauracoes.some(r => r.includes(`Dente ${denteNum}`))) {
+            baseAchados.restauracoes.push(restEntry);
+          }
+          break;
+          
+        case "endo":
+          const endoEntry = `Dente ${denteNum}: tratamento endodôntico (marcação manual)`;
+          if (!baseAchados.tratamentos_endodonticos.some(t => t.includes(`Dente ${denteNum}`))) {
+            baseAchados.tratamentos_endodonticos.push(endoEntry);
+          }
+          break;
+          
+        case "implante":
+          // Implante = dente ausente + implante
+          if (!baseAchados.dentes_ausentes.includes(denteNum)) {
+            baseAchados.dentes_ausentes.push(denteNum);
+          }
+          baseAchados.dentes_presentes = baseAchados.dentes_presentes.filter(d => d !== denteNum);
+          const implEntry = `Região do ${denteNum}: implante (marcação manual)`;
+          if (!baseAchados.implantes.some(i => i.includes(`${denteNum}`))) {
+            baseAchados.implantes.push(implEntry);
+          }
+          break;
+          
+        case "lesao":
+          const lesaoEntry = `Dente ${denteNum}: lesão periapical (marcação manual)`;
+          if (!baseAchados.lesoes_suspeitas.some(l => l.includes(`Dente ${denteNum}`))) {
+            baseAchados.lesoes_suspeitas.push(lesaoEntry);
+          }
+          break;
+          
+        case "protese":
+          const proteseEntry = `Dente ${denteNum}: prótese (marcação manual)`;
+          if (!baseAchados.restauracoes.some(r => r.includes(`Dente ${denteNum}`))) {
+            baseAchados.restauracoes.push(proteseEntry);
+          }
+          break;
+          
+        case "fratura":
+          const fraturaEntry = `Dente ${denteNum}: fratura (marcação manual)`;
+          if (!baseAchados.lesoes_suspeitas.some(l => l.includes(`Dente ${denteNum}`))) {
+            baseAchados.lesoes_suspeitas.push(fraturaEntry);
+          }
+          break;
+      }
+    });
+    
+    // Ordenar listas de dentes na ordem FDI
+    baseAchados.dentes_presentes = sortByFDI(baseAchados.dentes_presentes);
+    baseAchados.dentes_ausentes = sortByFDI(baseAchados.dentes_ausentes);
+    
+    setAchadosModificados(baseAchados);
+  }, [marcacoesManuals, analise?.achados_clinicos]);
   
   // Fallback para dados do analiseCompleta se não houver simplificada
   const getSeioMaxilar = useCallback(() => {
@@ -254,7 +397,8 @@ export function VisualAnalysis({
 
   // Abrir em nova janela
   const handleOpenInNewWindow = useCallback(() => {
-    const achados = analise?.achados_clinicos;
+    // Usar achados modificados (que inclui marcações manuais)
+    const achados = achadosModificados || analise?.achados_clinicos;
     
     const html = `
       <!DOCTYPE html>
@@ -331,9 +475,10 @@ export function VisualAnalysis({
       newWindow.document.write(html);
       newWindow.document.close();
     }
-  }, [imageUrl, analise]);
+  }, [imageUrl, achadosModificados, analise?.achados_clinicos]);
 
-  const achados = analise?.achados_clinicos;
+  // Usar achados modificados (sincronizados com marcações manuais) ou fallback para IA
+  const achados = achadosModificados || analise?.achados_clinicos;
 
   return (
     <div className="space-y-4">
@@ -487,7 +632,7 @@ export function VisualAnalysis({
           modoAtivo={modoAtivo}
           onModoChange={handleModoChange}
           onResetMarcacoes={handleResetMarcacoes}
-          achadosClinicos={analise?.achados_clinicos}
+          achadosClinicos={achadosModificados || analise?.achados_clinicos}
         />
       )}
 
