@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { DrawingCanvas } from "./DrawingCanvas";
-import { OdontogramaInterativo, TipoMarcacao, MarcacaoManual } from "./OdontogramaInterativo";
+import { OdontogramaInterativo, TipoMarcacao, MarcacaoManual, TipoEstrutura, EstruturaManual } from "./OdontogramaInterativo";
 import { RadiografiaInterativa } from "./RadiografiaInterativa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,6 +134,8 @@ export function VisualAnalysis({
   const [showDrawingMode, setShowDrawingMode] = useState(false);
   const [showMarcacoes, setShowMarcacoes] = useState(true);
   const [modoAtivo, setModoAtivo] = useState<{ dente: string | null; tipo: TipoMarcacao | null }>({ dente: null, tipo: null });
+  const [estruturaAtiva, setEstruturaAtiva] = useState<{ tipo: TipoEstrutura | null; lado: "direito" | "esquerdo" | null }>({ tipo: null, lado: null });
+  const [estruturasManuais, setEstruturasManuais] = useState<EstruturaManual[]>([]);
   const [internalMarcacoesManuals, setInternalMarcacoesManuals] = useState<MarcacaoManual[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -313,7 +315,23 @@ export function VisualAnalysis({
 
   const handleModoChange = useCallback((dente: string | null, tipo: TipoMarcacao | null) => {
     setModoAtivo({ dente, tipo });
+    // Desativar modo de estrutura quando selecionar modo de marcação
+    if (dente && tipo) {
+      setEstruturaAtiva({ tipo: null, lado: null });
+    }
   }, []);
+
+  const handleEstruturaChange = useCallback((tipo: TipoEstrutura, lado: "direito" | "esquerdo") => {
+    // Toggle: se já está ativo, desativa
+    if (estruturaAtiva.tipo === tipo && estruturaAtiva.lado === lado) {
+      setEstruturaAtiva({ tipo: null, lado: null });
+    } else {
+      setEstruturaAtiva({ tipo, lado });
+      // Desativar modo de marcação dentária
+      setModoAtivo({ dente: null, tipo: null });
+      toast.info(`Modo de desenho: ${tipo === "seio_maxilar" ? "Seio Maxilar" : "Canal Mandibular"} (${lado === "direito" ? "Direito" : "Esquerdo"}). Clique na radiografia para desenhar.`);
+    }
+  }, [estruturaAtiva]);
 
   // Download da imagem com marcações
   const handleDownload = useCallback(async () => {
@@ -633,6 +651,8 @@ export function VisualAnalysis({
           onModoChange={handleModoChange}
           onResetMarcacoes={handleResetMarcacoes}
           achadosClinicos={achadosModificados || analise?.achados_clinicos}
+          onEstruturaChange={handleEstruturaChange}
+          estruturaAtiva={estruturaAtiva}
         />
       )}
 
