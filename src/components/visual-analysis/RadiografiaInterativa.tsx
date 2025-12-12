@@ -3,6 +3,15 @@ import { cn } from "@/lib/utils";
 import { TipoMarcacao, MarcacaoManual, TipoEstrutura, EstruturaManual, tipoMarcacaoConfig, estruturaConfig } from "./OdontogramaInterativo";
 import { toast } from "sonner";
 
+// Interface para traço de desenho livre
+interface Stroke {
+  id: string;
+  tipo: TipoEstrutura;
+  lado: "direito" | "esquerdo";
+  points: Array<[number, number]>;
+  color: string;
+}
+
 interface RadiografiaInterativaProps {
   imageUrl: string;
   zoom: number;
@@ -13,19 +22,10 @@ interface RadiografiaInterativaProps {
   modoAtivo: { dente: string | null; tipo: TipoMarcacao | null };
   showMarcacoes: boolean;
   showAnatomicStructures: boolean;
-  seioMaxilar?: {
-    direito?: { contorno_normalizado: Array<[number, number]> };
-    esquerdo?: { contorno_normalizado: Array<[number, number]> };
-  };
-  canalMandibular?: {
-    direito?: Array<[number, number]>;
-    esquerdo?: Array<[number, number]>;
-  };
-  // Props para estruturas manuais
+  // Props para estruturas manuais (desenho livre)
   estruturaAtiva?: { tipo: TipoEstrutura | null; lado: "direito" | "esquerdo" | null };
   estruturasManuais?: EstruturaManual[];
-  onAddPontoEstrutura?: (tipo: TipoEstrutura, lado: "direito" | "esquerdo", ponto: [number, number]) => void;
-  onFinalizarEstrutura?: (tipo: TipoEstrutura, lado: "direito" | "esquerdo") => void;
+  onAddEstruturaManual?: (estrutura: EstruturaManual) => void;
   onResetEstrutura?: (tipo: TipoEstrutura, lado: "direito" | "esquerdo") => void;
 }
 
@@ -105,21 +105,20 @@ export function RadiografiaInterativa({
   modoAtivo,
   showMarcacoes,
   showAnatomicStructures,
-  seioMaxilar,
-  canalMandibular,
   estruturaAtiva,
   estruturasManuais = [],
-  onAddPontoEstrutura,
-  onFinalizarEstrutura,
+  onAddEstruturaManual,
   onResetEstrutura,
 }: RadiografiaInterativaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   
-  // Estado para pontos temporários da estrutura sendo desenhada
-  const [pontosTemporarios, setPontosTemporarios] = useState<Array<[number, number]>>([]);
+  // Estado para desenho livre
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentStroke, setCurrentStroke] = useState<Array<[number, number]>>([]);
 
   // Handle keyboard delete
   useEffect(() => {
@@ -147,18 +146,12 @@ export function RadiografiaInterativa({
     return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
   }, []);
 
-  // Handle click to add marcacao or ponto de estrutura
+  // Handle click to add marcacao (for dental markings, not structures)
   const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (draggingId) return; // Don't add if dragging
+    if (estruturaAtiva?.tipo && estruturaAtiva?.lado) return; // Drawing mode, don't add marcacao
     
     const { x, y } = getCoordinates(e);
-    
-    // Modo de desenho de estrutura anatômica
-    if (estruturaAtiva?.tipo && estruturaAtiva?.lado) {
-      setPontosTemporarios(prev => [...prev, [x, y]]);
-      onAddPontoEstrutura?.(estruturaAtiva.tipo, estruturaAtiva.lado, [x, y]);
-      return;
-    }
     
     // Modo de marcação dentária
     if (modoAtivo.dente && modoAtivo.tipo) {
@@ -174,11 +167,62 @@ export function RadiografiaInterativa({
       // Deselect if clicking empty area
       setSelectedId(null);
     }
-  }, [modoAtivo, estruturaAtiva, getCoordinates, onAddMarcacao, onAddPontoEstrutura, draggingId]);
+  }, [modoAtivo, estruturaAtiva, getCoordinates, onAddMarcacao, draggingId]);
 
-  // Limpar pontos temporários quando estrutura ativa mudar
+  // Freehand drawing handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!estruturaAtiva?.tipo || !estruturaAtiva?.lado) return;
+    
+    const { x, y } = getCoordinates(e);
+    setIsDrawing(true);
+    setCurrentStroke([[x, y]]);
+  }, [estruturaAtiva, getCoordinates]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Handle dragging marcacao
+    if (draggingId) {
+      const { x, y } = getCoordinates(e);
+      const newX = Math.max(0, Math.min(1, x + dragOffset.x));
+      const newY = Math.max(0, Math.min(1, y + dragOffset.y));
+      onMoveMarcacao(draggingId, newX, newY);
+      return;
+    }
+    
+    // Handle freehand drawing
+    if (!isDrawing || !estruturaAtiva?.tipo || !estruturaAtiva?.lado) return;
+    
+    const { x, y } = getCoordinates(e);
+    setCurrentStroke(prev => [...prev, [x, y]]);
+  }, [isDrawing, estruturaAtiva, getCoordinates, draggingId, dragOffset, onMoveMarcacao]);
+
+  const handleMouseUp = useCallback(() => {
+    if (draggingId) {
+      setDraggingId(null);
+      return;
+    }
+    
+    if (!isDrawing || !estruturaAtiva?.tipo || !estruturaAtiva?.lado) return;
+    
+    setIsDrawing(false);
+    
+    // Only save if we have enough points
+    if (currentStroke.length >= 3) {
+      const newEstrutura: EstruturaManual = {
+        id: `estrutura-${estruturaAtiva.tipo}-${estruturaAtiva.lado}-${Date.now()}`,
+        tipo: estruturaAtiva.tipo,
+        lado: estruturaAtiva.lado,
+        pontos: currentStroke,
+      };
+      onAddEstruturaManual?.(newEstrutura);
+    }
+    
+    setCurrentStroke([]);
+  }, [isDrawing, estruturaAtiva, currentStroke, onAddEstruturaManual, draggingId]);
+
+  // Reset current stroke when structure mode changes
   useEffect(() => {
-    setPontosTemporarios([]);
+    setCurrentStroke([]);
+    setIsDrawing(false);
   }, [estruturaAtiva?.tipo, estruturaAtiva?.lado]);
 
   // Handle drag start
@@ -194,21 +238,6 @@ export function RadiografiaInterativa({
     });
   }, [getCoordinates]);
 
-  // Handle drag move
-  const handleDragMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!draggingId) return;
-    
-    const { x, y } = getCoordinates(e);
-    const newX = Math.max(0, Math.min(1, x + dragOffset.x));
-    const newY = Math.max(0, Math.min(1, y + dragOffset.y));
-    onMoveMarcacao(draggingId, newX, newY);
-  }, [draggingId, dragOffset, getCoordinates, onMoveMarcacao]);
-
-  // Handle drag end
-  const handleDragEnd = useCallback(() => {
-    setDraggingId(null);
-  }, []);
-
   // Handle right-click to delete
   const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -222,90 +251,21 @@ export function RadiografiaInterativa({
     return [x > 1 ? x : x * 100, y > 1 ? y : y * 100];
   };
 
-  // Render anatomical structures
-  const renderSeioMaxilar = () => {
-    if (!seioMaxilar || !showAnatomicStructures) return null;
+  // Convert points array to SVG path string for freehand drawing
+  const pointsToPath = (points: Array<[number, number]>): string => {
+    if (points.length < 2) return "";
     
-    const elements: JSX.Element[] = [];
+    const percentPoints = points.map(p => toPercentage(p));
+    let path = `M ${percentPoints[0][0]},${percentPoints[0][1]}`;
     
-    if (seioMaxilar.direito?.contorno_normalizado?.length >= 3) {
-      const points = seioMaxilar.direito.contorno_normalizado
-        .map((p) => toPercentage(p))
-        .map(([x, y]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polygon
-          key="seio-direito"
-          points={points}
-          fill="rgba(255, 215, 0, 0.2)"
-          stroke="#FFD700"
-          strokeWidth="0.4"
-          strokeDasharray="2,1"
-        />
-      );
+    for (let i = 1; i < percentPoints.length; i++) {
+      path += ` L ${percentPoints[i][0]},${percentPoints[i][1]}`;
     }
     
-    if (seioMaxilar.esquerdo?.contorno_normalizado?.length >= 3) {
-      const points = seioMaxilar.esquerdo.contorno_normalizado
-        .map((p) => toPercentage(p))
-        .map(([x, y]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polygon
-          key="seio-esquerdo"
-          points={points}
-          fill="rgba(255, 215, 0, 0.2)"
-          stroke="#FFD700"
-          strokeWidth="0.4"
-          strokeDasharray="2,1"
-        />
-      );
-    }
-    
-    return elements;
+    return path;
   };
 
-  const renderCanalMandibular = () => {
-    if (!canalMandibular || !showAnatomicStructures) return null;
-    
-    const elements: JSX.Element[] = [];
-    
-    if (canalMandibular.direito?.length >= 2) {
-      const points = canalMandibular.direito
-        .map((p) => toPercentage(p))
-        .map(([x, y]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polyline
-          key="canal-direito"
-          points={points}
-          fill="none"
-          stroke="#00AEEF"
-          strokeWidth="0.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      );
-    }
-    
-    if (canalMandibular.esquerdo?.length >= 2) {
-      const points = canalMandibular.esquerdo
-        .map((p) => toPercentage(p))
-        .map(([x, y]) => `${x},${y}`).join(" ");
-      elements.push(
-        <polyline
-          key="canal-esquerdo"
-          points={points}
-          fill="none"
-          stroke="#00AEEF"
-          strokeWidth="0.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      );
-    }
-    
-    return elements;
-  };
-
-  // Render estruturas manuais
+  // Render estruturas manuais (desenho livre)
   const renderEstruturasManuais = () => {
     if (!showAnatomicStructures) return null;
     
@@ -314,113 +274,51 @@ export function RadiografiaInterativa({
     estruturasManuais.forEach((estrutura) => {
       if (estrutura.pontos.length < 2) return;
       
-      const points = estrutura.pontos
-        .map((p) => toPercentage(p))
-        .map(([x, y]) => `${x},${y}`).join(" ");
+      const pathData = pointsToPath(estrutura.pontos);
+      const config = estruturaConfig[estrutura.tipo];
       
-      if (estrutura.tipo === "seio_maxilar") {
-        elements.push(
-          <polygon
-            key={estrutura.id}
-            points={points}
-            fill="rgba(255, 215, 0, 0.25)"
-            stroke="#FFD700"
-            strokeWidth="0.5"
-            strokeDasharray="2,1"
-          />
-        );
-      } else if (estrutura.tipo === "canal_mandibular") {
-        elements.push(
-          <polyline
-            key={estrutura.id}
-            points={points}
-            fill="none"
-            stroke="#00AEEF"
-            strokeWidth="0.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        );
-      }
-    });
-    
-    return elements;
-  };
-
-  // Render pontos temporários durante o desenho
-  const renderPontosTemporarios = () => {
-    if (!estruturaAtiva?.tipo || !estruturaAtiva?.lado || pontosTemporarios.length === 0) return null;
-    
-    const config = estruturaConfig[estruturaAtiva.tipo];
-    const elements: JSX.Element[] = [];
-    
-    // Desenhar linha/polígono em progresso
-    if (pontosTemporarios.length >= 2) {
-      const points = pontosTemporarios
-        .map((p) => toPercentage(p))
-        .map(([x, y]) => `${x},${y}`).join(" ");
-      
-      if (estruturaAtiva.tipo === "seio_maxilar") {
-        elements.push(
-          <polygon
-            key="temp-polygon"
-            points={points}
-            fill="rgba(255, 215, 0, 0.15)"
-            stroke="#FFD700"
-            strokeWidth="0.4"
-            strokeDasharray="1,1"
-            opacity={0.8}
-          />
-        );
-      } else {
-        elements.push(
-          <polyline
-            key="temp-polyline"
-            points={points}
-            fill="none"
-            stroke="#00AEEF"
-            strokeWidth="0.5"
-            strokeDasharray="1,1"
-            opacity={0.8}
-          />
-        );
-      }
-    }
-    
-    // Desenhar pontos individuais
-    pontosTemporarios.forEach((ponto, index) => {
-      const [x, y] = toPercentage(ponto);
       elements.push(
-        <g key={`ponto-${index}`}>
-          <circle
-            cx={x}
-            cy={y}
-            r={1}
-            fill={config.cor}
-            stroke="white"
-            strokeWidth={0.3}
-          />
-          <text
-            x={x}
-            y={y - 2}
-            textAnchor="middle"
-            fontSize={1.5}
-            fill="white"
-            style={{ textShadow: "0 0 1px black" }}
-          >
-            {index + 1}
-          </text>
-        </g>
+        <path
+          key={estrutura.id}
+          d={pathData}
+          fill="none"
+          stroke={config.cor}
+          strokeWidth={estrutura.tipo === "seio_maxilar" ? "0.8" : "0.6"}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.9}
+        />
       );
     });
     
     return elements;
   };
 
+  // Render current stroke being drawn
+  const renderCurrentStroke = () => {
+    if (!estruturaAtiva?.tipo || !estruturaAtiva?.lado || currentStroke.length < 2) return null;
+    
+    const config = estruturaConfig[estruturaAtiva.tipo];
+    const pathData = pointsToPath(currentStroke);
+    
+    return (
+      <path
+        d={pathData}
+        fill="none"
+        stroke={config.cor}
+        strokeWidth={estruturaAtiva.tipo === "seio_maxilar" ? "0.8" : "0.6"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.7}
+        strokeDasharray="1,1"
+      />
+    );
+  };
+
   // Cursor style based on mode
   const getCursorStyle = () => {
     if (draggingId) return "grabbing";
-    if (estruturaAtiva?.tipo && estruturaAtiva?.lado) return "crosshair";
+    if (estruturaAtiva?.tipo && estruturaAtiva?.lado) return "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 19 7-7 3 3-7 7-3-3z'%3E%3C/path%3E%3Cpath d='m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z'%3E%3C/path%3E%3Cpath d='m2 2 7.586 7.586'%3E%3C/path%3E%3Ccircle cx='11' cy='11' r='2'%3E%3C/circle%3E%3C/svg%3E\") 0 24, crosshair";
     if (modoAtivo.dente && modoAtivo.tipo) return "crosshair";
     return "default";
   };
@@ -460,24 +358,22 @@ export function RadiografiaInterativa({
           
           {/* SVG Overlay */}
           <svg
+            ref={svgRef}
             className="absolute inset-0 w-full h-full"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             style={{ cursor: getCursorStyle() }}
             onClick={handleClick}
-            onMouseMove={handleDragMove}
-            onMouseUp={handleDragEnd}
-            onMouseLeave={handleDragEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
           >
-            {/* Anatomical structures (AI) */}
-            {renderSeioMaxilar()}
-            {renderCanalMandibular()}
-            
-            {/* Estruturas manuais */}
+            {/* Estruturas manuais (desenho livre) */}
             {renderEstruturasManuais()}
             
-            {/* Pontos temporários durante desenho */}
-            {renderPontosTemporarios()}
+            {/* Traço atual sendo desenhado */}
+            {renderCurrentStroke()}
             
             {/* Manual marcacoes */}
             {showMarcacoes && marcacoesManuals.map((marcacao) => {
@@ -541,41 +437,25 @@ export function RadiografiaInterativa({
         </div>
       )}
       
-      {/* Instructions overlay - Estruturas anatômicas */}
+      {/* Instructions overlay - Estruturas anatômicas (desenho livre) */}
       {estruturaAtiva?.tipo && estruturaAtiva?.lado && (
         <div className="absolute bottom-3 left-3 right-3 bg-black/80 text-white text-xs p-3 rounded pointer-events-auto flex items-center justify-between gap-2">
           <div className="flex-1 text-center">
             <span className="font-medium" style={{ color: estruturaConfig[estruturaAtiva.tipo].cor }}>
-              {estruturaConfig[estruturaAtiva.tipo].label} ({estruturaAtiva.lado === "direito" ? "Direito" : "Esquerdo"})
+              ✏️ {estruturaConfig[estruturaAtiva.tipo].label} ({estruturaAtiva.lado === "direito" ? "Direito" : "Esquerdo"})
             </span>
-            <span className="ml-2">• Clique para adicionar pontos do contorno ({pontosTemporarios.length} pontos)</span>
+            <span className="ml-2">• Clique e arraste para desenhar a estrutura</span>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                if (estruturaAtiva.tipo && estruturaAtiva.lado && pontosTemporarios.length >= 3) {
-                  onFinalizarEstrutura?.(estruturaAtiva.tipo, estruturaAtiva.lado);
-                  setPontosTemporarios([]);
-                } else {
-                  toast.error("Mínimo 3 pontos necessários");
-                }
-              }}
-              className="px-2 py-1 bg-green-600 hover:bg-green-500 rounded text-xs font-medium"
-            >
-              Finalizar
-            </button>
-            <button
-              onClick={() => {
-                if (estruturaAtiva.tipo && estruturaAtiva.lado) {
-                  onResetEstrutura?.(estruturaAtiva.tipo, estruturaAtiva.lado);
-                  setPontosTemporarios([]);
-                }
-              }}
-              className="px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-xs font-medium"
-            >
-              Limpar
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              if (estruturaAtiva.tipo && estruturaAtiva.lado) {
+                onResetEstrutura?.(estruturaAtiva.tipo, estruturaAtiva.lado);
+              }
+            }}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-medium"
+          >
+            Limpar
+          </button>
         </div>
       )}
     </div>
