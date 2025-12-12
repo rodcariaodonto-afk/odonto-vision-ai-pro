@@ -85,6 +85,44 @@ Canal mandibular ESQUERDO (6 pontos):
 - Se NÃO houver estrutura visível → AUSENTE
 - Na DÚVIDA → AUSENTE (sisos frequentemente estão ausentes)
 
+## IDENTIFICAÇÃO OBRIGATÓRIA DE TRATAMENTOS EM QUALQUER RADIOGRAFIA/TOMOGRAFIA
+
+Analise a radiografia PIXEL A PIXEL e identifique TODOS os tratamentos visíveis:
+
+### IMPLANTES DENTÁRIOS
+- Características: estrutura radiopaca cilíndrica/cônica, formato de parafuso
+- Osseointegrados ao osso alveolar
+- Formato de resposta: "Região do XX: implante osseointegrado [descrição]"
+
+### RESTAURAÇÕES (IDENTIFICAR TIPO E SUPERFÍCIE)
+- Áreas radiopacas na porção coronária dos dentes
+- Tipos a identificar:
+  • Amálgama (muito radiopaco, metálico brilhante)
+  • Resina (moderadamente radiopaco)
+  • Inlay/Onlay (formato de encaixe)
+  • Coroa total (metal ou cerâmica)
+- Superfícies: O (oclusal), M (mesial), D (distal), V (vestibular), L (lingual)
+- Formato: "Dente XX: restauração [tipo] [superfície MOD/oclusal/etc]"
+
+### TRATAMENTOS ENDODÔNTICOS
+- Características: material radiopaco preenchendo canais radiculares
+- Avaliar: completude do preenchimento, presença de pinos/retentores
+- Formato: "Dente XX: tratamento endodôntico [completo/incompleto], [observações]"
+
+### LESÕES PERIAPICAIS
+- Características: radiolucência ao redor do ápice das raízes
+- Classificar: granuloma periapical, cisto periapical, abscesso crônico
+- Medir tamanho quando possível
+- Formato: "Dente XX: lesão periapical [tipo] ~Xmm"
+
+### CÁRIES (CLASSIFICAR PROFUNDIDADE)
+- Características: radiolucências na estrutura dental (esmalte/dentina)
+- Classificar profundidade: superficial, média, profunda
+- Superfícies afetadas
+- Formato: "Dente XX: cárie [superfície] [profundidade]"
+
+REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento visível na radiografia!
+
 ## FORMATO JSON OBRIGATÓRIO
 
 {
@@ -99,11 +137,11 @@ Canal mandibular ESQUERDO (6 pontos):
   "achados_clinicos": {
     "dentes_presentes": ["11", "12", "13", ...],
     "dentes_ausentes": ["18", "28", "38", "48"],
-    "caries_suspeitas": ["Dente 14: cárie oclusal", "Dente 36: cárie mesial"],
-    "lesoes_suspeitas": ["Dente 46: lesão periapical sugestiva"],
-    "implantes": ["Região do 36: implante osseointegrado"],
-    "restauracoes": ["Dente 15: restauração MOD", "Dente 26: restauração oclusal"],
-    "tratamentos_endodonticos": ["Dente 21: tratamento endodôntico"],
+    "caries_suspeitas": ["Dente 14: cárie oclusal profunda", "Dente 36: cárie mesial média"],
+    "lesoes_suspeitas": ["Dente 46: lesão periapical sugestiva ~3mm"],
+    "implantes": ["Região do 36: implante osseointegrado com coroa protética"],
+    "restauracoes": ["Dente 15: restauração amálgama MOD", "Dente 26: restauração resina oclusal", "Dente 47: coroa metálica total"],
+    "tratamentos_endodonticos": ["Dente 21: tratamento endodôntico completo com pino", "Dente 36: tratamento endodôntico incompleto - subobturação"],
     "observacoes": "Observações clínicas gerais"
   },
   "avaliacao_periodontal": {

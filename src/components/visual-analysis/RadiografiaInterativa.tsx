@@ -22,9 +22,22 @@ interface RadiografiaInterativaProps {
   };
 }
 
-// SVG icons for each type
-const renderMarcacaoIcon = (tipo: TipoMarcacao, x: number, y: number, size: number = 2.5) => {
+// Tamanhos específicos para cada tipo de marcação (muito menores)
+const marcacaoSizes: Record<TipoMarcacao, number> = {
+  carie: 0.8,        // Bolinha bem pequena (era 2.5)
+  restauracao: 1.0,  // Quadrado pequeno
+  endo: 1.2,         // Letra "E" legível mas discreta
+  ausente: 1.2,      // X pequeno
+  implante: 1.5,     // Parafuso visível
+  protese: 1.5,      // Meia-lua média
+  lesao: 1.0,        // Círculo vazado pequeno
+  fratura: 1.5,      // Linha fina
+};
+
+// SVG icons for each type - com tamanhos específicos
+const renderMarcacaoIcon = (tipo: TipoMarcacao, x: number, y: number) => {
   const config = tipoMarcacaoConfig[tipo];
+  const size = marcacaoSizes[tipo];
   
   switch (tipo) {
     case "carie":
@@ -38,7 +51,7 @@ const renderMarcacaoIcon = (tipo: TipoMarcacao, x: number, y: number, size: numb
       );
     case "ausente":
       return (
-        <g stroke={config.cor} strokeWidth={0.8}>
+        <g stroke={config.cor} strokeWidth={0.6}>
           <line x1={x - size} y1={y - size} x2={x + size} y2={y + size} />
           <line x1={x + size} y1={y - size} x2={x - size} y2={y + size} />
         </g>
@@ -46,9 +59,9 @@ const renderMarcacaoIcon = (tipo: TipoMarcacao, x: number, y: number, size: numb
     case "implante":
       return (
         <g fill={config.cor}>
-          <rect x={x - size * 0.4} y={y - size * 1.5} width={size * 0.8} height={size * 3} rx={0.3} />
-          <rect x={x - size} y={y - size * 0.5} width={size * 2} height={size * 0.4} />
-          <rect x={x - size * 0.8} y={y + size * 0.2} width={size * 1.6} height={size * 0.4} />
+          <rect x={x - size * 0.3} y={y - size * 1.2} width={size * 0.6} height={size * 2.4} rx={0.2} />
+          <rect x={x - size * 0.8} y={y - size * 0.4} width={size * 1.6} height={size * 0.3} />
+          <rect x={x - size * 0.6} y={y + size * 0.1} width={size * 1.2} height={size * 0.3} />
         </g>
       );
     case "protese":
@@ -60,14 +73,14 @@ const renderMarcacaoIcon = (tipo: TipoMarcacao, x: number, y: number, size: numb
         />
       );
     case "lesao":
-      return <circle cx={x} cy={y} r={size} fill="none" stroke={config.cor} strokeWidth={0.8} />;
+      return <circle cx={x} cy={y} r={size} fill="none" stroke={config.cor} strokeWidth={0.6} />;
     case "fratura":
       return (
         <line 
           x1={x - size} y1={y + size} 
           x2={x + size} y2={y - size} 
           stroke={config.cor} 
-          strokeWidth={1.2}
+          strokeWidth={0.8}
         />
       );
     default:
