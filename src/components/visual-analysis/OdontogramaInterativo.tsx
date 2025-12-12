@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RotateCcw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { RotateCcw, CheckSquare, Square } from "lucide-react";
 
 export type TipoMarcacao = "carie" | "restauracao" | "endo" | "ausente" | "implante" | "protese" | "lesao" | "fratura";
 
@@ -15,10 +16,23 @@ export interface MarcacaoManual {
   y: number; // 0-1 normalizado
 }
 
+// Interface para achados clínicos da IA
+interface AchadosClinicos {
+  dentes_presentes?: string[];
+  dentes_ausentes?: string[];
+  caries_suspeitas?: string[];
+  lesoes_suspeitas?: string[];
+  implantes?: string[];
+  restauracoes?: string[];
+  tratamentos_endodonticos?: string[];
+  observacoes?: string;
+}
+
 interface OdontogramaInterativoProps {
   onModoChange?: (dente: string | null, tipo: TipoMarcacao | null) => void;
   modoAtivo?: { dente: string | null; tipo: TipoMarcacao | null };
   onResetMarcacoes?: () => void;
+  achadosClinicos?: AchadosClinicos;
 }
 
 // Dentes FDI
@@ -40,32 +54,86 @@ export const tipoMarcacaoConfig: Record<TipoMarcacao, { cor: string; bg: string;
 export function OdontogramaInterativo({ 
   onModoChange,
   modoAtivo,
-  onResetMarcacoes
+  onResetMarcacoes,
+  achadosClinicos
 }: OdontogramaInterativoProps) {
   const [denteExpandido, setDenteExpandido] = useState<string | null>(null);
+  const [dentesSelecionados, setDentesSelecionados] = useState<string[]>([]);
 
-  const handleDenteClick = useCallback((denteNum: string) => {
-    if (denteExpandido === denteNum) {
-      setDenteExpandido(null);
+  // Funções auxiliares para verificar tratamentos da IA
+  const hasImplante = useCallback((denteNum: string) => {
+    return achadosClinicos?.implantes?.some(i => i.includes(denteNum)) || false;
+  }, [achadosClinicos]);
+
+  const hasRestauracao = useCallback((denteNum: string) => {
+    return achadosClinicos?.restauracoes?.some(r => r.includes(denteNum)) || false;
+  }, [achadosClinicos]);
+
+  const hasEndo = useCallback((denteNum: string) => {
+    return achadosClinicos?.tratamentos_endodonticos?.some(e => e.includes(denteNum)) || false;
+  }, [achadosClinicos]);
+
+  const isAusente = useCallback((denteNum: string) => {
+    return achadosClinicos?.dentes_ausentes?.includes(denteNum) || false;
+  }, [achadosClinicos]);
+
+  const hasCarie = useCallback((denteNum: string) => {
+    return achadosClinicos?.caries_suspeitas?.some(c => c.includes(denteNum)) || false;
+  }, [achadosClinicos]);
+
+  const hasLesao = useCallback((denteNum: string) => {
+    return achadosClinicos?.lesoes_suspeitas?.some(l => l.includes(denteNum)) || false;
+  }, [achadosClinicos]);
+
+  const handleDenteClick = useCallback((denteNum: string, event: React.MouseEvent) => {
+    // Multi-seleção com Shift ou Ctrl
+    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+      setDentesSelecionados(prev => 
+        prev.includes(denteNum) 
+          ? prev.filter(d => d !== denteNum) 
+          : [...prev, denteNum]
+      );
     } else {
-      setDenteExpandido(denteNum);
+      // Seleção única - abre menu
+      if (denteExpandido === denteNum) {
+        setDenteExpandido(null);
+      } else {
+        setDenteExpandido(denteNum);
+      }
     }
   }, [denteExpandido]);
 
   const handleTipoClick = useCallback((denteNum: string, tipo: TipoMarcacao) => {
     if (modoAtivo?.dente === denteNum && modoAtivo?.tipo === tipo) {
-      // Desativar modo
       onModoChange?.(null, null);
     } else {
-      // Ativar modo de inserção
       onModoChange?.(denteNum, tipo);
     }
     setDenteExpandido(null);
   }, [modoAtivo, onModoChange]);
 
+  const handleSelectAll = useCallback(() => {
+    setDentesSelecionados([...dentesSuperiores, ...dentesInferiores]);
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setDentesSelecionados([]);
+  }, []);
+
   const renderTooth = (denteNum: string) => {
     const isExpanded = denteExpandido === denteNum;
     const isActive = modoAtivo?.dente === denteNum;
+    const isSelected = dentesSelecionados.includes(denteNum);
+    
+    // Verificar tratamentos da IA
+    const hasImp = hasImplante(denteNum);
+    const hasRest = hasRestauracao(denteNum);
+    const hasEnd = hasEndo(denteNum);
+    const isAus = isAusente(denteNum);
+    const hasCar = hasCarie(denteNum);
+    const hasLes = hasLesao(denteNum);
+    
+    const hasTreatment = hasImp || hasRest || hasEnd || hasCar || hasLes;
     
     return (
       <div key={denteNum} className="relative">
@@ -73,20 +141,42 @@ export function OdontogramaInterativo({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => handleDenteClick(denteNum)}
+                onClick={(e) => handleDenteClick(denteNum, e)}
                 className={cn(
-                  "w-7 h-9 sm:w-8 sm:h-10 md:w-9 md:h-11 rounded border-2 flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all",
+                  "w-7 h-9 sm:w-8 sm:h-10 md:w-9 md:h-11 rounded border-2 flex flex-col items-center justify-center text-[10px] sm:text-xs font-bold transition-all relative",
                   isActive 
                     ? "bg-primary text-primary-foreground border-primary scale-110 shadow-lg" 
+                    : isSelected
+                    ? "bg-primary/20 border-primary scale-105 shadow"
+                    : isAus
+                    ? "bg-muted/50 opacity-60 border-muted"
                     : "bg-card border-border hover:border-primary hover:scale-105",
-                  isExpanded && "ring-2 ring-primary ring-offset-1"
+                  isExpanded && "ring-2 ring-primary ring-offset-1",
+                  // Bordas de tratamentos da IA
+                  hasImp && "ring-2 ring-purple-500",
+                  hasRest && !hasImp && "ring-2 ring-blue-500",
+                  hasEnd && !hasImp && !hasRest && "ring-2 ring-cyan-500",
+                  hasCar && !hasImp && !hasRest && !hasEnd && "ring-2 ring-red-500",
+                  hasLes && !hasImp && !hasRest && !hasEnd && !hasCar && "ring-2 ring-amber-500"
                 )}
               >
                 {denteNum}
+                {/* Ícones de tratamento no canto */}
+                {hasTreatment && (
+                  <div className="absolute -top-1 -right-1 flex gap-0.5">
+                    {hasImp && <span className="text-purple-500 text-[7px]">⚙</span>}
+                    {hasEnd && <span className="text-cyan-500 text-[7px]">E</span>}
+                    {hasRest && <span className="text-blue-500 text-[7px]">■</span>}
+                    {hasCar && <span className="text-red-500 text-[7px]">●</span>}
+                    {hasLes && <span className="text-amber-500 text-[7px]">○</span>}
+                  </div>
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              Clique para selecionar tipo de marcação
+              {isAus ? "Dente ausente" : hasTreatment 
+                ? `Dente ${denteNum}: ${[hasImp && "Implante", hasRest && "Restauração", hasEnd && "Endo", hasCar && "Cárie", hasLes && "Lesão"].filter(Boolean).join(", ")}`
+                : "Clique para selecionar (Ctrl+Click para multi-seleção)"}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -131,22 +221,52 @@ export function OdontogramaInterativo({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm flex items-center gap-2">
             🦷 Odontograma Interativo
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onResetMarcacoes}
-            className="h-8 text-xs"
-          >
-            <RotateCcw className="w-3 h-3 mr-1" />
-            Limpar
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSelectAll}
+              className="h-7 text-xs"
+            >
+              <CheckSquare className="w-3 h-3 mr-1" />
+              Todos
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearSelection}
+              className="h-7 text-xs"
+            >
+              <Square className="w-3 h-3 mr-1" />
+              Limpar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onResetMarcacoes}
+              className="h-7 text-xs"
+            >
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Reset
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Seleção múltipla indicator */}
+        {dentesSelecionados.length > 0 && (
+          <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-primary/10 text-primary">
+            <span>{dentesSelecionados.length} dente(s) selecionado(s)</span>
+            <Badge variant="secondary" className="text-xs">
+              {dentesSelecionados.join(", ")}
+            </Badge>
+          </div>
+        )}
+
         {/* Modo ativo indicator */}
         {modoAtivo?.dente && modoAtivo?.tipo && (
           <div 
@@ -194,7 +314,7 @@ export function OdontogramaInterativo({
 
         {/* Instructions */}
         <p className="text-[10px] text-center text-muted-foreground">
-          1. Clique no dente → 2. Escolha o tipo → 3. Clique na radiografia para inserir
+          1. Clique no dente → 2. Escolha o tipo → 3. Clique na radiografia • Ctrl+Click para multi-seleção
         </p>
       </CardContent>
     </Card>

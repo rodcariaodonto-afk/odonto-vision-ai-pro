@@ -487,6 +487,7 @@ export function VisualAnalysis({
           modoAtivo={modoAtivo}
           onModoChange={handleModoChange}
           onResetMarcacoes={handleResetMarcacoes}
+          achadosClinicos={analise?.achados_clinicos}
         />
       )}
 

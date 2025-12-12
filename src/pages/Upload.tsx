@@ -1407,36 +1407,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                     } : null);
                   }}
                   analiseCompleta={visualAnalysisResult as any}
-                  analiseSimplificada={{
-                    seio_maxilar: {
-                      direito: visualAnalysisResult.seio_maxilar?.direito?.contorno 
-                        ? { contorno_normalizado: visualAnalysisResult.seio_maxilar.direito.contorno }
-                        : undefined,
-                      esquerdo: visualAnalysisResult.seio_maxilar?.esquerdo?.contorno
-                        ? { contorno_normalizado: visualAnalysisResult.seio_maxilar.esquerdo.contorno }
-                        : undefined
-                    },
-                    canal_mandibular: visualAnalysisResult.canal_mandibular || {},
-                    achados_clinicos: {
-                      dentes_presentes: Object.keys(visualAnalysisResult.dentes || {}),
-                      dentes_ausentes: visualAnalysisResult.ausencias || [],
-                      caries_suspeitas: (visualAnalysisResult.caries || []).map(c => `${c.dente} ${c.superficie || ''}`),
-                      lesoes_suspeitas: (visualAnalysisResult.lesoes_suspeitas || []).map(l => `${l.dente} ${l.descricao || ''}`),
-                      implantes: (visualAnalysisResult.implantes || []).map(i => i.dente || ''),
-                      restauracoes: [],
-                      tratamentos_endodonticos: [],
-                      observacoes: visualAnalysisResult.observacoes || ''
-                    },
-                    avaliacao_periodontal: {
-                      perda_ossea: visualAnalysisResult.avaliacao_periodontal?.perda_ossea_global_percentual || '',
-                      comentarios: visualAnalysisResult.avaliacao_periodontal?.comentarios || ''
-                    },
-                    avaliacao_ortodontica: {
-                      alinhamento: visualAnalysisResult.avaliacao_ortodontica?.alinhamento || '',
-                      observacoes: (visualAnalysisResult.avaliacao_ortodontica?.sugestoes_iniciais || []).join(', ')
-                    },
-                    resumo_para_paciente: visualAnalysisResult.resumo_para_paciente || []
-                  }}
+                  analiseSimplificada={visualAnalysisResult as any}
                 />
               )}
             </div>
