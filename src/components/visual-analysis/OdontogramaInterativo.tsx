@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { RotateCcw, CheckSquare, Square } from "lucide-react";
 
 export type TipoMarcacao = "carie" | "restauracao" | "endo" | "ausente" | "implante" | "protese" | "lesao" | "fratura";
+export type TipoEstrutura = "seio_maxilar" | "canal_mandibular";
 
 export interface MarcacaoManual {
   id: string;
@@ -14,6 +15,13 @@ export interface MarcacaoManual {
   dente: string;
   x: number; // 0-1 normalizado
   y: number; // 0-1 normalizado
+}
+
+export interface EstruturaManual {
+  id: string;
+  tipo: TipoEstrutura;
+  lado: "direito" | "esquerdo";
+  pontos: Array<[number, number]>; // Pontos do contorno/trajeto
 }
 
 // Interface para achados clínicos da IA
@@ -33,6 +41,8 @@ interface OdontogramaInterativoProps {
   modoAtivo?: { dente: string | null; tipo: TipoMarcacao | null };
   onResetMarcacoes?: () => void;
   achadosClinicos?: AchadosClinicos;
+  onEstruturaChange?: (estrutura: TipoEstrutura, lado: "direito" | "esquerdo") => void;
+  estruturaAtiva?: { tipo: TipoEstrutura | null; lado: "direito" | "esquerdo" | null };
 }
 
 // Dentes FDI
@@ -51,11 +61,19 @@ export const tipoMarcacaoConfig: Record<TipoMarcacao, { cor: string; bg: string;
   fratura: { cor: "#EC4899", bg: "bg-pink-500", label: "Fratura", icone: "╱" },
 };
 
+// Configuração para estruturas anatômicas
+export const estruturaConfig: Record<TipoEstrutura, { cor: string; bg: string; label: string; icone: string }> = {
+  seio_maxilar: { cor: "#FFD700", bg: "bg-yellow-500", label: "Seio Maxilar", icone: "◯" },
+  canal_mandibular: { cor: "#00AEEF", bg: "bg-cyan-400", label: "Canal Mandibular", icone: "⌇" },
+};
+
 export function OdontogramaInterativo({ 
   onModoChange,
   modoAtivo,
   onResetMarcacoes,
-  achadosClinicos
+  achadosClinicos,
+  onEstruturaChange,
+  estruturaAtiva
 }: OdontogramaInterativoProps) {
   const [denteExpandido, setDenteExpandido] = useState<string | null>(null);
   const [dentesSelecionados, setDentesSelecionados] = useState<string[]>([]);
@@ -280,14 +298,63 @@ export function OdontogramaInterativo({
           </div>
         )}
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-1.5 justify-center">
-          {(Object.entries(tipoMarcacaoConfig) as [TipoMarcacao, typeof tipoMarcacaoConfig.carie][]).map(([tipo, config]) => (
-            <div key={tipo} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-muted rounded">
-              <span style={{ color: config.cor, fontSize: '12px' }}>{config.icone}</span>
-              <span className="text-muted-foreground">{config.label}</span>
+        {/* Legend - Marcações dentárias */}
+        <div className="space-y-2">
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-wider">Marcações Dentárias</p>
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {(Object.entries(tipoMarcacaoConfig) as [TipoMarcacao, typeof tipoMarcacaoConfig.carie][]).map(([tipo, config]) => (
+              <div key={tipo} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-muted rounded">
+                <span style={{ color: config.cor, fontSize: '12px' }}>{config.icone}</span>
+                <span className="text-muted-foreground">{config.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Estruturas Anatômicas - Desenho Manual */}
+        <div className="space-y-2">
+          <p className="text-[10px] text-muted-foreground text-center uppercase tracking-wider">Estruturas Anatômicas (Desenho Manual)</p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {(Object.entries(estruturaConfig) as [TipoEstrutura, typeof estruturaConfig.seio_maxilar][]).map(([tipo, config]) => (
+              <div key={tipo} className="flex gap-1">
+                <button
+                  onClick={() => onEstruturaChange?.(tipo, "direito")}
+                  className={cn(
+                    "flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-all min-h-[28px]",
+                    estruturaAtiva?.tipo === tipo && estruturaAtiva?.lado === "direito"
+                      ? `${config.bg} text-white border-transparent`
+                      : "bg-muted border-border hover:border-primary"
+                  )}
+                >
+                  <span style={{ color: estruturaAtiva?.tipo === tipo && estruturaAtiva?.lado === "direito" ? 'white' : config.cor }}>{config.icone}</span>
+                  <span>{config.label} Dir.</span>
+                </button>
+                <button
+                  onClick={() => onEstruturaChange?.(tipo, "esquerdo")}
+                  className={cn(
+                    "flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-all min-h-[28px]",
+                    estruturaAtiva?.tipo === tipo && estruturaAtiva?.lado === "esquerdo"
+                      ? `${config.bg} text-white border-transparent`
+                      : "bg-muted border-border hover:border-primary"
+                  )}
+                >
+                  <span style={{ color: estruturaAtiva?.tipo === tipo && estruturaAtiva?.lado === "esquerdo" ? 'white' : config.cor }}>{config.icone}</span>
+                  <span>{config.label} Esq.</span>
+                </button>
+              </div>
+            ))}
+          </div>
+          {estruturaAtiva?.tipo && estruturaAtiva?.lado && (
+            <div 
+              className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-medium text-white"
+              style={{ backgroundColor: estruturaConfig[estruturaAtiva.tipo].cor }}
+            >
+              <span>{estruturaConfig[estruturaAtiva.tipo].icone}</span>
+              <span>
+                Clique na radiografia para desenhar {estruturaConfig[estruturaAtiva.tipo].label} ({estruturaAtiva.lado === "direito" ? "Direito" : "Esquerdo"})
+              </span>
             </div>
-          ))}
+          )}
         </div>
 
         {/* Odontogram Grid */}
