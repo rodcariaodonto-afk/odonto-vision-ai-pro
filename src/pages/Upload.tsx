@@ -42,29 +42,34 @@ interface VisualAnalysisResult {
   resumo?: string;
   observacoes?: string;
   estrutura_ossea_percentual?: string;
-  avaliacao_periodontal?: {
-    perda_ossea_global_percentual: string;
-    comentarios: string;
-  };
-  avaliacao_ortodontica?: {
-    alinhamento: string;
-    inclinacoes_relevantes: string[];
-    sugestoes_iniciais: string[];
-  };
-  dentes?: Record<string, { status: string; detalhes: string; posicao: [number, number] }>;
-  ausencias?: string[];
-  implantes?: Array<{ dente: string; posicao: [number, number]; detalhes?: string }>;
-  lesoes_suspeitas?: Array<{ dente: string; descricao: string; posicao: [number, number]; tipo?: string }>;
-  caries?: Array<{ dente: string; superficie: string; posicao: [number, number] }>;
-  reabsorcoes?: Array<{ dente: string; tipo: string; posicao: [number, number] }>;
-  fraturas?: Array<{ dente: string; descricao: string; posicao: [number, number] }>;
+  // Estruturas visuais (com coordenadas)
   seio_maxilar?: {
-    direito?: { contorno: Array<[number, number]> };
-    esquerdo?: { contorno: Array<[number, number]> };
+    direito?: { contorno_normalizado: Array<[number, number]> };
+    esquerdo?: { contorno_normalizado: Array<[number, number]> };
   };
   canal_mandibular?: {
     direito?: Array<[number, number]>;
     esquerdo?: Array<[number, number]>;
+  };
+  // Achados clínicos (textuais - estrutura simplificada)
+  achados_clinicos?: {
+    dentes_presentes: string[];
+    dentes_ausentes: string[];
+    caries_suspeitas: string[];
+    lesoes_suspeitas: string[];
+    implantes: string[];
+    restauracoes: string[];
+    tratamentos_endodonticos: string[];
+    observacoes: string;
+  };
+  // Avaliações
+  avaliacao_periodontal?: {
+    perda_ossea: string;
+    comentarios: string;
+  };
+  avaliacao_ortodontica?: {
+    alinhamento: string;
+    observacoes: string;
   };
   resumo_para_paciente?: string[];
 }
@@ -914,23 +919,28 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
       
-      // Validate and normalize the response to ensure all required fields exist
+      // Preservar estrutura simplificada com achados_clinicos
       const normalizedResult: VisualAnalysisResult = {
-        marcacoes: Array.isArray(data.marcacoes) ? data.marcacoes : [],
-        resumo: data.resumo || "",
-        observacoes: data.observacoes || "",
-        estrutura_ossea_percentual: data.estrutura_ossea_percentual,
-        avaliacao_periodontal: data.avaliacao_periodontal,
-        avaliacao_ortodontica: data.avaliacao_ortodontica,
-        dentes: data.dentes || {},
-        ausencias: Array.isArray(data.ausencias) ? data.ausencias : [],
-        implantes: Array.isArray(data.implantes) ? data.implantes : [],
-        lesoes_suspeitas: Array.isArray(data.lesoes_suspeitas) ? data.lesoes_suspeitas : [],
-        caries: Array.isArray(data.caries) ? data.caries : [],
-        reabsorcoes: Array.isArray(data.reabsorcoes) ? data.reabsorcoes : [],
-        fraturas: Array.isArray(data.fraturas) ? data.fraturas : [],
+        marcacoes: [],
+        resumo: "",
+        observacoes: "",
+        // Estruturas visuais
         seio_maxilar: data.seio_maxilar || {},
         canal_mandibular: data.canal_mandibular || {},
+        // Achados clínicos (PRESERVAR da resposta da IA!)
+        achados_clinicos: data.achados_clinicos || {
+          dentes_presentes: [],
+          dentes_ausentes: [],
+          caries_suspeitas: [],
+          lesoes_suspeitas: [],
+          implantes: [],
+          restauracoes: [],
+          tratamentos_endodonticos: [],
+          observacoes: ""
+        },
+        // Avaliações
+        avaliacao_periodontal: data.avaliacao_periodontal,
+        avaliacao_ortodontica: data.avaliacao_ortodontica,
         resumo_para_paciente: Array.isArray(data.resumo_para_paciente) ? data.resumo_para_paciente : [],
       };
       
