@@ -333,7 +333,43 @@ export function VisualAnalysis({
     }
   }, [estruturaAtiva]);
 
-  // Download da imagem com marcações
+  // Handler para adicionar ponto à estrutura sendo desenhada
+  const handleAddPontoEstrutura = useCallback((tipo: TipoEstrutura, lado: "direito" | "esquerdo", ponto: [number, number]) => {
+    setEstruturasManuais(prev => {
+      // Procurar estrutura existente do mesmo tipo/lado
+      const existingIndex = prev.findIndex(e => e.tipo === tipo && e.lado === lado);
+      
+      if (existingIndex >= 0) {
+        // Adicionar ponto à estrutura existente
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          pontos: [...updated[existingIndex].pontos, ponto]
+        };
+        return updated;
+      } else {
+        // Criar nova estrutura
+        return [...prev, {
+          id: `estrutura-${tipo}-${lado}-${Date.now()}`,
+          tipo,
+          lado,
+          pontos: [ponto]
+        }];
+      }
+    });
+  }, []);
+
+  // Handler para finalizar estrutura (quando usuário termina de desenhar)
+  const handleFinalizarEstrutura = useCallback((tipo: TipoEstrutura, lado: "direito" | "esquerdo") => {
+    setEstruturaAtiva({ tipo: null, lado: null });
+    toast.success(`${tipo === "seio_maxilar" ? "Seio Maxilar" : "Canal Mandibular"} (${lado === "direito" ? "Direito" : "Esquerdo"}) finalizado!`);
+  }, []);
+
+  // Handler para resetar estrutura específica
+  const handleResetEstrutura = useCallback((tipo: TipoEstrutura, lado: "direito" | "esquerdo") => {
+    setEstruturasManuais(prev => prev.filter(e => !(e.tipo === tipo && e.lado === lado)));
+    toast.success(`${tipo === "seio_maxilar" ? "Seio Maxilar" : "Canal Mandibular"} (${lado === "direito" ? "Direito" : "Esquerdo"}) removido.`);
+  }, []);
   const handleDownload = useCallback(async () => {
     try {
       const canvas = document.createElement("canvas");
@@ -623,6 +659,11 @@ export function VisualAnalysis({
         showAnatomicStructures={showAnatomicStructures}
         seioMaxilar={getSeioMaxilar()}
         canalMandibular={getCanalMandibular()}
+        estruturaAtiva={estruturaAtiva}
+        estruturasManuais={estruturasManuais}
+        onAddPontoEstrutura={handleAddPontoEstrutura}
+        onFinalizarEstrutura={handleFinalizarEstrutura}
+        onResetEstrutura={handleResetEstrutura}
       />
       
       {/* Modo de desenho */}
