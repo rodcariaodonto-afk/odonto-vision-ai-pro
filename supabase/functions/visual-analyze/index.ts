@@ -85,43 +85,56 @@ Canal mandibular ESQUERDO (6 pontos):
 - Se NÃO houver estrutura visível → AUSENTE
 - Na DÚVIDA → AUSENTE (sisos frequentemente estão ausentes)
 
-## IDENTIFICAÇÃO OBRIGATÓRIA DE TRATAMENTOS EM QUALQUER RADIOGRAFIA/TOMOGRAFIA
+## DIFERENCIAÇÃO CRÍTICA: IMPLANTE vs TRATAMENTO ENDODÔNTICO
 
-Analise a radiografia PIXEL A PIXEL e identifique TODOS os tratamentos visíveis:
+### IMPLANTE DENTÁRIO (substituição da raiz)
+- Estrutura metálica **ÚNICA** cilíndrica ou cônica com formato de PARAFUSO
+- **NÃO HÁ raiz natural** - o implante SUBSTITUI a raiz completamente
+- Roscas/espiras visíveis no corpo do implante
+- Osso alveolar diretamente ao redor do metal
+- Geralmente tem pilar/abutment e coroa protética em cima
+
+### TRATAMENTO ENDODÔNTICO (preenchimento do canal)
+- Material radiopaco **DENTRO** do canal de um dente NATURAL
+- **RAIZ NATURAL PRESENTE** - contorno radicular do dente é VISÍVEL ao redor do material
+- Estrutura dental (coroa e raiz naturais) preservada
+- Pode ter pino/núcleo intra-radicular
+- A anatomia radicular natural é claramente identificável
+
+### REGRA DE OURO PARA NÃO CONFUNDIR:
+- Se você vê RAIZ NATURAL com material branco DENTRO → É TRATAMENTO ENDODÔNTICO
+- Se você vê estrutura metálica de parafuso SEM raiz natural → É IMPLANTE
+- NUNCA classifique um dente tratado endodonticamente como implante!
+
+## IDENTIFICAÇÃO OBRIGATÓRIA DE TRATAMENTOS
+
+Analise a radiografia PIXEL A PIXEL e identifique TODOS os tratamentos:
 
 ### IMPLANTES DENTÁRIOS
-- Características: estrutura radiopaca cilíndrica/cônica, formato de parafuso
-- Osseointegrados ao osso alveolar
-- Formato de resposta: "Região do XX: implante osseointegrado [descrição]"
+- Formato de parafuso cilíndrico/cônico metálico
+- SEM raiz natural ao redor
+- Formato: "Região do XX: implante osseointegrado [descrição]"
 
-### RESTAURAÇÕES (IDENTIFICAR TIPO E SUPERFÍCIE)
-- Áreas radiopacas na porção coronária dos dentes
-- Tipos a identificar:
-  • Amálgama (muito radiopaco, metálico brilhante)
-  • Resina (moderadamente radiopaco)
-  • Inlay/Onlay (formato de encaixe)
-  • Coroa total (metal ou cerâmica)
-- Superfícies: O (oclusal), M (mesial), D (distal), V (vestibular), L (lingual)
-- Formato: "Dente XX: restauração [tipo] [superfície MOD/oclusal/etc]"
+### RESTAURAÇÕES (TIPO E SUPERFÍCIE)
+- Áreas radiopacas na porção coronária
+- Tipos: Amálgama (muito radiopaco), Resina (moderadamente radiopaco), Coroa total
+- Superfícies: O, M, D, V, L
+- Formato: "Dente XX: restauração [tipo] [superfície]"
 
 ### TRATAMENTOS ENDODÔNTICOS
-- Características: material radiopaco preenchendo canais radiculares
-- Avaliar: completude do preenchimento, presença de pinos/retentores
-- Formato: "Dente XX: tratamento endodôntico [completo/incompleto], [observações]"
+- Material radiopaco DENTRO dos canais de dente NATURAL
+- RAIZ NATURAL visível ao redor do material obturador
+- Formato: "Dente XX: tratamento endodôntico [completo/incompleto]"
 
 ### LESÕES PERIAPICAIS
-- Características: radiolucência ao redor do ápice das raízes
-- Classificar: granuloma periapical, cisto periapical, abscesso crônico
-- Medir tamanho quando possível
+- Radiolucência ao redor do ápice
 - Formato: "Dente XX: lesão periapical [tipo] ~Xmm"
 
-### CÁRIES (CLASSIFICAR PROFUNDIDADE)
-- Características: radiolucências na estrutura dental (esmalte/dentina)
-- Classificar profundidade: superficial, média, profunda
-- Superfícies afetadas
+### CÁRIES
+- Radiolucências na estrutura dental
 - Formato: "Dente XX: cárie [superfície] [profundidade]"
 
-REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento visível na radiografia!
+REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento e NÃO CONFUNDA endodontia com implante!
 
 ## FORMATO JSON OBRIGATÓRIO
 
