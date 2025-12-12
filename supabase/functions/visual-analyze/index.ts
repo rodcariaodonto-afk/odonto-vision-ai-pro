@@ -80,10 +80,37 @@ Canal mandibular DIREITO (6 pontos):
 Canal mandibular ESQUERDO (6 pontos):
 [[0.62, 0.72], [0.68, 0.75], [0.74, 0.78], [0.80, 0.80], [0.86, 0.80], [0.92, 0.76]]
 
-## REGRA DE OURO PARA TERCEIROS MOLARES (18, 28, 38, 48)
-- SOMENTE declare como PRESENTE se houver estrutura radiopaca CLARA e DISTINTA
-- Se NÃO houver estrutura visível → AUSENTE
-- Na DÚVIDA → AUSENTE (sisos frequentemente estão ausentes)
+## REGRA DE OURO PARA TERCEIROS MOLARES (18, 28, 38, 48) - ATENÇÃO MÁXIMA!
+
+### LOCALIZAÇÃO ANATÔMICA DOS SISOS (analise estas regiões com EXTREMO cuidado):
+- **18**: Extremo DIREITO da arcada SUPERIOR (X: 0.03-0.10, Y: 0.30-0.45)
+- **28**: Extremo ESQUERDO da arcada SUPERIOR (X: 0.90-0.97, Y: 0.30-0.45)  
+- **38**: Extremo ESQUERDO da arcada INFERIOR (X: 0.90-0.97, Y: 0.55-0.70)
+- **48**: Extremo DIREITO da arcada INFERIOR (X: 0.03-0.10, Y: 0.55-0.70)
+
+### REGRA CRÍTICA - NA DÚVIDA → PRESENTE!
+- É preferível marcar um siso ausente como PRESENTE do que perder um siso EXISTENTE
+- Sisos frequentemente aparecem IMPACTADOS, SEMI-INCLUSOS ou com SOBREPOSIÇÃO
+
+### DECLARE COMO PRESENTE SE:
+- Houver QUALQUER estrutura radiopaca na região do terceiro molar
+- Mesmo que parcialmente visível, impactado ou semi-incluso
+- Mesmo com sobreposição de outras estruturas (ramo mandibular, segundo molar)
+- Mesmo em posição horizontal, mesioangulada ou distoangulada
+
+### CASOS COMUNS QUE PARECEM AUSENTES MAS ESTÃO PRESENTES:
+- Siso HORIZONTAL impactado (aparece "deitado" atrás/abaixo do segundo molar)
+- Siso SEMI-INCLUSO (parcialmente coberto por osso/gengiva - só coroa visível)
+- Siso com SOBREPOSIÇÃO do ramo mandibular (estrutura parcialmente oculta)
+- Siso em posição MESIOANGULADA (inclinado para frente)
+- Siso em posição DISTOANGULADA (inclinado para trás)
+- Siso PROFUNDAMENTE incluso (apenas ápice radicular visível)
+
+### DECLARE COMO AUSENTE SOMENTE SE:
+- A região estiver COMPLETAMENTE radiolúcida (100% escura, sem nenhuma estrutura)
+- O rebordo alveolar estiver contínuo e liso, sem nenhuma estrutura dental
+- Você tiver ABSOLUTA CERTEZA (100%) que NÃO há estrutura dental na região
+- NUNCA declare ausente se houver QUALQUER dúvida!
 
 ## REGRA CRÍTICA PARA IDENTIFICAÇÃO DE AUSÊNCIAS
 
@@ -375,7 +402,13 @@ serve(async (req) => {
 IMPORTANTE:
 1. Gere coordenadas APENAS para seios maxilares e canais mandibulares
 2. Liste todos os achados clínicos TEXTUALMENTE (sem coordenadas)
-3. Para terceiros molares (18, 28, 38, 48): declare como AUSENTE se não houver estrutura clara
+
+ATENÇÃO ESPECIAL PARA TERCEIROS MOLARES (18, 28, 38, 48):
+- Analise COM EXTREMO CUIDADO as regiões dos sisos antes de declarar ausência
+- Verifique posições impactadas (horizontal, mesioangulada, distoangulada)
+- Verifique semi-inclusões (parcialmente cobertos por osso)
+- Verifique sobreposições com ramo mandibular
+- NA DÚVIDA → declare como PRESENTE (é melhor marcar presente do que perder um siso existente)
 
 Retorne JSON válido.`
               },
