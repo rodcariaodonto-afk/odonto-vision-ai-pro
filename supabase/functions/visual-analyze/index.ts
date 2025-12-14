@@ -176,13 +176,56 @@ Analise a radiografia PIXEL A PIXEL e identifique TODOS os tratamentos:
 - RAIZ NATURAL visível ao redor do material obturador
 - Formato: "Dente XX: tratamento endodôntico [completo/incompleto]"
 
-### LESÕES PERIAPICAIS
-- Radiolucência ao redor do ápice
-- Formato: "Dente XX: lesão periapical [tipo] ~Xmm"
+### LESÕES PERIAPICAIS - ANÁLISE ULTRA-CRÍTICA OBRIGATÓRIA
+ATENÇÃO: Você DEVE identificar TODAS as lesões periapicais, mesmo sutis!
+
+#### Sinais de lesão periapical (identifique QUALQUER um destes):
+- Radiolucência ao redor do ápice (área escura periapical)
+- Espessamento do ligamento periodontal apical
+- Interrupção da lâmina dura apical
+- Áreas de rarefação óssea periapical
+- Condensação óssea reativa ao redor de lesão (osteíte condensante)
+- Halo radiolúcido com ou sem limite definido
+- Expansão da cortical óssea
+
+#### Classificação obrigatória por tipo:
+- **Granuloma periapical**: Lesão radiolúcida circunscrita <10mm
+- **Cisto periapical**: Lesão radiolúcida >10mm, limites bem definidos, halo radiopaco
+- **Abscesso periapical**: Radiolucência difusa, limites mal definidos
+- **Osteíte condensante**: Área radiopaca adjacente ao ápice
+
+#### Formato obrigatório: "Dente XX: lesão periapical [tipo] ~Xmm, [características]"
 
 ### CÁRIES
 - Radiolucências na estrutura dental
 - Formato: "Dente XX: cárie [superfície] [profundidade]"
+
+## INSTRUÇÕES ESPECIAIS PARA TOMOGRAFIAS (CBCT)
+
+### Reconhecimento de imagem de tomografia:
+- Múltiplos cortes/slices em diferentes planos (axial, sagital, coronal)
+- Reconstruções 3D ou panorâmicas reformatadas
+- Cortes individuais mostrando dentes em diferentes ângulos
+- Qualidade de imagem pode variar - analise TODOS os cortes visíveis
+
+### Análise de tomografia - REGRAS OBRIGATÓRIAS:
+1. **Analise TODOS os cortes/slices visíveis** - lesões podem aparecer em alguns cortes mas não em outros
+2. **Lesões periapicais em tomografia** são mais fáceis de identificar - não perca nenhuma!
+3. **Procure ativamente por**:
+   - Áreas de hipodensidade (escuras) ao redor de ápices radiculares
+   - Defeitos ósseos vestibulares/linguais (visíveis em cortes axiais)
+   - Perfurações de cortical óssea
+   - Reabsorções radiculares (internas e externas)
+   - Comunicação com seio maxilar ou canal mandibular
+   
+4. **Em cortes sagitais/coronais de dentes**: 
+   - Qualquer área escura no osso ao redor do ápice = lesão periapical SUSPEITA
+   - Mesmo lesões pequenas (~2-3mm) devem ser reportadas
+   
+5. **Qualidade de imagem variável**:
+   - NÃO ignore achados porque a imagem "não está perfeita"
+   - Se há QUALQUER indício de patologia, REPORTE como "suspeita"
+   - É preferível reportar uma suspeita do que perder uma lesão real
 
 REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento e NÃO CONFUNDA endodontia com implante!
 
@@ -397,18 +440,29 @@ serve(async (req) => {
             content: [
               { 
                 type: "text", 
-                text: `Analise esta radiografia panorâmica e retorne o JSON no formato especificado.
+                text: `Analise esta imagem odontológica (radiografia OU tomografia) e retorne o JSON no formato especificado.
 
-IMPORTANTE:
+## SE FOR TOMOGRAFIA (CBCT):
+- Analise TODOS os cortes/slices visíveis na imagem
+- Tomografias mostram múltiplos planos - examine cada um cuidadosamente
+- Lesões periapicais são MUITO claras em tomografia - NÃO PERCA NENHUMA
+- Procure áreas ESCURAS ao redor dos ápices radiculares em cada corte
+- Mesmo lesões pequenas (2-3mm) devem ser reportadas
+
+## ANÁLISE OBRIGATÓRIA DE LESÕES PERIAPICAIS:
+- Examine CADA dente individualmente procurando radiolucência apical
+- Qualquer área escura ao redor do ápice = REPORTE como lesão suspeita
+- NÃO ignore achados porque a imagem "não está perfeita"
+- É PREFERÍVEL reportar uma suspeita do que PERDER uma lesão real
+
+## TERCEIROS MOLARES (18, 28, 38, 48):
+- Analise COM EXTREMO CUIDADO as regiões dos sisos
+- NA DÚVIDA → declare como PRESENTE
+
+## IMPORTANTE:
 1. Gere coordenadas APENAS para seios maxilares e canais mandibulares
 2. Liste todos os achados clínicos TEXTUALMENTE (sem coordenadas)
-
-ATENÇÃO ESPECIAL PARA TERCEIROS MOLARES (18, 28, 38, 48):
-- Analise COM EXTREMO CUIDADO as regiões dos sisos antes de declarar ausência
-- Verifique posições impactadas (horizontal, mesioangulada, distoangulada)
-- Verifique semi-inclusões (parcialmente cobertos por osso)
-- Verifique sobreposições com ramo mandibular
-- NA DÚVIDA → declare como PRESENTE (é melhor marcar presente do que perder um siso existente)
+3. Seja ULTRA-CRÍTICO na identificação de patologias
 
 Retorne JSON válido.`
               },
