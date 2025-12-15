@@ -328,54 +328,59 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
 A interpretação final é sempre responsabilidade do dentista responsável.
 
 -------------------------------------------------------------------
-📝 REGRAS DE QUALIDADE
+📝 REGRAS DE QUALIDADE - ABORDAGEM CONSERVADORA
 -------------------------------------------------------------------
 
-🔥 REGRA DE OURO PARA TERCEIROS MOLARES (18, 28, 38, 48) - SISOS:
-⚠️ CONSISTÊNCIA OBRIGATÓRIA: Esta regra DEVE ser idêntica à análise visual!
+🔒 PROTOCOLO OBRIGATÓRIO PARA TERCEIROS MOLARES (18, 28, 38, 48) - SISOS:
 
-METODOLOGIA DE ANÁLISE (Chain of Thought):
-1. PRIMEIRO, examine VISUALMENTE a região anatômica específica de cada siso:
-   - Siso 18 (superior direito): região X 0.03-0.10, Y 0.30-0.45
-   - Siso 28 (superior esquerdo): região X 0.90-0.97, Y 0.30-0.45
-   - Siso 38 (inferior esquerdo): região X 0.90-0.97, Y 0.55-0.70
-   - Siso 48 (inferior direito): região X 0.03-0.10, Y 0.55-0.70
+É TERMINANTEMENTE PROIBIDO afirmar presença ou ausência de terceiros molares de forma categórica.
 
-2. PARA CADA SISO, responda mentalmente:
-   - Há QUALQUER estrutura radiopaca nesta região? (SIM/NÃO)
-   - Se SIM → o siso ESTÁ PRESENTE (mesmo parcialmente visível, impactado ou horizontal)
-   - Se NÃO → analise se a área está 100% radiolúcida antes de declarar ausente
+Ao mencionar terceiros molares, utilize EXCLUSIVAMENTE uma das opções:
+• "Terceiros molares não claramente visualizados nesta radiografia panorâmica."
+• "Achado sugestivo de agenesia ou extração prévia dos terceiros molares, devendo ser confirmado por exame clínico e histórico do paciente."
+• "Visualização limitada dos terceiros molares, sendo necessária correlação clínica e, se indicado, exame complementar."
 
-3. CRITÉRIO DE DECISÃO:
-   - Se há estrutura radiopaca com formato dental (mesmo parcial) → PRESENTE
-   - SOMENTE declare AUSENTE se a região estiver COMPLETAMENTE vazia/radiolúcida
-   - Na DÚVIDA → declare como PRESENTE com status "parcialmente visível"
-   
-4. NUNCA copie exemplos anteriores - analise ESTA imagem específica!
+❌ NUNCA utilize frases como:
+• "Presença de terceiros molares"
+• "Ausência confirmada de sisos"
+• "Todos os dentes estão presentes"
+• "Incluindo terceiros molares"
+• "32 dentes presentes"
 
-IMPORTANTE: O visual-analyze usa a MESMA regra. Se você analisar corretamente, 
-ambas as análises (textual e visual) devem concordar sobre os sisos.
+📋 CLASSIFICAÇÃO POR ESTADO, NÃO POR CERTEZA:
+Use apenas estados clínicos conservadores:
+• "visualizado"
+• "não visualizado nesta técnica"
+• "sugestivo de"
+• "indeterminado"
+• "necessita correlação clínica"
+• "requer exame complementar"
 
-CRÍTICO - NUNCA INVENTE ACHADOS:
-- NUNCA invente achados que não estejam minimamente visíveis.
-- Se algo estiver incerto, declare: "não determinável" ou "indeterminado".
-- Quando em DÚVIDA, relate o achado como SUSPEITO e sugira exames complementares.
-- NÃO afirme presença de dentes que não são claramente identificáveis na imagem.
+📸 FOCO NO QUE A PANORÂMICA PERMITE:
+Priorize:
+• padrão ósseo geral
+• alterações amplas
+• perdas ósseas evidentes
+• lesões extensas sugestivas
+• implantes claramente visíveis
+• condições gerais dos seios maxilares
+• trajeto aproximado do canal mandibular
+
+Evite detalhamento excessivo de:
+• superfícies de cárie específicas
+• microfraturas
+• diagnósticos que exigem exames periapicais ou tomográficos
+
+🎯 REGRA DE OURO:
+👉 Na dúvida, NÃO AFIRME.
+👉 Prefira sempre ser conservador a ser preciso demais.
+👉 O odontograma preenchido pelo dentista é a fonte final de verdade clínica.
 
 CRÍTICO - ORTOGRAFIA E GRAMÁTICA:
 - NÃO cometa erros de português. Revise sua resposta antes de enviar.
 - Use acentuação correta em todas as palavras.
 - O nome do paciente deve sempre ter as iniciais maiúsculas.
 - Use vocabulário técnico odontológico correto.
-- Evite anglicismos desnecessários.
-
-PRINCÍPIOS:
-- Seja DETALHADO e TÉCNICO
-- Use terminologia específica de cada especialidade
-- Forneça informações que permitam ao dentista tomar decisões
-- Quando houver dúvida diagnóstica, liste as possibilidades
-- Sempre correlacione achados com relevância clínica
-- Seja PRUDENTE: prefira omitir do que inventar
 
 IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutura:
 {

@@ -61,6 +61,15 @@ export interface AnaliseVisualSimplificada {
     tratamentos_endodonticos: string[];
     observacoes: string;
   };
+  // Status conservador para terceiros molares
+  terceiros_molares?: {
+    status_geral: string;
+    "18": string;
+    "28": string;
+    "38": string;
+    "48": string;
+    recomendacao: string;
+  };
   avaliacao_periodontal: {
     perda_ossea: string;
     comentarios: string;
@@ -703,6 +712,40 @@ export function VisualAnalysis({
               )}
             </CardContent>
           </Card>
+
+          {/* Terceiros Molares - Status Conservador */}
+          {analise?.terceiros_molares && (
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-amber-600">
+                  <span>⚠️</span>
+                  Terceiros Molares (Sisos)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p className="text-muted-foreground font-medium text-xs">
+                  {analise.terceiros_molares.status_geral}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {(["18", "28", "38", "48"] as const).map((siso) => (
+                    <div key={siso} className="flex items-center gap-1 p-1.5 bg-muted/50 rounded">
+                      <Badge variant="outline" className="text-[10px] px-1">{siso}</Badge>
+                      <span className="text-muted-foreground truncate">
+                        {analise.terceiros_molares?.[siso] || "Indeterminado"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {analise.terceiros_molares.recomendacao && (
+                  <div className="pt-2 border-t border-amber-500/20">
+                    <p className="text-xs text-amber-600 font-medium">
+                      📋 {analise.terceiros_molares.recomendacao}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Patologias */}
           <Card>
