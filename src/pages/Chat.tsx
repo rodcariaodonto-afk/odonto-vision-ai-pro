@@ -303,9 +303,10 @@ export default function Chat() {
   };
 
   const handleDownloadPDF = () => {
-    const chatMessages = messages.filter((m) => m.id !== "1");
-    if (chatMessages.length === 0) {
-      toast.error("Nenhuma conversa para exportar");
+    // Filtrar apenas mensagens da IA (excluindo mensagem inicial e perguntas do usuário)
+    const assistantMessages = messages.filter((m) => m.id !== "1" && m.role === "assistant");
+    if (assistantMessages.length === 0) {
+      toast.error("Nenhuma análise para exportar");
       return;
     }
 
@@ -319,7 +320,6 @@ export default function Chat() {
     // Brand colors
     const primaryColor = { r: 63, g: 140, b: 255 }; // #3F8CFF
     const darkColor = { r: 30, g: 42, b: 56 }; // #1E2A38
-    const grayColor = { r: 44, g: 47, b: 51 }; // #2C2F33
 
     // Header background
     doc.setFillColor(darkColor.r, darkColor.g, darkColor.b);
@@ -331,18 +331,18 @@ export default function Chat() {
     doc.setTextColor(255, 255, 255);
     doc.text("OdontoVision AI Pro", margin, 25);
 
-    // Subtitle
+    // Subtitle - Agora como documento de análise
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-    doc.text("Histórico de Conversa - Assistente Clínico", margin, 35);
+    doc.text("Análise Clínica - Assistente IA", margin, 35);
 
     yPosition = 55;
 
     // Export date
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Exportado em: ${new Date().toLocaleString("pt-BR")}`, margin, yPosition);
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, margin, yPosition);
     yPosition += 12;
 
     // Separator line
@@ -351,10 +351,8 @@ export default function Chat() {
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 12;
 
-    // Messages
-    chatMessages.forEach((message) => {
-      const role = message.role === "user" ? "Você" : "OdontoVision IA";
-      const time = message.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    // Apenas análises da IA
+    assistantMessages.forEach((message, index) => {
       const content = message.content.replace(/\*\*/g, "");
 
       // Check if we need a new page
@@ -363,33 +361,15 @@ export default function Chat() {
         yPosition = 20;
       }
 
-      // Message bubble indicator
-      if (message.role === "assistant") {
-        doc.setFillColor(primaryColor.r, primaryColor.g, primaryColor.b);
-        doc.circle(margin - 3, yPosition - 2, 2, "F");
-      } else {
-        doc.setFillColor(grayColor.r, grayColor.g, grayColor.b);
-        doc.circle(margin - 3, yPosition - 2, 2, "F");
+      // Se houver múltiplas análises, adicionar separador entre elas
+      if (index > 0) {
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(margin, yPosition - 5, pageWidth - margin, yPosition - 5);
+        yPosition += 5;
       }
 
-      // Role and time
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      if (message.role === "assistant") {
-        doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
-      } else {
-        doc.setTextColor(grayColor.r, grayColor.g, grayColor.b);
-      }
-      doc.text(`${role}`, margin, yPosition);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(150, 150, 150);
-      const roleWidth = doc.getTextWidth(role);
-      doc.text(` • ${time}`, margin + roleWidth, yPosition);
-      yPosition += 7;
-
-      // Content
+      // Content - texto da análise diretamente
       doc.setFont("helvetica", "normal");
       doc.setTextColor(60, 60, 60);
       doc.setFontSize(10);
