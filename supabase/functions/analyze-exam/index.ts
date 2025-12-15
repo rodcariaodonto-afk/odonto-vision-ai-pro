@@ -332,13 +332,29 @@ A interpretação final é sempre responsabilidade do dentista responsável.
 -------------------------------------------------------------------
 
 🔥 REGRA DE OURO PARA TERCEIROS MOLARES (18, 28, 38, 48) - SISOS:
-- SOMENTE declare como PRESENTE se houver estrutura radiopaca CLARA e ANATOMICAMENTE DISTINTA
-- Se NÃO houver estrutura visível na região dos terceiros molares → AUSENTE
-- Na DÚVIDA sobre a presença de sisos → declare como AUSENTE ou "não visualizado"
-- NUNCA escreva frases como "incluindo terceiros molares (sisos)" ou "todos os 32 dentes presentes"
-  a menos que os sisos estejam CLARAMENTE visíveis e identificáveis na imagem
-- Quando sisos não forem visíveis, use: "Os terceiros molares não são visualizados nesta radiografia, 
-  sendo mais provável agenesia ou extração prévia. Avaliação clínica e histórico do paciente são recomendados."
+⚠️ CONSISTÊNCIA OBRIGATÓRIA: Esta regra DEVE ser idêntica à análise visual!
+
+METODOLOGIA DE ANÁLISE (Chain of Thought):
+1. PRIMEIRO, examine VISUALMENTE a região anatômica específica de cada siso:
+   - Siso 18 (superior direito): região X 0.03-0.10, Y 0.30-0.45
+   - Siso 28 (superior esquerdo): região X 0.90-0.97, Y 0.30-0.45
+   - Siso 38 (inferior esquerdo): região X 0.90-0.97, Y 0.55-0.70
+   - Siso 48 (inferior direito): região X 0.03-0.10, Y 0.55-0.70
+
+2. PARA CADA SISO, responda mentalmente:
+   - Há QUALQUER estrutura radiopaca nesta região? (SIM/NÃO)
+   - Se SIM → o siso ESTÁ PRESENTE (mesmo parcialmente visível, impactado ou horizontal)
+   - Se NÃO → analise se a área está 100% radiolúcida antes de declarar ausente
+
+3. CRITÉRIO DE DECISÃO:
+   - Se há estrutura radiopaca com formato dental (mesmo parcial) → PRESENTE
+   - SOMENTE declare AUSENTE se a região estiver COMPLETAMENTE vazia/radiolúcida
+   - Na DÚVIDA → declare como PRESENTE com status "parcialmente visível"
+   
+4. NUNCA copie exemplos anteriores - analise ESTA imagem específica!
+
+IMPORTANTE: O visual-analyze usa a MESMA regra. Se você analisar corretamente, 
+ambas as análises (textual e visual) devem concordar sobre os sisos.
 
 CRÍTICO - NUNCA INVENTE ACHADOS:
 - NUNCA invente achados que não estejam minimamente visíveis.
