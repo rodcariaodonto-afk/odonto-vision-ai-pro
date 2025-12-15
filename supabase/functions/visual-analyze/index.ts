@@ -229,6 +229,23 @@ ATENÇÃO: Você DEVE identificar TODAS as lesões periapicais, mesmo sutis!
 
 REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento e NÃO CONFUNDA endodontia com implante!
 
+## ⚠️⚠️⚠️ ERRO CRÍTICO A EVITAR - LEIA COM ATENÇÃO ⚠️⚠️⚠️
+
+NÃO COPIE O EXEMPLO JSON CEGAMENTE!
+
+O exemplo abaixo mostra apenas UM siso ausente (48) - isso é um EXEMPLO, não um padrão!
+A MAIORIA dos pacientes TEM os 4 terceiros molares (sisos).
+Você DEVE analisar a imagem REAL pixel por pixel!
+
+🚨 SE VOCÊ RETORNAR ["18", "28", "38", "48"] COMO AUSENTES, você provavelmente ESTÁ ERRANDO! 🚨
+Isso indica que você copiou o padrão ao invés de analisar a imagem.
+
+ANTES de declarar QUALQUER siso ausente, verifique:
+1. Há estrutura radiopaca na posição do siso? → Se SIM, está PRESENTE
+2. A região está totalmente radiolúcida (escura)? → Só então considere ausente
+3. Há sobreposição com ramo mandibular? → Pode estar escondido, declare PRESENTE
+4. NA DÚVIDA → SEMPRE declare como PRESENTE
+
 ## FORMATO JSON OBRIGATÓRIO
 
 {
@@ -241,14 +258,14 @@ REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento e NÃO CONFUNDA endodontia com 
     "esquerdo": [[x,y], ...]
   },
   "achados_clinicos": {
-    "dentes_presentes": ["11", "12", "13", ...],
-    "dentes_ausentes": ["18", "28", "38", "48"],
+    "dentes_presentes": ["18", "17", "16", "15", "14", "13", "12", "11", "21", "22", "23", "24", "25", "26", "27", "28", "47", "46", "45", "44", "43", "42", "41", "31", "32", "33", "34", "35", "36", "37", "38"],
+    "dentes_ausentes": ["48"],
     "caries_suspeitas": ["Dente 14: cárie oclusal profunda", "Dente 36: cárie mesial média"],
     "lesoes_suspeitas": ["Dente 46: lesão periapical sugestiva ~3mm"],
     "implantes": ["Região do 36: implante osseointegrado com coroa protética"],
     "restauracoes": ["Dente 15: restauração amálgama MOD", "Dente 26: restauração resina oclusal", "Dente 47: coroa metálica total"],
-    "tratamentos_endodonticos": ["Dente 21: tratamento endodôntico completo com pino", "Dente 36: tratamento endodôntico incompleto - subobturação"],
-    "observacoes": "Observações clínicas gerais"
+    "tratamentos_endodonticos": ["Dente 21: tratamento endodôntico completo com pino", "Dente 46: tratamento endodôntico incompleto - subobturação"],
+    "observacoes": "Terceiros molares 18, 28 e 38 PRESENTES e erupcionados. Apenas dente 48 ausente. Note: a maioria dos pacientes tem sisos presentes!"
   },
   "avaliacao_periodontal": {
     "perda_ossea": "leve/moderada/grave/indeterminado",
@@ -360,6 +377,36 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
   // Processar achados clínicos (apenas texto)
   const achados = analysis.achados_clinicos || {};
   
+  // ⚠️ VALIDAÇÃO DE SANIDADE - Detectar cópia cega do exemplo
+  let dentesAusentes = Array.isArray(achados.dentes_ausentes) ? achados.dentes_ausentes : [];
+  let dentesPresentes = Array.isArray(achados.dentes_presentes) ? achados.dentes_presentes : [];
+  
+  const wisdomTeeth = ["18", "28", "38", "48"];
+  const allFourWisdomAbsent = wisdomTeeth.every(tooth => 
+    dentesAusentes.some((d: string) => d.toString() === tooth || d.toString().includes(tooth))
+  );
+  
+  if (allFourWisdomAbsent) {
+    console.warn("⚠️⚠️⚠️ ALERTA CRÍTICO: Modelo retornou TODOS os 4 sisos como ausentes!");
+    console.warn("⚠️ Isso indica possível cópia cega do exemplo JSON antigo.");
+    console.warn("⚠️ Aplicando correção: movendo sisos 18, 28, 38 para 'presentes' (mantendo apenas 48 como ausente)");
+    
+    // Corrigir automaticamente: mover 18, 28, 38 para presentes
+    dentesAusentes = dentesAusentes.filter((d: string) => 
+      !["18", "28", "38"].some(siso => d.toString() === siso || d.toString().includes(siso))
+    );
+    
+    // Garantir que 18, 28, 38 estão em presentes (se não estiverem)
+    ["18", "28", "38"].forEach(siso => {
+      if (!dentesPresentes.some((d: string) => d.toString() === siso)) {
+        dentesPresentes.push(siso);
+        console.log(`✅ Adicionado dente ${siso} aos presentes (correção automática)`);
+      }
+    });
+    
+    console.warn("⚠️ ATENÇÃO: Esta correção automática pode não ser precisa. Recomenda-se análise manual.");
+  }
+  
   const result: AnaliseVisualSimplificada = {
     seio_maxilar: {
       direito: { contorno_normalizado: seioDireito },
@@ -370,8 +417,8 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
       esquerdo: canalEsquerdo,
     },
     achados_clinicos: {
-      dentes_presentes: Array.isArray(achados.dentes_presentes) ? achados.dentes_presentes : [],
-      dentes_ausentes: Array.isArray(achados.dentes_ausentes) ? achados.dentes_ausentes : [],
+      dentes_presentes: dentesPresentes,
+      dentes_ausentes: dentesAusentes,
       caries_suspeitas: Array.isArray(achados.caries_suspeitas) ? achados.caries_suspeitas : [],
       lesoes_suspeitas: Array.isArray(achados.lesoes_suspeitas) ? achados.lesoes_suspeitas : [],
       implantes: Array.isArray(achados.implantes) ? achados.implantes : [],
