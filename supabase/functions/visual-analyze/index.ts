@@ -35,30 +35,112 @@ interface AnaliseVisualSimplificada {
     observacoes: string;
   };
   resumo_para_paciente: string[];
+  raciocinio_sisos?: {
+    "18": string;
+    "28": string;
+    "38": string;
+    "48": string;
+  };
 }
 
-// Prompt SIMPLIFICADO - apenas seios e canais com coordenadas
-const VISUAL_ANALYSIS_PROMPT = `Você é um radiologista odontológico especializado em análise visual de radiografias panorâmicas.
+// Prompt COMPLETO com Chain of Thought, análise sistemática e raciocínio obrigatório
+const VISUAL_ANALYSIS_PROMPT = `Você é um radiologista odontológico ESPECIALISTA em análise visual de radiografias panorâmicas e tomografias.
 
-## INSTRUÇÕES CRÍTICAS
+## 🔬 METODOLOGIA "CHAIN OF THOUGHT" - OBRIGATÓRIA
 
-### O QUE VOCÊ DEVE GERAR COM COORDENADAS (0 a 1):
-1. **Seios maxilares** (direito e esquerdo) - contorno com 8-12 pontos cada
-2. **Canais mandibulares** (direito e esquerdo) - trajeto com 6-8 pontos cada
+VOCÊ DEVE seguir esta metodologia ANTES de concluir qualquer achado:
+1. PRIMEIRO: Descreva O QUE VOCÊ VÊ na região (sem interpretar)
+2. SEGUNDO: Analise as características visuais
+3. TERCEIRO: Só então conclua o achado
 
-### O QUE VOCÊ NÃO DEVE GERAR COM COORDENADAS:
-- Dentes (apenas liste os números)
-- Cáries (apenas descreva textualmente)
-- Lesões (apenas descreva textualmente)
-- Implantes (apenas descreva textualmente)
-- Qualquer outra estrutura
+Esta metodologia EVITA erros de interpretação precipitada.
 
-## COORDENADAS NORMALIZADAS (OBRIGATÓRIO)
-- Valores entre 0 e 1
-- X: 0 = esquerda, 1 = direita
-- Y: 0 = topo, 1 = base
+## 📋 ANÁLISE SISTEMÁTICA POR QUADRANTE - OBRIGATÓRIA
 
-## MAPA ANATÔMICO OBRIGATÓRIO
+Analise CADA dente na ordem FDI, um por um, sem pular nenhum:
+
+### QUADRANTE 1 (Superior Direito) - Analise na ordem:
+18 → 17 → 16 → 15 → 14 → 13 → 12 → 11
+
+### QUADRANTE 2 (Superior Esquerdo) - Analise na ordem:
+21 → 22 → 23 → 24 → 25 → 26 → 27 → 28
+
+### QUADRANTE 3 (Inferior Esquerdo) - Analise na ordem:
+31 → 32 → 33 → 34 → 35 → 36 → 37 → 38
+
+### QUADRANTE 4 (Inferior Direito) - Analise na ordem:
+41 → 42 → 43 → 44 → 45 → 46 → 47 → 48
+
+Para CADA dente, responda mentalmente:
+- Há estrutura dental visível nesta posição? (SIM/NÃO)
+- Se SIM: Qual a condição? (hígido, restaurado, tratado, cariado, fraturado)
+- Se NÃO: O espaço está edêntulo ou há implante?
+
+## ⚠️⚠️⚠️ CHECKLIST OBRIGATÓRIO PARA TERCEIROS MOLARES (SISOS) ⚠️⚠️⚠️
+
+ANTES de declarar QUALQUER siso (18, 28, 38, 48) como ausente, você DEVE:
+
+### CHECKLIST SISO 18 (Superior Direito Posterior):
+□ Analisei região X: 0.03-0.10, Y: 0.30-0.45? 
+□ Vejo estrutura radiopaca (branca/cinza) com formato dental?
+□ Se vejo QUALQUER estrutura → PRESENTE
+□ Só se 100% radiolúcido (escuro total) → considerar AUSENTE
+
+### CHECKLIST SISO 28 (Superior Esquerdo Posterior):
+□ Analisei região X: 0.90-0.97, Y: 0.30-0.45?
+□ Vejo estrutura radiopaca com formato dental?
+□ Se vejo QUALQUER estrutura → PRESENTE
+□ Só se 100% radiolúcido (escuro total) → considerar AUSENTE
+
+### CHECKLIST SISO 38 (Inferior Esquerdo Posterior):
+□ Analisei região X: 0.90-0.97, Y: 0.55-0.70?
+□ Vejo estrutura radiopaca com formato dental?
+□ Há sobreposição com ramo mandibular? → pode estar escondido
+□ Se vejo QUALQUER estrutura → PRESENTE
+
+### CHECKLIST SISO 48 (Inferior Direito Posterior):
+□ Analisei região X: 0.03-0.10, Y: 0.55-0.70?
+□ Vejo estrutura radiopaca com formato dental?
+□ Há sobreposição com ramo mandibular? → pode estar escondido
+□ Se vejo QUALQUER estrutura → PRESENTE
+
+## 📝 CAMPO OBRIGATÓRIO: raciocinio_sisos
+
+Você DEVE preencher o campo "raciocinio_sisos" justificando CADA decisão:
+
+{
+  "raciocinio_sisos": {
+    "18": "DESCRIÇÃO: Observo na região X:0.05, Y:0.38 estrutura radiopaca oval com densidade compatível com coroa dental. ANÁLISE: Forma dental identificável, raízes parcialmente visíveis. CONCLUSÃO: PRESENTE.",
+    "28": "DESCRIÇÃO: Região X:0.93, Y:0.40 mostra estrutura dental erupcionada. ANÁLISE: Coroa e raízes visíveis, posição normal. CONCLUSÃO: PRESENTE.",
+    "38": "DESCRIÇÃO: Região X:0.94, Y:0.62 apresenta dente impactado horizontal. ANÁLISE: Coroa visível atrás do segundo molar, posição mesioangulada. CONCLUSÃO: PRESENTE (impactado).",
+    "48": "DESCRIÇÃO: Região X:0.06, Y:0.63 completamente radiolúcida. ANÁLISE: Nenhuma estrutura dental visível, rebordo alveolar contínuo. CONCLUSÃO: AUSENTE."
+  }
+}
+
+## 🚨 ERROS PROIBIDOS - LEIA COM ATENÇÃO
+
+❌ NUNCA declare siso ausente sem preencher o raciocinio_sisos
+❌ NUNCA copie o exemplo JSON literalmente - ANALISE A IMAGEM REAL
+❌ NUNCA assuma ausência porque "não vejo claramente"
+❌ NUNCA ignore sisos impactados, semi-inclusos ou com sobreposição
+❌ NUNCA retorne mais de 6 dentes ausentes sem justificativa extrema
+❌ NUNCA confunda implante com tratamento endodôntico
+
+✅ SEMPRE preencha raciocinio_sisos para os 4 terceiros molares
+✅ SEMPRE descreva O QUE VÊ antes de concluir
+✅ SEMPRE analise quadrante por quadrante na ordem FDI
+✅ SEMPRE declare PRESENTE se houver QUALQUER dúvida sobre sisos
+
+## COORDENADAS - APENAS PARA ESTRUTURAS ANATÔMICAS
+
+### O QUE GERAR COM COORDENADAS (0 a 1):
+1. **Seios maxilares** (direito e esquerdo) - contorno com 8-12 pontos
+2. **Canais mandibulares** (direito e esquerdo) - trajeto com 6-8 pontos
+
+### O QUE NÃO GERAR COM COORDENADAS:
+- Dentes, cáries, lesões, implantes - apenas TEXTO
+
+## MAPA ANATÔMICO
 - **Seio maxilar**: Y entre 0.15 e 0.40
   - Direito: X entre 0.08 e 0.35
   - Esquerdo: X entre 0.65 e 0.92
@@ -80,175 +162,63 @@ Canal mandibular DIREITO (6 pontos):
 Canal mandibular ESQUERDO (6 pontos):
 [[0.62, 0.72], [0.68, 0.75], [0.74, 0.78], [0.80, 0.80], [0.86, 0.80], [0.92, 0.76]]
 
-## REGRA DE OURO PARA TERCEIROS MOLARES (18, 28, 38, 48) - ATENÇÃO MÁXIMA!
-
-### LOCALIZAÇÃO ANATÔMICA DOS SISOS (analise estas regiões com EXTREMO cuidado):
-- **18**: Extremo DIREITO da arcada SUPERIOR (X: 0.03-0.10, Y: 0.30-0.45)
-- **28**: Extremo ESQUERDO da arcada SUPERIOR (X: 0.90-0.97, Y: 0.30-0.45)  
-- **38**: Extremo ESQUERDO da arcada INFERIOR (X: 0.90-0.97, Y: 0.55-0.70)
-- **48**: Extremo DIREITO da arcada INFERIOR (X: 0.03-0.10, Y: 0.55-0.70)
-
-### REGRA CRÍTICA - NA DÚVIDA → PRESENTE!
-- É preferível marcar um siso ausente como PRESENTE do que perder um siso EXISTENTE
-- Sisos frequentemente aparecem IMPACTADOS, SEMI-INCLUSOS ou com SOBREPOSIÇÃO
+## REGRA DE OURO PARA TERCEIROS MOLARES
 
 ### DECLARE COMO PRESENTE SE:
-- Houver QUALQUER estrutura radiopaca na região do terceiro molar
-- Mesmo que parcialmente visível, impactado ou semi-incluso
-- Mesmo com sobreposição de outras estruturas (ramo mandibular, segundo molar)
+- Houver QUALQUER estrutura radiopaca na região
+- Mesmo parcialmente visível, impactado ou semi-incluso
+- Mesmo com sobreposição do ramo mandibular
 - Mesmo em posição horizontal, mesioangulada ou distoangulada
 
-### CASOS COMUNS QUE PARECEM AUSENTES MAS ESTÃO PRESENTES:
-- Siso HORIZONTAL impactado (aparece "deitado" atrás/abaixo do segundo molar)
-- Siso SEMI-INCLUSO (parcialmente coberto por osso/gengiva - só coroa visível)
-- Siso com SOBREPOSIÇÃO do ramo mandibular (estrutura parcialmente oculta)
-- Siso em posição MESIOANGULADA (inclinado para frente)
-- Siso em posição DISTOANGULADA (inclinado para trás)
-- Siso PROFUNDAMENTE incluso (apenas ápice radicular visível)
+### CASOS QUE PARECEM AUSENTES MAS ESTÃO PRESENTES:
+- Siso HORIZONTAL impactado (aparece "deitado")
+- Siso SEMI-INCLUSO (só coroa visível)
+- Siso com SOBREPOSIÇÃO do ramo mandibular
+- Siso em posição MESIOANGULADA ou DISTOANGULADA
+- Siso PROFUNDAMENTE incluso (apenas ápice visível)
 
 ### DECLARE COMO AUSENTE SOMENTE SE:
-- A região estiver COMPLETAMENTE radiolúcida (100% escura, sem nenhuma estrutura)
-- O rebordo alveolar estiver contínuo e liso, sem nenhuma estrutura dental
-- Você tiver ABSOLUTA CERTEZA (100%) que NÃO há estrutura dental na região
+- Região 100% radiolúcida (completamente escura)
+- Rebordo alveolar contínuo e liso
+- ABSOLUTA CERTEZA (100%) de ausência
 - NUNCA declare ausente se houver QUALQUER dúvida!
 
-## REGRA CRÍTICA PARA IDENTIFICAÇÃO DE AUSÊNCIAS
+## DIFERENCIAÇÃO: IMPLANTE vs ENDODONTIA
 
-### DENTE AUSENTE - Critérios:
-- Espaço edêntulo sem estrutura dental radiopaca
-- Rebordo alveolar contínuo sem raiz visível
-- Área onde deveria haver dente mas NÃO HÁ estrutura dental natural
+### IMPLANTE DENTÁRIO:
+- Estrutura metálica ÚNICA formato PARAFUSO
+- NÃO HÁ raiz natural - implante SUBSTITUI a raiz
+- Roscas/espiras visíveis
+- Se há implante → dente está AUSENTE (listar em dentes_ausentes E implantes)
 
-### IMPLANTE = DENTE AUSENTE + IMPLANTE
-**REGRA FUNDAMENTAL**: Quando há implante em uma região, o DENTE ORIGINAL está AUSENTE!
-- Exemplo: Se há implante na região do 46, então:
-  - Adicionar "46" em dentes_ausentes
-  - Adicionar "Região do 46: implante osseointegrado" em implantes
-  - NÃO adicionar "46" em dentes_presentes
+### TRATAMENTO ENDODÔNTICO:
+- Material radiopaco DENTRO do canal de dente NATURAL
+- RAIZ NATURAL PRESENTE ao redor do material
+- Estrutura dental preservada
 
-### ERRO GRAVE A EVITAR:
-❌ NUNCA liste um dente com implante como "presente"
-✅ Implante substitui o dente natural → listar como AUSENTE + IMPLANTE
+## LESÕES PERIAPICAIS - ANÁLISE ULTRA-CRÍTICA
 
-### ORDEM FDI OBRIGATÓRIA
-Listar dentes SEMPRE na ordem padrão:
-Superior: 18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28
-Inferior: 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38
+Identifique TODAS as lesões, mesmo sutis:
+- Radiolucência ao redor do ápice
+- Espessamento do ligamento periodontal
+- Interrupção da lâmina dura
+- Rarefação óssea periapical
 
-## DIFERENCIAÇÃO CRÍTICA: IMPLANTE vs TRATAMENTO ENDODÔNTICO
-
-### IMPLANTE DENTÁRIO (substituição da raiz)
-- Estrutura metálica **ÚNICA** cilíndrica ou cônica com formato de PARAFUSO
-- **NÃO HÁ raiz natural** - o implante SUBSTITUI a raiz completamente
-- Roscas/espiras visíveis no corpo do implante
-- Osso alveolar diretamente ao redor do metal
-- Geralmente tem pilar/abutment e coroa protética em cima
-
-### TRATAMENTO ENDODÔNTICO (preenchimento do canal)
-- Material radiopaco **DENTRO** do canal de um dente NATURAL
-- **RAIZ NATURAL PRESENTE** - contorno radicular do dente é VISÍVEL ao redor do material
-- Estrutura dental (coroa e raiz naturais) preservada
-- Pode ter pino/núcleo intra-radicular
-- A anatomia radicular natural é claramente identificável
-
-### REGRA DE OURO PARA NÃO CONFUNDIR:
-- Se você vê RAIZ NATURAL com material branco DENTRO → É TRATAMENTO ENDODÔNTICO
-- Se você vê estrutura metálica de parafuso SEM raiz natural → É IMPLANTE
-- NUNCA classifique um dente tratado endodonticamente como implante!
-
-## IDENTIFICAÇÃO OBRIGATÓRIA DE TRATAMENTOS
-
-Analise a radiografia PIXEL A PIXEL e identifique TODOS os tratamentos:
-
-### IMPLANTES DENTÁRIOS
-- Formato de parafuso cilíndrico/cônico metálico
-- SEM raiz natural ao redor
-- Formato: "Região do XX: implante osseointegrado [descrição]"
-
-### RESTAURAÇÕES (TIPO E SUPERFÍCIE)
-- Áreas radiopacas na porção coronária
-- Tipos: Amálgama (muito radiopaco), Resina (moderadamente radiopaco), Coroa total
-- Superfícies: O, M, D, V, L
-- Formato: "Dente XX: restauração [tipo] [superfície]"
-
-### TRATAMENTOS ENDODÔNTICOS
-- Material radiopaco DENTRO dos canais de dente NATURAL
-- RAIZ NATURAL visível ao redor do material obturador
-- Formato: "Dente XX: tratamento endodôntico [completo/incompleto]"
-
-### LESÕES PERIAPICAIS - ANÁLISE ULTRA-CRÍTICA OBRIGATÓRIA
-ATENÇÃO: Você DEVE identificar TODAS as lesões periapicais, mesmo sutis!
-
-#### Sinais de lesão periapical (identifique QUALQUER um destes):
-- Radiolucência ao redor do ápice (área escura periapical)
-- Espessamento do ligamento periodontal apical
-- Interrupção da lâmina dura apical
-- Áreas de rarefação óssea periapical
-- Condensação óssea reativa ao redor de lesão (osteíte condensante)
-- Halo radiolúcido com ou sem limite definido
-- Expansão da cortical óssea
-
-#### Classificação obrigatória por tipo:
-- **Granuloma periapical**: Lesão radiolúcida circunscrita <10mm
-- **Cisto periapical**: Lesão radiolúcida >10mm, limites bem definidos, halo radiopaco
-- **Abscesso periapical**: Radiolucência difusa, limites mal definidos
-- **Osteíte condensante**: Área radiopaca adjacente ao ápice
-
-#### Formato obrigatório: "Dente XX: lesão periapical [tipo] ~Xmm, [características]"
-
-### CÁRIES
-- Radiolucências na estrutura dental
-- Formato: "Dente XX: cárie [superfície] [profundidade]"
-
-## INSTRUÇÕES ESPECIAIS PARA TOMOGRAFIAS (CBCT)
-
-### Reconhecimento de imagem de tomografia:
-- Múltiplos cortes/slices em diferentes planos (axial, sagital, coronal)
-- Reconstruções 3D ou panorâmicas reformatadas
-- Cortes individuais mostrando dentes em diferentes ângulos
-- Qualidade de imagem pode variar - analise TODOS os cortes visíveis
-
-### Análise de tomografia - REGRAS OBRIGATÓRIAS:
-1. **Analise TODOS os cortes/slices visíveis** - lesões podem aparecer em alguns cortes mas não em outros
-2. **Lesões periapicais em tomografia** são mais fáceis de identificar - não perca nenhuma!
-3. **Procure ativamente por**:
-   - Áreas de hipodensidade (escuras) ao redor de ápices radiculares
-   - Defeitos ósseos vestibulares/linguais (visíveis em cortes axiais)
-   - Perfurações de cortical óssea
-   - Reabsorções radiculares (internas e externas)
-   - Comunicação com seio maxilar ou canal mandibular
-   
-4. **Em cortes sagitais/coronais de dentes**: 
-   - Qualquer área escura no osso ao redor do ápice = lesão periapical SUSPEITA
-   - Mesmo lesões pequenas (~2-3mm) devem ser reportadas
-   
-5. **Qualidade de imagem variável**:
-   - NÃO ignore achados porque a imagem "não está perfeita"
-   - Se há QUALQUER indício de patologia, REPORTE como "suspeita"
-   - É preferível reportar uma suspeita do que perder uma lesão real
-
-REGRA OBRIGATÓRIA: NÃO OMITA nenhum tratamento e NÃO CONFUNDA endodontia com implante!
-
-## ⚠️⚠️⚠️ ERRO CRÍTICO A EVITAR - LEIA COM ATENÇÃO ⚠️⚠️⚠️
-
-NÃO COPIE O EXEMPLO JSON CEGAMENTE!
-
-O exemplo abaixo mostra apenas UM siso ausente (48) - isso é um EXEMPLO, não um padrão!
-A MAIORIA dos pacientes TEM os 4 terceiros molares (sisos).
-Você DEVE analisar a imagem REAL pixel por pixel!
-
-🚨 SE VOCÊ RETORNAR ["18", "28", "38", "48"] COMO AUSENTES, você provavelmente ESTÁ ERRANDO! 🚨
-Isso indica que você copiou o padrão ao invés de analisar a imagem.
-
-ANTES de declarar QUALQUER siso ausente, verifique:
-1. Há estrutura radiopaca na posição do siso? → Se SIM, está PRESENTE
-2. A região está totalmente radiolúcida (escura)? → Só então considere ausente
-3. Há sobreposição com ramo mandibular? → Pode estar escondido, declare PRESENTE
-4. NA DÚVIDA → SEMPRE declare como PRESENTE
+Classificação:
+- **Granuloma**: Lesão <10mm circunscrita
+- **Cisto**: Lesão >10mm, limites definidos
+- **Abscesso**: Radiolucência difusa
+- **Osteíte condensante**: Área radiopaca adjacente
 
 ## FORMATO JSON OBRIGATÓRIO
 
 {
+  "raciocinio_sisos": {
+    "18": "DESCRIÇÃO: [o que vejo]. ANÁLISE: [características]. CONCLUSÃO: PRESENTE/AUSENTE porque [razão].",
+    "28": "DESCRIÇÃO: [o que vejo]. ANÁLISE: [características]. CONCLUSÃO: PRESENTE/AUSENTE porque [razão].",
+    "38": "DESCRIÇÃO: [o que vejo]. ANÁLISE: [características]. CONCLUSÃO: PRESENTE/AUSENTE porque [razão].",
+    "48": "DESCRIÇÃO: [o que vejo]. ANÁLISE: [características]. CONCLUSÃO: PRESENTE/AUSENTE porque [razão]."
+  },
   "seio_maxilar": {
     "direito": { "contorno_normalizado": [[x,y], ...] },
     "esquerdo": { "contorno_normalizado": [[x,y], ...] }
@@ -260,12 +230,12 @@ ANTES de declarar QUALQUER siso ausente, verifique:
   "achados_clinicos": {
     "dentes_presentes": ["18", "17", "16", "15", "14", "13", "12", "11", "21", "22", "23", "24", "25", "26", "27", "28", "47", "46", "45", "44", "43", "42", "41", "31", "32", "33", "34", "35", "36", "37", "38"],
     "dentes_ausentes": ["48"],
-    "caries_suspeitas": ["Dente 14: cárie oclusal profunda", "Dente 36: cárie mesial média"],
-    "lesoes_suspeitas": ["Dente 46: lesão periapical sugestiva ~3mm"],
-    "implantes": ["Região do 36: implante osseointegrado com coroa protética"],
-    "restauracoes": ["Dente 15: restauração amálgama MOD", "Dente 26: restauração resina oclusal", "Dente 47: coroa metálica total"],
-    "tratamentos_endodonticos": ["Dente 21: tratamento endodôntico completo com pino", "Dente 46: tratamento endodôntico incompleto - subobturação"],
-    "observacoes": "Terceiros molares 18, 28 e 38 PRESENTES e erupcionados. Apenas dente 48 ausente. Note: a maioria dos pacientes tem sisos presentes!"
+    "caries_suspeitas": ["Dente XX: cárie [superfície] [profundidade]"],
+    "lesoes_suspeitas": ["Dente XX: lesão periapical [tipo] ~Xmm"],
+    "implantes": ["Região do XX: implante osseointegrado"],
+    "restauracoes": ["Dente XX: restauração [tipo] [superfície]"],
+    "tratamentos_endodonticos": ["Dente XX: tratamento endodôntico [status]"],
+    "observacoes": "Observações gerais da análise"
   },
   "avaliacao_periodontal": {
     "perda_ossea": "leve/moderada/grave/indeterminado",
@@ -279,7 +249,15 @@ ANTES de declarar QUALQUER siso ausente, verifique:
     "Frase simples 1",
     "Frase simples 2"
   ]
-}`;
+}
+
+## ⚠️ LEMBRETE FINAL
+
+1. PREENCHA raciocinio_sisos OBRIGATORIAMENTE para os 4 terceiros molares
+2. Siga a metodologia DESCRIÇÃO → ANÁLISE → CONCLUSÃO
+3. Analise quadrante por quadrante na ordem FDI
+4. NA DÚVIDA sobre siso → PRESENTE
+5. NÃO COPIE o exemplo - analise a imagem REAL`;
 
 // Contornos padrão para fallback
 const DEFAULT_SEIO_DIREITO: Array<[number, number]> = [
@@ -300,25 +278,112 @@ const DEFAULT_CANAL_ESQUERDO: Array<[number, number]> = [
   [0.62, 0.72], [0.68, 0.75], [0.74, 0.78], [0.80, 0.80], [0.86, 0.80], [0.92, 0.76]
 ];
 
+// Validação do raciocínio dos sisos
+function validateWisdomTeethReasoning(analysis: any): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  const raciocinio = analysis.raciocinio_sisos;
+  
+  if (!raciocinio) {
+    issues.push("⚠️ Campo raciocinio_sisos não preenchido!");
+    return { valid: false, issues };
+  }
+  
+  const sisos = ["18", "28", "38", "48"];
+  for (const siso of sisos) {
+    const justificativa = raciocinio[siso];
+    if (!justificativa) {
+      issues.push(`⚠️ Justificativa para siso ${siso} não fornecida!`);
+    } else {
+      // Verificar se segue o padrão DESCRIÇÃO → ANÁLISE → CONCLUSÃO
+      const hasDescricao = justificativa.toLowerCase().includes("descrição") || justificativa.toLowerCase().includes("observo") || justificativa.toLowerCase().includes("vejo");
+      const hasAnalise = justificativa.toLowerCase().includes("análise") || justificativa.toLowerCase().includes("característica");
+      const hasConclusao = justificativa.toLowerCase().includes("conclusão") || justificativa.toLowerCase().includes("presente") || justificativa.toLowerCase().includes("ausente");
+      
+      if (!hasConclusao) {
+        issues.push(`⚠️ Siso ${siso}: Falta conclusão clara (PRESENTE/AUSENTE)`);
+      }
+      
+      console.log(`📝 Raciocínio siso ${siso}: ${justificativa.substring(0, 100)}...`);
+    }
+  }
+  
+  return { valid: issues.length === 0, issues };
+}
+
+// Validação de sanidade para detectar padrões suspeitos
+function validateSanityCheck(analysis: any): { corrected: boolean; dentesAusentes: string[]; dentesPresentes: string[] } {
+  const achados = analysis.achados_clinicos || {};
+  let dentesAusentes = Array.isArray(achados.dentes_ausentes) ? [...achados.dentes_ausentes] : [];
+  let dentesPresentes = Array.isArray(achados.dentes_presentes) ? [...achados.dentes_presentes] : [];
+  let corrected = false;
+  
+  const wisdomTeeth = ["18", "28", "38", "48"];
+  
+  // Verificar se todos os 4 sisos estão ausentes (padrão muito suspeito)
+  const absentWisdom = wisdomTeeth.filter(tooth => 
+    dentesAusentes.some((d: string) => d.toString() === tooth || d.toString().includes(tooth))
+  );
+  
+  if (absentWisdom.length === 4) {
+    console.warn("⚠️⚠️⚠️ ALERTA CRÍTICO: Modelo retornou TODOS os 4 sisos como ausentes!");
+    console.warn("⚠️ Isso indica possível cópia cega do exemplo ou análise incorreta.");
+    
+    // Verificar o raciocínio para cada siso
+    const raciocinio = analysis.raciocinio_sisos || {};
+    let hasValidReasoning = false;
+    
+    for (const siso of wisdomTeeth) {
+      const justificativa = raciocinio[siso] || "";
+      // Se a justificativa menciona explicitamente que é radiolúcido/ausente com detalhes, aceitar
+      if (justificativa.toLowerCase().includes("radiolúcido") && 
+          justificativa.toLowerCase().includes("ausente") &&
+          justificativa.length > 50) {
+        hasValidReasoning = true;
+        console.log(`✅ Siso ${siso} tem justificativa válida para ausência`);
+      }
+    }
+    
+    if (!hasValidReasoning) {
+      console.warn("⚠️ Aplicando correção: movendo sisos 18, 28, 38 para 'presentes'");
+      
+      // Corrigir: mover 18, 28, 38 para presentes (manter 48 como ausente - mais comum)
+      dentesAusentes = dentesAusentes.filter((d: string) => 
+        !["18", "28", "38"].some(siso => d.toString() === siso || d.toString().includes(siso))
+      );
+      
+      ["18", "28", "38"].forEach(siso => {
+        if (!dentesPresentes.some((d: string) => d.toString() === siso)) {
+          dentesPresentes.push(siso);
+          console.log(`✅ Adicionado dente ${siso} aos presentes (correção automática)`);
+        }
+      });
+      
+      corrected = true;
+    }
+  }
+  
+  // Verificar se há muitos dentes ausentes (>8 é muito suspeito para adulto normal)
+  if (dentesAusentes.length > 8) {
+    console.warn(`⚠️ ALERTA: ${dentesAusentes.length} dentes ausentes - quantidade incomum, verificar análise!`);
+  }
+  
+  return { corrected, dentesAusentes, dentesPresentes };
+}
+
 // Validação e correção de coordenadas
 function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada {
   console.log("Validando e corrigindo coordenadas...");
   
-  // Função para validar ponto normalizado (0-1)
-  const isValidPoint = (point: any): boolean => {
-    return Array.isArray(point) && 
-           point.length === 2 && 
-           typeof point[0] === 'number' && 
-           typeof point[1] === 'number' &&
-           point[0] >= 0 && point[0] <= 1 &&
-           point[1] >= 0 && point[1] <= 1;
-  };
+  // Validar raciocínio dos sisos
+  const { valid: reasoningValid, issues } = validateWisdomTeethReasoning(analysis);
+  if (!reasoningValid) {
+    issues.forEach(issue => console.warn(issue));
+  }
   
   // Função para normalizar ponto (converter de 0-100 para 0-1 se necessário)
   const normalizePoint = (point: any): [number, number] => {
     if (!Array.isArray(point) || point.length < 2) return [0.5, 0.5];
     let [x, y] = point;
-    // Se parece estar em formato 0-100, converter
     if (x > 1 || y > 1) {
       x = Math.min(1, Math.max(0, x / 100));
       y = Math.min(1, Math.max(0, y / 100));
@@ -374,38 +439,13 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
     console.log("Usando canal mandibular esquerdo padrão");
   }
   
-  // Processar achados clínicos (apenas texto)
-  const achados = analysis.achados_clinicos || {};
-  
-  // ⚠️ VALIDAÇÃO DE SANIDADE - Detectar cópia cega do exemplo
-  let dentesAusentes = Array.isArray(achados.dentes_ausentes) ? achados.dentes_ausentes : [];
-  let dentesPresentes = Array.isArray(achados.dentes_presentes) ? achados.dentes_presentes : [];
-  
-  const wisdomTeeth = ["18", "28", "38", "48"];
-  const allFourWisdomAbsent = wisdomTeeth.every(tooth => 
-    dentesAusentes.some((d: string) => d.toString() === tooth || d.toString().includes(tooth))
-  );
-  
-  if (allFourWisdomAbsent) {
-    console.warn("⚠️⚠️⚠️ ALERTA CRÍTICO: Modelo retornou TODOS os 4 sisos como ausentes!");
-    console.warn("⚠️ Isso indica possível cópia cega do exemplo JSON antigo.");
-    console.warn("⚠️ Aplicando correção: movendo sisos 18, 28, 38 para 'presentes' (mantendo apenas 48 como ausente)");
-    
-    // Corrigir automaticamente: mover 18, 28, 38 para presentes
-    dentesAusentes = dentesAusentes.filter((d: string) => 
-      !["18", "28", "38"].some(siso => d.toString() === siso || d.toString().includes(siso))
-    );
-    
-    // Garantir que 18, 28, 38 estão em presentes (se não estiverem)
-    ["18", "28", "38"].forEach(siso => {
-      if (!dentesPresentes.some((d: string) => d.toString() === siso)) {
-        dentesPresentes.push(siso);
-        console.log(`✅ Adicionado dente ${siso} aos presentes (correção automática)`);
-      }
-    });
-    
-    console.warn("⚠️ ATENÇÃO: Esta correção automática pode não ser precisa. Recomenda-se análise manual.");
+  // Validação de sanidade
+  const { corrected, dentesAusentes, dentesPresentes } = validateSanityCheck(analysis);
+  if (corrected) {
+    console.warn("⚠️ ATENÇÃO: Correção automática aplicada. Recomenda-se análise manual.");
   }
+  
+  const achados = analysis.achados_clinicos || {};
   
   const result: AnaliseVisualSimplificada = {
     seio_maxilar: {
@@ -435,6 +475,7 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
       observacoes: analysis.avaliacao_ortodontica?.observacoes || "",
     },
     resumo_para_paciente: Array.isArray(analysis.resumo_para_paciente) ? analysis.resumo_para_paciente : [],
+    raciocinio_sisos: analysis.raciocinio_sisos || undefined,
   };
   
   console.log("Análise simplificada gerada:");
@@ -442,6 +483,7 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
   console.log("- Dentes ausentes:", result.achados_clinicos.dentes_ausentes.length);
   console.log("- Cáries suspeitas:", result.achados_clinicos.caries_suspeitas.length);
   console.log("- Lesões suspeitas:", result.achados_clinicos.lesoes_suspeitas.length);
+  console.log("- Raciocínio sisos incluído:", !!result.raciocinio_sisos);
   
   return result;
 }
@@ -463,14 +505,14 @@ serve(async (req) => {
       throw new Error("OPENAI_API_KEY não configurada");
     }
 
-    console.log("Iniciando análise visual SIMPLIFICADA...");
+    console.log("Iniciando análise visual com Chain of Thought...");
     console.log("Tipo da imagem:", imageType);
 
     const base64Data = imageBase64.includes("base64,") 
       ? imageBase64.split("base64,")[1] 
       : imageBase64;
 
-    console.log("Chamando API OpenAI com modelo gpt-4.1...");
+    console.log("Chamando API OpenAI com modelo gpt-4.1 e metodologia CoT...");
     
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -487,31 +529,41 @@ serve(async (req) => {
             content: [
               { 
                 type: "text", 
-                text: `Analise esta imagem odontológica (radiografia OU tomografia) e retorne o JSON no formato especificado.
+                text: `## INSTRUÇÕES CRÍTICAS PARA ESTA ANÁLISE
 
-## SE FOR TOMOGRAFIA (CBCT):
-- Analise TODOS os cortes/slices visíveis na imagem
-- Tomografias mostram múltiplos planos - examine cada um cuidadosamente
-- Lesões periapicais são MUITO claras em tomografia - NÃO PERCA NENHUMA
-- Procure áreas ESCURAS ao redor dos ápices radiculares em cada corte
-- Mesmo lesões pequenas (2-3mm) devem ser reportadas
+### METODOLOGIA OBRIGATÓRIA - SIGA EXATAMENTE:
 
-## ANÁLISE OBRIGATÓRIA DE LESÕES PERIAPICAIS:
-- Examine CADA dente individualmente procurando radiolucência apical
-- Qualquer área escura ao redor do ápice = REPORTE como lesão suspeita
-- NÃO ignore achados porque a imagem "não está perfeita"
-- É PREFERÍVEL reportar uma suspeita do que PERDER uma lesão real
+1. **PASSO 1 - ANÁLISE QUADRANTE POR QUADRANTE**
+   Analise cada dente na ordem FDI:
+   - Quadrante 1: 18→17→16→15→14→13→12→11
+   - Quadrante 2: 21→22→23→24→25→26→27→28
+   - Quadrante 3: 31→32→33→34→35→36→37→38
+   - Quadrante 4: 41→42→43→44→45→46→47→48
 
-## TERCEIROS MOLARES (18, 28, 38, 48):
-- Analise COM EXTREMO CUIDADO as regiões dos sisos
-- NA DÚVIDA → declare como PRESENTE
+2. **PASSO 2 - CHECKLIST DOS SISOS (CRÍTICO)**
+   Para cada terceiro molar (18, 28, 38, 48):
+   - Localize a região anatômica específica
+   - Descreva O QUE VOCÊ VÊ (estruturas visíveis)
+   - APENAS declare ausente se 100% radiolúcido
+   - NA DÚVIDA → PRESENTE
 
-## IMPORTANTE:
-1. Gere coordenadas APENAS para seios maxilares e canais mandibulares
-2. Liste todos os achados clínicos TEXTUALMENTE (sem coordenadas)
-3. Seja ULTRA-CRÍTICO na identificação de patologias
+3. **PASSO 3 - PREENCHA raciocinio_sisos OBRIGATORIAMENTE**
+   Para CADA siso, escreva: "DESCRIÇÃO: [o que vejo]. ANÁLISE: [características]. CONCLUSÃO: PRESENTE/AUSENTE porque [razão específica]."
 
-Retorne JSON válido.`
+4. **PASSO 4 - IDENTIFIQUE TODOS OS ACHADOS**
+   - Cáries (superfície e profundidade)
+   - Lesões periapicais (tipo e tamanho)
+   - Restaurações (tipo e superfície)
+   - Tratamentos endodônticos
+   - Implantes (lembrar: implante = dente ausente!)
+
+### ⚠️ REGRAS ABSOLUTAS:
+- NUNCA copie o exemplo JSON - analise a imagem REAL
+- NUNCA declare 4 sisos ausentes sem justificativa detalhada
+- SEMPRE preencha raciocinio_sisos com descrição + análise + conclusão
+- Se em DÚVIDA sobre siso → declare PRESENTE
+
+Retorne JSON válido com todos os campos, especialmente raciocinio_sisos.`
               },
               { 
                 type: "image_url", 
@@ -523,7 +575,7 @@ Retorne JSON válido.`
             ],
           },
         ],
-        max_completion_tokens: 4096,
+        max_completion_tokens: 6000,
         response_format: { type: "json_object" },
       }),
     });
@@ -548,10 +600,20 @@ Retorne JSON válido.`
       throw new Error("Erro ao processar resposta da análise visual");
     }
 
+    // Log do raciocínio dos sisos para debug
+    if (rawAnalysis.raciocinio_sisos) {
+      console.log("📝 RACIOCÍNIO DOS SISOS:");
+      Object.entries(rawAnalysis.raciocinio_sisos).forEach(([siso, raciocinio]) => {
+        console.log(`  Siso ${siso}: ${(raciocinio as string).substring(0, 150)}...`);
+      });
+    } else {
+      console.warn("⚠️ Modelo não preencheu raciocinio_sisos!");
+    }
+
     // Validar e corrigir coordenadas
     const validatedAnalysis = validateAndCorrectCoordinates(rawAnalysis);
 
-    console.log("Análise visual simplificada concluída com sucesso!");
+    console.log("Análise visual com CoT concluída com sucesso!");
 
     return new Response(JSON.stringify(validatedAnalysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -561,7 +623,7 @@ Retorne JSON válido.`
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Erro desconhecido",
-        details: "Falha na análise visual simplificada"
+        details: "Falha na análise visual"
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
