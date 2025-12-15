@@ -26,6 +26,15 @@ interface AnaliseVisualSimplificada {
     tratamentos_endodonticos: string[];
     observacoes: string;
   };
+  // NOVO: Status conservador para terceiros molares
+  terceiros_molares: {
+    status_geral: string;
+    "18": string;
+    "28": string;
+    "38": string;
+    "48": string;
+    recomendacao: string;
+  };
   avaliacao_periodontal: {
     perda_ossea: string;
     comentarios: string;
@@ -35,144 +44,91 @@ interface AnaliseVisualSimplificada {
     observacoes: string;
   };
   resumo_para_paciente: string[];
-  raciocinio_sisos?: {
-    "18": string;
-    "28": string;
-    "38": string;
-    "48": string;
-  };
 }
 
 // ============================================================================
-// STEP 1: PROMPT DE DESCRIÇÃO PURA (apenas descrever o que vê)
+// PROMPT CONSERVADOR - ABORDAGEM CLÍNICA RESPONSÁVEL
 // ============================================================================
-const DESCRIPTION_PROMPT = `Você é um observador visual especializado em radiografias odontológicas.
+const CONSERVATIVE_VISUAL_PROMPT = `Você é um assistente de apoio ao raciocínio clínico em radiologia odontológica.
 
-## SUA ÚNICA TAREFA: DESCREVER O QUE VOCÊ VÊ
+⚠️ REGRAS FUNDAMENTAIS:
+- Você NÃO é um radiologista humano
+- Você NÃO fornece diagnóstico definitivo  
+- Você NÃO faz afirmações categóricas quando há incerteza
 
-NÃO INTERPRETE. NÃO DIAGNOSTIQUE. Apenas DESCREVA as estruturas visíveis.
+🔒 PROTOCOLO OBRIGATÓRIO PARA TERCEIROS MOLARES (18, 28, 38, 48):
 
-### INSTRUÇÕES:
+NUNCA declare presença ou ausência categórica de sisos. Use EXCLUSIVAMENTE:
+• "Terceiros molares não claramente visualizados nesta radiografia panorâmica"
+• "Visualização limitada dos terceiros molares, necessária correlação clínica"
+• "Achado sugestivo, devendo ser confirmado por exame clínico"
 
-Para cada região da radiografia, descreva EXATAMENTE o que você observa:
+❌ PROIBIDO usar:
+• "Presença de terceiros molares"
+• "Ausência confirmada de sisos"
+• "Todos os dentes estão presentes"
+• "Incluindo terceiros molares"
 
-1. **REGIÃO SUPERIOR DIREITA (X: 0.03-0.15, Y: 0.25-0.50)**
-   - Descreva as estruturas visíveis
-   - Quantos dentes você vê nesta região?
-   - Há estrutura dental na posição mais posterior (siso 18)?
+📋 CLASSIFICAÇÃO POR ESTADO (não por certeza):
+• "visualizado"
+• "não visualizado nesta técnica"
+• "sugestivo de"
+• "indeterminado"
+• "necessita correlação clínica"
 
-2. **REGIÃO SUPERIOR ESQUERDA (X: 0.85-0.97, Y: 0.25-0.50)**
-   - Descreva as estruturas visíveis
-   - Quantos dentes você vê nesta região?
-   - Há estrutura dental na posição mais posterior (siso 28)?
+📊 ESTRUTURAS ANATÔMICAS:
+Forneça coordenadas aproximadas para:
+- Seio maxilar (contorno): Y entre 0.15-0.40
+- Canal mandibular (trajeto): Y entre 0.70-0.85
 
-3. **REGIÃO INFERIOR DIREITA (X: 0.03-0.15, Y: 0.50-0.75)**
-   - Descreva as estruturas visíveis
-   - Quantos dentes você vê nesta região?
-   - Há estrutura dental na posição mais posterior (siso 48)?
-
-4. **REGIÃO INFERIOR ESQUERDA (X: 0.85-0.97, Y: 0.50-0.75)**
-   - Descreva as estruturas visíveis
-   - Quantos dentes você vê nesta região?
-   - Há estrutura dental na posição mais posterior (siso 38)?
-
-5. **CADA TERCEIRO MOLAR (SISOS)** - ANÁLISE DETALHADA:
-   Para cada siso (18, 28, 38, 48), responda:
-   - A região está escura (radiolúcida) ou clara (radiopaca)?
-   - Você vê alguma forma que parece um dente?
-   - Se sim, descreva a forma, tamanho e posição
-   - Se não, descreva o que você vê no lugar
-
-6. **ALTERAÇÕES VISÍVEIS**
-   - Áreas escuras (radiolúcidas) anormais
-   - Áreas claras (radiopacas) anormais
-   - Estruturas metálicas visíveis
-   - Qualquer outra observação
-
-FORMATO DE RESPOSTA (JSON):
-{
-  "descricao_regiao_superior_direita": "Descreva detalhadamente...",
-  "descricao_regiao_superior_esquerda": "Descreva detalhadamente...",
-  "descricao_regiao_inferior_direita": "Descreva detalhadamente...",
-  "descricao_regiao_inferior_esquerda": "Descreva detalhadamente...",
-  "observacao_siso_18": "O que você vê na região do dente 18...",
-  "observacao_siso_28": "O que você vê na região do dente 28...",
-  "observacao_siso_38": "O que você vê na região do dente 38...",
-  "observacao_siso_48": "O que você vê na região do dente 48...",
-  "total_dentes_superiores_visiveis": numero,
-  "total_dentes_inferiores_visiveis": numero,
-  "alteracoes_observadas": ["lista de alterações"],
-  "estruturas_metalicas": ["lista se houver"]
-}`;
-
-// ============================================================================
-// STEP 2: PROMPT DE INTERPRETAÇÃO (baseado na descrição)
-// ============================================================================
-const buildInterpretationPrompt = (description: any) => `Você é um radiologista odontológico especialista.
-
-## SUA TAREFA: INTERPRETAR A DESCRIÇÃO VISUAL
-
-Baseado na descrição visual abaixo, forneça a análise clínica completa.
-
-### DESCRIÇÃO VISUAL DA RADIOGRAFIA:
-${JSON.stringify(description, null, 2)}
-
-### REGRAS CRÍTICAS PARA INTERPRETAÇÃO:
-
-1. **SISOS (18, 28, 38, 48)**:
-   - Se a descrição menciona "estrutura radiopaca", "forma dental", "dente visível" → PRESENTE
-   - Se a descrição menciona "região escura", "sem estrutura", "radiolúcido" → considerar AUSENTE
-   - Se há QUALQUER dúvida na descrição → declare PRESENTE
-   
-2. **CONTAGEM DE DENTES**:
-   - Use os números de dentes visíveis relatados
-   - Arcada superior completa com sisos = 16 dentes
-   - Arcada inferior completa com sisos = 16 dentes
-
-3. **ACHADOS CLÍNICOS**:
-   - Base seus achados APENAS no que foi descrito
-   - Não invente achados não mencionados na descrição
-
-### FORMATO JSON OBRIGATÓRIO:
+📋 FORMATO JSON OBRIGATÓRIO:
 
 {
-  "raciocinio_sisos": {
-    "18": "Baseado na descrição: '[quote da descrição]'. CONCLUSÃO: PRESENTE/AUSENTE.",
-    "28": "Baseado na descrição: '[quote da descrição]'. CONCLUSÃO: PRESENTE/AUSENTE.",
-    "38": "Baseado na descrição: '[quote da descrição]'. CONCLUSÃO: PRESENTE/AUSENTE.",
-    "48": "Baseado na descrição: '[quote da descrição]'. CONCLUSÃO: PRESENTE/AUSENTE."
-  },
   "seio_maxilar": {
-    "direito": { "contorno_normalizado": [[0.10, 0.20], [0.16, 0.16], [0.24, 0.16], [0.32, 0.20], [0.34, 0.30], [0.30, 0.38], [0.18, 0.38], [0.10, 0.28]] },
-    "esquerdo": { "contorno_normalizado": [[0.66, 0.28], [0.70, 0.38], [0.82, 0.38], [0.90, 0.30], [0.90, 0.20], [0.84, 0.16], [0.76, 0.16], [0.68, 0.20]] }
+    "direito": { "contorno_normalizado": [[x, y], ...] },
+    "esquerdo": { "contorno_normalizado": [[x, y], ...] }
   },
   "canal_mandibular": {
-    "direito": [[0.08, 0.76], [0.14, 0.80], [0.20, 0.80], [0.26, 0.78], [0.32, 0.75], [0.38, 0.72]],
-    "esquerdo": [[0.62, 0.72], [0.68, 0.75], [0.74, 0.78], [0.80, 0.80], [0.86, 0.80], [0.92, 0.76]]
+    "direito": [[x, y], ...],
+    "esquerdo": [[x, y], ...]
   },
   "achados_clinicos": {
-    "dentes_presentes": ["lista de dentes presentes com numeração FDI"],
-    "dentes_ausentes": ["lista de dentes ausentes"],
-    "caries_suspeitas": ["lista se houver"],
-    "lesoes_suspeitas": ["lista se houver"],
-    "implantes": ["lista se houver"],
-    "restauracoes": ["lista se houver"],
-    "tratamentos_endodonticos": ["lista se houver"],
-    "observacoes": "observações gerais"
+    "dentes_presentes": ["11", "12", "13", ...],
+    "dentes_ausentes": ["lista SEM incluir sisos - usar seção específica"],
+    "caries_suspeitas": ["Dente XX: achado sugestivo de lesão cariosa"],
+    "lesoes_suspeitas": ["Dente XX: área radiolúcida sugestiva de..."],
+    "implantes": ["Região do dente XX: estrutura compatível com implante"],
+    "restauracoes": ["Dente XX: material restaurador visualizado"],
+    "tratamentos_endodonticos": ["Dente XX: material obturador em canal radicular"],
+    "observacoes": "Observações gerais conservadoras"
+  },
+  "terceiros_molares": {
+    "status_geral": "Visualização limitada dos terceiros molares nesta técnica radiográfica",
+    "18": "Não claramente visualizado - correlação clínica necessária",
+    "28": "Não claramente visualizado - correlação clínica necessária",
+    "38": "Não claramente visualizado - correlação clínica necessária",
+    "48": "Não claramente visualizado - correlação clínica necessária",
+    "recomendacao": "Confirmar presença/ausência com exame clínico e histórico do paciente"
   },
   "avaliacao_periodontal": {
-    "perda_ossea": "leve/moderada/grave/indeterminado",
-    "comentarios": "descrição"
+    "perda_ossea": "sugestiva de perda leve/moderada/grave OU indeterminado",
+    "comentarios": "Padrão ósseo geral... necessita correlação clínica"
   },
   "avaliacao_ortodontica": {
-    "alinhamento": "bom/regular/ruim",
-    "observacoes": "descrição"
+    "alinhamento": "aparentemente bom/regular/irregular",
+    "observacoes": "observações conservadoras"
   },
   "resumo_para_paciente": [
-    "Frase simples sobre a condição geral",
-    "Próximos passos recomendados"
+    "Exame analisado como apoio ao seu dentista",
+    "Alguns achados requerem confirmação clínica",
+    "Procure seu dentista para avaliação completa"
   ]
-}`;
+}
+
+🎯 REGRA DE OURO:
+👉 Na dúvida, NÃO AFIRME
+👉 O odontograma preenchido pelo dentista é a fonte final de verdade
+👉 Prefira ser conservador a ser preciso demais`;
 
 // ============================================================================
 // CONTORNOS PADRÃO
@@ -278,50 +234,9 @@ async function callGeminiVision(prompt: string, imageBase64: string, imageType: 
 }
 
 // ============================================================================
-// VALIDAÇÃO E CONSENSO
+// VALIDAÇÃO E CORREÇÃO DE COORDENADAS (SEM CONSENSO DE SISOS)
 // ============================================================================
-function applyConsensus(descriptions: any[]): any {
-  console.log("Aplicando consenso de múltiplas análises...");
-  
-  // Para cada siso, verificar se a maioria diz presente ou ausente
-  const wisdomTeeth = ["18", "28", "38", "48"];
-  const consensus: Record<string, boolean> = {};
-  
-  for (const tooth of wisdomTeeth) {
-    let presentCount = 0;
-    let absentCount = 0;
-    
-    for (const desc of descriptions) {
-      const obs = desc[`observacao_siso_${tooth}`] || "";
-      const lower = obs.toLowerCase();
-      
-      // Palavras que indicam PRESENTE
-      if (lower.includes("visível") || lower.includes("estrutura") || 
-          lower.includes("dente") || lower.includes("radiopaco") ||
-          lower.includes("presente") || lower.includes("incluso") ||
-          lower.includes("impactado")) {
-        presentCount++;
-      } 
-      // Palavras que indicam AUSENTE
-      else if (lower.includes("ausente") || lower.includes("não há") ||
-               lower.includes("não vejo") || lower.includes("radiolúcido") ||
-               lower.includes("vazio") || lower.includes("sem estrutura")) {
-        absentCount++;
-      } else {
-        // Na dúvida, conta como presente
-        presentCount++;
-      }
-    }
-    
-    // Regra de consenso: maioria vence, empate = presente
-    consensus[tooth] = presentCount >= absentCount;
-    console.log(`Siso ${tooth}: ${presentCount} presente, ${absentCount} ausente → ${consensus[tooth] ? "PRESENTE" : "AUSENTE"}`);
-  }
-  
-  return consensus;
-}
-
-function validateAndCorrectCoordinates(analysis: any, consensus?: Record<string, boolean>): AnaliseVisualSimplificada {
+function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada {
   console.log("Validando e corrigindo coordenadas...");
   
   // Função para normalizar ponto (converter de 0-100 para 0-1 se necessário)
@@ -376,28 +291,28 @@ function validateAndCorrectCoordinates(analysis: any, consensus?: Record<string,
   }
   
   const achados = analysis.achados_clinicos || {};
-  let dentesPresentes = Array.isArray(achados.dentes_presentes) ? [...achados.dentes_presentes] : [];
-  let dentesAusentes = Array.isArray(achados.dentes_ausentes) ? [...achados.dentes_ausentes] : [];
   
-  // Aplicar consenso se disponível
-  if (consensus) {
-    const wisdomTeeth = ["18", "28", "38", "48"];
-    for (const tooth of wisdomTeeth) {
-      const shouldBePresent = consensus[tooth];
-      const isInPresent = dentesPresentes.some(d => d.toString() === tooth);
-      const isInAbsent = dentesAusentes.some(d => d.toString() === tooth);
-      
-      if (shouldBePresent && !isInPresent) {
-        console.log(`📍 Consenso: Adicionando ${tooth} aos presentes`);
-        dentesPresentes.push(tooth);
-        dentesAusentes = dentesAusentes.filter(d => d.toString() !== tooth);
-      } else if (!shouldBePresent && !isInAbsent) {
-        console.log(`📍 Consenso: Adicionando ${tooth} aos ausentes`);
-        dentesAusentes.push(tooth);
-        dentesPresentes = dentesPresentes.filter(d => d.toString() !== tooth);
-      }
-    }
-  }
+  // Remover sisos das listas de presentes/ausentes (usar seção específica)
+  const wisdomTeeth = ["18", "28", "38", "48"];
+  let dentesPresentes = Array.isArray(achados.dentes_presentes) 
+    ? achados.dentes_presentes.filter((d: string) => !wisdomTeeth.includes(d.toString()))
+    : [];
+  let dentesAusentes = Array.isArray(achados.dentes_ausentes) 
+    ? achados.dentes_ausentes.filter((d: string) => !wisdomTeeth.includes(d.toString()))
+    : [];
+  
+  // Status conservador padrão para terceiros molares
+  const terceirosDefault = {
+    status_geral: "Visualização limitada dos terceiros molares nesta técnica radiográfica",
+    "18": "Não claramente visualizado - correlação clínica necessária",
+    "28": "Não claramente visualizado - correlação clínica necessária",
+    "38": "Não claramente visualizado - correlação clínica necessária",
+    "48": "Não claramente visualizado - correlação clínica necessária",
+    recomendacao: "Confirmar presença/ausência com exame clínico e histórico do paciente"
+  };
+  
+  // Usar terceiros molares do modelo se existir, senão usar padrão conservador
+  const terceiros = analysis.terceiros_molares || terceirosDefault;
   
   const result: AnaliseVisualSimplificada = {
     seio_maxilar: {
@@ -418,6 +333,14 @@ function validateAndCorrectCoordinates(analysis: any, consensus?: Record<string,
       tratamentos_endodonticos: Array.isArray(achados.tratamentos_endodonticos) ? achados.tratamentos_endodonticos : [],
       observacoes: typeof achados.observacoes === 'string' ? achados.observacoes : "",
     },
+    terceiros_molares: {
+      status_geral: terceiros.status_geral || terceirosDefault.status_geral,
+      "18": terceiros["18"] || terceirosDefault["18"],
+      "28": terceiros["28"] || terceirosDefault["28"],
+      "38": terceiros["38"] || terceirosDefault["38"],
+      "48": terceiros["48"] || terceirosDefault["48"],
+      recomendacao: terceiros.recomendacao || terceirosDefault.recomendacao,
+    },
     avaliacao_periodontal: {
       perda_ossea: analysis.avaliacao_periodontal?.perda_ossea || "indeterminado",
       comentarios: analysis.avaliacao_periodontal?.comentarios || "",
@@ -427,19 +350,18 @@ function validateAndCorrectCoordinates(analysis: any, consensus?: Record<string,
       observacoes: analysis.avaliacao_ortodontica?.observacoes || "",
     },
     resumo_para_paciente: Array.isArray(analysis.resumo_para_paciente) ? analysis.resumo_para_paciente : [],
-    raciocinio_sisos: analysis.raciocinio_sisos || undefined,
   };
   
-  console.log("Análise final:");
-  console.log("- Dentes presentes:", result.achados_clinicos.dentes_presentes.length);
-  console.log("- Dentes ausentes:", result.achados_clinicos.dentes_ausentes.length);
-  console.log("- Raciocínio sisos incluído:", !!result.raciocinio_sisos);
+  console.log("Análise final (abordagem conservadora):");
+  console.log("- Dentes presentes (sem sisos):", result.achados_clinicos.dentes_presentes.length);
+  console.log("- Dentes ausentes (sem sisos):", result.achados_clinicos.dentes_ausentes.length);
+  console.log("- Status sisos: conservador");
   
   return result;
 }
 
 // ============================================================================
-// MAIN HANDLER
+// MAIN HANDLER - ABORDAGEM CONSERVADORA (SEM CONSENSO MÚLTIPLO)
 // ============================================================================
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -453,84 +375,34 @@ serve(async (req) => {
       throw new Error("Nenhuma imagem fornecida");
     }
 
-    console.log("🔬 Iniciando análise visual com Two-Step + Consenso...");
+    console.log("🔬 Iniciando análise visual CONSERVADORA...");
     console.log("📷 Tipo da imagem:", imageType);
     console.log("🤖 Modelo: Google Gemini 2.5 Pro via Lovable AI");
+    console.log("📋 Abordagem: Conservadora (sem afirmações categóricas de sisos)");
 
     // ========================================================================
-    // STEP 1: DESCRIÇÃO PURA (2 chamadas para consenso)
+    // ANÁLISE ÚNICA COM PROMPT CONSERVADOR
     // ========================================================================
-    console.log("\n📝 STEP 1: Obtendo descrições visuais (2 análises independentes)...");
+    console.log("\n📝 Obtendo análise visual conservadora...");
     
-    const descriptions: any[] = [];
+    const analysis = await callGeminiVision(CONSERVATIVE_VISUAL_PROMPT, imageBase64, imageType);
+    console.log("✅ Análise obtida");
     
-    // Primeira descrição
-    console.log("  → Descrição 1...");
-    try {
-      const desc1 = await callGeminiVision(DESCRIPTION_PROMPT, imageBase64, imageType);
-      descriptions.push(desc1);
-      console.log("  ✅ Descrição 1 obtida");
-    } catch (e) {
-      console.error("  ❌ Erro na descrição 1:", e);
-    }
-    
-    // Segunda descrição (para consenso)
-    console.log("  → Descrição 2...");
-    try {
-      const desc2 = await callGeminiVision(DESCRIPTION_PROMPT, imageBase64, imageType);
-      descriptions.push(desc2);
-      console.log("  ✅ Descrição 2 obtida");
-    } catch (e) {
-      console.error("  ❌ Erro na descrição 2:", e);
-    }
-
-    if (descriptions.length === 0) {
-      throw new Error("Não foi possível obter descrições da imagem");
-    }
-
-    // ========================================================================
-    // CONSENSO DAS DESCRIÇÕES
-    // ========================================================================
-    console.log("\n🤝 Aplicando consenso das descrições...");
-    const consensus = applyConsensus(descriptions);
-    
-    // Usar a primeira descrição como base
-    const primaryDescription = descriptions[0];
-    
-    // Log das observações dos sisos
-    console.log("\n📋 Observações dos sisos (descrição primária):");
-    ["18", "28", "38", "48"].forEach(siso => {
-      const obs = primaryDescription[`observacao_siso_${siso}`] || "Não descrito";
-      console.log(`  Siso ${siso}: ${obs.substring(0, 100)}...`);
-    });
-
-    // ========================================================================
-    // STEP 2: INTERPRETAÇÃO BASEADA NA DESCRIÇÃO
-    // ========================================================================
-    console.log("\n🧠 STEP 2: Interpretando descrição...");
-    
-    const interpretation = await callGeminiVision(
-      buildInterpretationPrompt(primaryDescription), 
-      imageBase64, 
-      imageType
-    );
-    
-    console.log("✅ Interpretação obtida");
-    
-    // Log do raciocínio dos sisos
-    if (interpretation.raciocinio_sisos) {
-      console.log("\n📝 Raciocínio dos sisos:");
-      Object.entries(interpretation.raciocinio_sisos).forEach(([siso, raciocinio]) => {
-        console.log(`  Siso ${siso}: ${(raciocinio as string).substring(0, 100)}...`);
+    // Log do status dos sisos (deve ser conservador)
+    if (analysis.terceiros_molares) {
+      console.log("\n📝 Status dos terceiros molares:");
+      console.log(`  Status geral: ${analysis.terceiros_molares.status_geral}`);
+      ["18", "28", "38", "48"].forEach(siso => {
+        console.log(`  Siso ${siso}: ${analysis.terceiros_molares[siso] || "não informado"}`);
       });
     }
 
     // ========================================================================
-    // VALIDAÇÃO E APLICAÇÃO DO CONSENSO
+    // VALIDAÇÃO DE COORDENADAS
     // ========================================================================
-    const validatedAnalysis = validateAndCorrectCoordinates(interpretation, consensus);
+    const validatedAnalysis = validateAndCorrectCoordinates(analysis);
 
-    console.log("\n✅ Análise visual Two-Step + Consenso concluída com sucesso!");
+    console.log("\n✅ Análise visual CONSERVADORA concluída!");
 
     return new Response(JSON.stringify(validatedAnalysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -540,7 +412,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Erro desconhecido",
-        details: "Falha na análise visual com Two-Step + Consenso"
+        details: "Falha na análise visual conservadora"
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
