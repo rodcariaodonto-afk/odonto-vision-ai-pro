@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Building2, Zap, Crown, Star, Users, Loader2, CreditCard, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Building2, Zap, Star, Users, Loader2, CreditCard, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,38 +51,19 @@ const plans: Plan[] = [
     stripeId: "price_1ScTKL0eNFT13oWKYevlGEsp",
     name: "Mensal",
     subtitle: "Profissional Autônomo",
-    price: "R$ 97",
+    price: "R$ 350",
     period: "/mês",
     features: [
-      "Até 50 análises por mês",
+      "Até 100 análises por mês",
       "Chat ilimitado com IA",
       "Histórico completo",
       "Relatórios em PDF",
       "Suporte por e-mail",
     ],
-    icon: <Star className="w-6 h-6" />,
-    buttonText: "Assinar Mensal",
-    buttonVariant: "default",
-  },
-  {
-    id: "anual",
-    stripeId: "price_1ScTZ40eNFT13oWK4pBt8hDT",
-    name: "Anual",
-    subtitle: "Profissional Premium",
-    price: "R$ 897",
-    period: "/ano",
-    features: [
-      "Até 300 análises por ano",
-      "Chat ilimitado com IA",
-      "Prioridade na análise",
-      "Recursos avançados",
-      "Histórico completo",
-      "Suporte prioritário",
-    ],
     highlighted: true,
     badge: "Mais escolhido",
-    icon: <Crown className="w-6 h-6" />,
-    buttonText: "Assinar Anual",
+    icon: <Star className="w-6 h-6" />,
+    buttonText: "Assinar Mensal",
     buttonVariant: "hero",
   },
   {
@@ -182,7 +163,7 @@ export default function Plans() {
         </div>
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => (
             <Card
               key={plan.id}
