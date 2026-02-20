@@ -15,8 +15,7 @@ const logStep = (step: string, details?: any) => {
 // Plan configuration with product IDs and analysis limits
 const PLANS = {
   por_caso: { productId: "prod_TZcXMHLEIvxKiy", analysesLimit: 1 },
-  mensal: { productId: "prod_TZcZGldD1idICC", analysesLimit: 50 },
-  anual: { productId: "prod_TZcoHePuTNV00I", analysesLimit: 300 },
+  mensal: { productId: "prod_TZcZGldD1idICC", analysesLimit: 100 },
 };
 
 serve(async (req) => {
@@ -186,21 +185,8 @@ serve(async (req) => {
         const planId = session.metadata.plan_id;
         const purchaseDate = new Date(session.created * 1000);
         
-        if (planId === "anual") {
-          // Annual plan valid for 1 year
-          const expiryDate = new Date(purchaseDate);
-          expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-          
-          if (expiryDate > now) {
-            activePlan = "anual";
-            planEnd = expiryDate.toISOString();
-            analysesRemaining = PLANS.anual.analysesLimit; // Would need to track usage
-            logStep("Active annual plan found", { purchaseDate, expiryDate });
-            break;
-          }
-        } else if (planId === "por_caso") {
+        if (planId === "por_caso") {
           // Por caso - check if recently purchased and not used
-          // For simplicity, mark as active if purchased in last 24h
           const expiryDate = new Date(purchaseDate);
           expiryDate.setHours(expiryDate.getHours() + 24);
           
