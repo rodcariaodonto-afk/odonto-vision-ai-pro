@@ -100,9 +100,20 @@ export default function Plans() {
     email: "",
   });
 
+  const KIWIFY_LINKS: Record<string, string> = {
+    mensal: "https://pay.kiwify.com.br/ZlH4Jb0",
+  };
+
   const handlePlanClick = async (plan: Plan) => {
     if (plan.id === "enterprise") {
       setShowEnterprise(true);
+      return;
+    }
+
+    // Use Kiwify link if available
+    if (KIWIFY_LINKS[plan.id]) {
+      window.open(KIWIFY_LINKS[plan.id], "_blank");
+      toast.success("Abrindo página de pagamento...");
       return;
     }
 
@@ -118,7 +129,6 @@ export default function Plans() {
       }
 
       if (data?.url) {
-        // Open checkout in new tab
         window.open(data.url, "_blank");
         toast.success("Abrindo página de pagamento...");
       } else {
