@@ -21,6 +21,9 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({ newPassword: "", confirmPassword: "" });
   const [userData, setUserData] = useState<ProfileData>({
     name: "",
     email: "",
