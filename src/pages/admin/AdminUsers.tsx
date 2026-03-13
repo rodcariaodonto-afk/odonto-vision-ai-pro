@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, User, Calendar, Mail, ArrowLeft, Eye, FileText, MessageSquare, Ban, Loader2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Search, User, Calendar, Mail, ArrowLeft, Eye, FileText, MessageSquare, Trash2, Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 
 interface UserProfile {
   id: string;
@@ -24,6 +26,17 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+
+  // Create user state
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  // Delete user state
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -54,6 +67,52 @@ export default function AdminUsers() {
       month: "2-digit",
       year: "numeric",
     });
+  };
+
+  const handleCreateUser = async () => {
+    if (!newEmail || !newPassword) {
+      toast.error("Preencha email e senha");
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("manage-user", {
+        body: { action: "create", email: newEmail, password: newPassword, name: newName },
+      });
+      if (res.error || res.data?.error) throw new Error(res.data?.error || "Erro ao criar usuário");
+      toast.success("Usuário criado com sucesso!");
+      setShowCreateDialog(false);
+      setNewName("");
+      setNewEmail("");
+      setNewPassword("");
+      setLoading(true);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao criar usuário");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await supabase.functions.invoke("manage-user", {
+        body: { action: "delete", user_id: userToDelete.user_id, email: userToDelete.email },
+      });
+      if (res.error || res.data?.error) throw new Error(res.data?.error || "Erro ao excluir usuário");
+      toast.success("Usuário excluído com sucesso!");
+      setUserToDelete(null);
+      setSelectedUser(null);
+      setLoading(true);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao excluir usuário");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleSendSupport = async (userId: string) => {
@@ -99,10 +158,14 @@ export default function AdminUsers() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">Gestão de Usuários</h1>
           <p className="text-muted-foreground mt-1">{users.length} usuários cadastrados</p>
         </div>
+        <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Adicionar Usuário
+        </Button>
       </div>
 
       {/* Search */}
@@ -132,7 +195,6 @@ export default function AdminUsers() {
                   <div className="p-3 rounded-full bg-primary/10 text-primary">
                     <User className="w-5 h-5" />
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{u.name || "Sem nome"}</h3>
                     <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
@@ -146,7 +208,6 @@ export default function AdminUsers() {
                       </span>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-2">
                     <Badge variant="default">Ativo</Badge>
                     <Button variant="ghost" size="icon" onClick={() => setSelectedUser(u)}>
@@ -160,6 +221,34 @@ export default function AdminUsers() {
         )}
       </div>
 
+      {/* Create User Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar Usuário</DialogTitle>
+            <DialogDescription>Crie um novo usuário com acesso completo ao sistema.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input id="name" placeholder="Nome do usuário" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input id="email" type="email" placeholder="email@exemplo.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha *</Label>
+              <Input id="password" type="password" placeholder="Mínimo 6 caracteres" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            </div>
+            <Button onClick={handleCreateUser} disabled={creating} className="w-full">
+              {creating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Criar Usuário
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* User Detail Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
         <DialogContent className="max-w-md">
@@ -172,7 +261,6 @@ export default function AdminUsers() {
                 </DialogTitle>
                 <DialogDescription>{selectedUser.email}</DialogDescription>
               </DialogHeader>
-
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -184,33 +272,18 @@ export default function AdminUsers() {
                     <p className="font-medium">{formatDate(selectedUser.created_at)}</p>
                   </div>
                 </div>
-
                 <div className="space-y-2 pt-4">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2"
-                    onClick={() => {
-                      setSelectedUser(null);
-                      navigate(`/admin/cases?user=${selectedUser.user_id}`);
-                    }}
-                  >
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { setSelectedUser(null); navigate(`/admin/cases?user=${selectedUser.user_id}`); }}>
                     <FileText className="w-4 h-4" />
                     Ver casos enviados
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2"
-                    onClick={() => {
-                      setSelectedUser(null);
-                      handleSendSupport(selectedUser.user_id);
-                    }}
-                  >
+                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { setSelectedUser(null); handleSendSupport(selectedUser.user_id); }}>
                     <MessageSquare className="w-4 h-4" />
                     Enviar mensagem de suporte
                   </Button>
-                  <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive">
-                    <Ban className="w-4 h-4" />
-                    Suspender usuário
+                  <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={() => setUserToDelete(selectedUser)}>
+                    <Trash2 className="w-4 h-4" />
+                    Excluir usuário
                   </Button>
                 </div>
               </div>
@@ -218,6 +291,25 @@ export default function AdminUsers() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{userToDelete?.name || userToDelete?.email}</strong>? Esta ação é irreversível e removerá todos os dados do usuário.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
