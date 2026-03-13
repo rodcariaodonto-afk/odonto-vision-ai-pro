@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { User, Mail, BadgeCheck, CreditCard, HelpCircle, LogOut, Edit2, Save, Loader2, Crown, ChevronRight } from "lucide-react";
+import { User, Mail, BadgeCheck, CreditCard, HelpCircle, LogOut, Edit2, Save, Loader2, Crown, ChevronRight, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,9 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({ newPassword: "", confirmPassword: "" });
   const [userData, setUserData] = useState<ProfileData>({
     name: "",
     email: "",
@@ -82,6 +85,30 @@ export default function Profile() {
     await signOut();
     toast.success("Você foi desconectado.");
     navigate("/");
+  };
+
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+    setIsSavingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
+      if (error) throw error;
+      toast.success("Senha alterada com sucesso!");
+      setIsChangingPassword(false);
+      setPasswordData({ newPassword: "", confirmPassword: "" });
+    } catch (error: any) {
+      console.error("Erro ao alterar senha:", error);
+      toast.error(error.message || "Erro ao alterar senha");
+    } finally {
+      setIsSavingPassword(false);
+    }
   };
 
   if (loading) {
@@ -168,7 +195,54 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* Current Plan */}
+      {/* Change Password */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              Alterar Senha
+            </CardTitle>
+            <CardDescription>Atualize sua senha de acesso</CardDescription>
+          </div>
+          {!isChangingPassword && (
+            <Button variant="outline" size="sm" onClick={() => setIsChangingPassword(true)}>
+              Alterar
+            </Button>
+          )}
+        </CardHeader>
+        {isChangingPassword && (
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Nova senha</label>
+              <Input
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Confirmar nova senha</label>
+              <Input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                placeholder="Repita a nova senha"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setIsChangingPassword(false); setPasswordData({ newPassword: "", confirmPassword: "" }); }}>
+                Cancelar
+              </Button>
+              <Button onClick={handleChangePassword} disabled={isSavingPassword}>
+                {isSavingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Senha"}
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
