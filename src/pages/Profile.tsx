@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { User, Mail, BadgeCheck, CreditCard, HelpCircle, LogOut, Edit2, Save, Loader2, Crown, ChevronRight } from "lucide-react";
+import { User, Mail, BadgeCheck, CreditCard, HelpCircle, LogOut, Edit2, Save, Loader2, Crown, ChevronRight, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
