@@ -47,8 +47,8 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id, email: user.email });
 
     // Admin has full access without payment
-    const ADMIN_EMAIL = "rodcaria.odonto@gmail.com";
-    if (user.email === ADMIN_EMAIL) {
+    const ADMIN_EMAILS = ["rodcaria.odonto@gmail.com", "servmaisdigital@gmail.com"];
+    if (ADMIN_EMAILS.includes(user.email)) {
       logStep("Admin user detected - granting full access");
       return new Response(JSON.stringify({
         subscribed: true,
