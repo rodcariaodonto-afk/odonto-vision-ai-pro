@@ -147,13 +147,18 @@ export default function Chat() {
 
       clearImage();
 
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.access_token) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/odonto-chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${currentSession.access_token}`,
           },
           body: JSON.stringify({
             messages: apiMessages,
