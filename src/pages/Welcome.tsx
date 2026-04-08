@@ -95,7 +95,7 @@ export default function Welcome() {
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-6">
                 O copiloto de IA que transforma imagens em{" "}
                 <span className="text-[hsl(var(--landing-teal))]">diagnósticos precisos</span>{" "}
-                — em segundos.
+                em segundos.
               </h1>
 
               <p className="text-lg text-white/80 mb-8 max-w-lg">
