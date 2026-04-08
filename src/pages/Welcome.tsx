@@ -51,7 +51,7 @@ export default function Welcome() {
               className="bg-[hsl(var(--landing-teal))] hover:bg-[hsl(186,85%,24%)] text-white shadow-md"
               onClick={() => navigate("/plans")}
             >
-              Teste Grátis
+              Assinar Agora
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
@@ -70,7 +70,7 @@ export default function Welcome() {
             <button onClick={() => scrollTo("pricing")} className="block w-full text-left py-2 text-gray-700">Planos</button>
             <hr className="border-gray-100" />
             <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileMenu(false); navigate("/login"); }}>Entrar</Button>
-            <Button className="w-full bg-[hsl(var(--landing-teal))] text-white" onClick={() => { setMobileMenu(false); navigate("/plans"); }}>Teste Grátis</Button>
+            <Button className="w-full bg-[hsl(var(--landing-teal))] text-white" onClick={() => { setMobileMenu(false); navigate("/plans"); }}>Assinar Agora</Button>
           </div>
         )}
       </header>
@@ -109,16 +109,8 @@ export default function Welcome() {
                   className="bg-[hsl(var(--landing-teal))] hover:bg-[hsl(186,85%,24%)] text-white shadow-lg hover:shadow-xl"
                   onClick={() => navigate("/plans")}
                 >
-                  Começar Teste Grátis de 7 Dias
+                  Assinar Agora
                   <ArrowRight className="w-5 h-5 ml-1" />
-                </Button>
-                <Button
-                  size="xl"
-                  variant="ghost"
-                  className="text-white border border-white/30 hover:bg-white/10"
-                  onClick={() => scrollTo("how")}
-                >
-                  Ver Demonstração
                 </Button>
               </div>
             </div>
@@ -310,7 +302,7 @@ export default function Welcome() {
             className="bg-[hsl(var(--landing-teal))] hover:bg-[hsl(186,85%,24%)] text-white shadow-lg"
             onClick={() => navigate("/plans")}
           >
-            Começar Teste Grátis
+            Assinar Agora
             <ArrowRight className="w-5 h-5 ml-1" />
           </Button>
         </div>
