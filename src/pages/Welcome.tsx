@@ -334,8 +334,8 @@ export default function Welcome() {
             <div>
               <h4 className="font-semibold text-white mb-3 text-sm uppercase tracking-wider">Legal</h4>
               <ul className="space-y-2 text-sm">
-                <li><span className="cursor-default">Termos de Uso</span></li>
-                <li><span className="cursor-default">Política de Privacidade</span></li>
+                <li><button onClick={() => navigate("/terms")} className="hover:text-white transition-colors">Termos de Uso</button></li>
+                <li><button onClick={() => navigate("/privacy")} className="hover:text-white transition-colors">Política de Privacidade</button></li>
               </ul>
             </div>
           </div>
