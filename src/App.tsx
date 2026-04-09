@@ -149,6 +149,8 @@ function AppRoutes() {
       <Route path="/plans" element={<Plans />} />
       <Route path="/register" element={<Register />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfUse />} />
       
       {/* Protected Routes with Layout */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
