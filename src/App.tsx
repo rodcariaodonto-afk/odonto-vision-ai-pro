@@ -20,6 +20,8 @@ import Cases from "./pages/Cases";
 import Compare from "./pages/Compare";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCases from "./pages/admin/AdminCases";
