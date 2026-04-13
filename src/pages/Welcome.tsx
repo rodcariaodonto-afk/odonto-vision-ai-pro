@@ -54,7 +54,7 @@ export default function Welcome() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <button onClick={() => scrollTo("features")} className="hover:text-[hsl(var(--landing-navy))] transition-colors">Funcionalidades</button>
+            <button onClick={() => scrollTo("features")} className="hover:text-[hsl(var(--landing-navy))] transition-colors">Diferenciais</button>
             <button onClick={() => scrollTo("how")} className="hover:text-[hsl(var(--landing-navy))] transition-colors">Como Funciona</button>
             <button onClick={() => scrollTo("pricing")} className="hover:text-[hsl(var(--landing-navy))] transition-colors">Planos</button>
           </nav>
@@ -81,7 +81,7 @@ export default function Welcome() {
         {/* Mobile menu */}
         {mobileMenu && (
           <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3 animate-fade-in">
-            <button onClick={() => scrollTo("features")} className="block w-full text-left py-2 text-gray-700">Funcionalidades</button>
+            <button onClick={() => scrollTo("features")} className="block w-full text-left py-2 text-gray-700">Diferenciais</button>
             <button onClick={() => scrollTo("how")} className="block w-full text-left py-2 text-gray-700">Como Funciona</button>
             <button onClick={() => scrollTo("pricing")} className="block w-full text-left py-2 text-gray-700">Planos</button>
             <hr className="border-gray-100" />
@@ -335,7 +335,7 @@ export default function Welcome() {
             <div>
               <h4 className="font-semibold text-white mb-3 text-sm uppercase tracking-wider">Produto</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => scrollTo("features")} className="hover:text-white transition-colors">Funcionalidades</button></li>
+                <li><button onClick={() => scrollTo("features")} className="hover:text-white transition-colors">Diferenciais</button></li>
                 <li><button onClick={() => scrollTo("how")} className="hover:text-white transition-colors">Como Funciona</button></li>
                 <li><button onClick={() => scrollTo("pricing")} className="hover:text-white transition-colors">Planos</button></li>
               </ul>
