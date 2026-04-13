@@ -21,9 +21,9 @@ import { useState } from "react";
 
 // 🔗 Cole aqui os links de checkout do Mercado Pago quando estiverem prontos
 const CHECKOUT_LINKS = {
-  starter: { monthly: "", annual: "" },
-  pro:     { monthly: "", annual: "" },
-  clinica: { monthly: "", annual: "" },
+  starter: { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8" },
+  pro:     { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb" },
+  clinica: { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147" },
 };
 
 export default function Welcome() {
