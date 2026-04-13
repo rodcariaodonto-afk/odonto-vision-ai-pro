@@ -19,6 +19,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+// 🔗 Cole aqui os links de checkout do Mercado Pago quando estiverem prontos
+const CHECKOUT_LINKS = {
+  starter: { monthly: "", annual: "" },
+  pro:     { monthly: "", annual: "" },
+  clinica: { monthly: "", annual: "" },
+};
+
 export default function Welcome() {
   const navigate = useNavigate();
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -27,6 +34,15 @@ export default function Welcome() {
   const scrollTo = (id: string) => {
     setMobileMenu(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleCheckout = (plan: keyof typeof CHECKOUT_LINKS) => {
+    const link = CHECKOUT_LINKS[plan][billingCycle];
+    if (link) {
+      window.open(link, "_blank");
+    } else {
+      scrollTo("pricing");
+    }
   };
 
   return (
@@ -49,7 +65,7 @@ export default function Welcome() {
             </Button>
             <Button
               className="bg-[hsl(var(--landing-teal))] hover:bg-[hsl(186,85%,24%)] text-white shadow-md"
-              onClick={() => navigate("/plans")}
+              onClick={() => scrollTo("pricing")}
             >
               Assinar Agora
               <ArrowRight className="w-4 h-4 ml-1" />
@@ -70,7 +86,7 @@ export default function Welcome() {
             <button onClick={() => scrollTo("pricing")} className="block w-full text-left py-2 text-gray-700">Planos</button>
             <hr className="border-gray-100" />
             <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileMenu(false); navigate("/login"); }}>Entrar</Button>
-            <Button className="w-full bg-[hsl(var(--landing-teal))] text-white" onClick={() => { setMobileMenu(false); navigate("/plans"); }}>Assinar Agora</Button>
+            <Button className="w-full bg-[hsl(var(--landing-teal))] text-white" onClick={() => { setMobileMenu(false); scrollTo("pricing"); }}>Assinar Agora</Button>
           </div>
         )}
       </header>
@@ -107,7 +123,7 @@ export default function Welcome() {
                 <Button
                   size="xl"
                   className="bg-[hsl(var(--landing-teal))] hover:bg-[hsl(186,85%,24%)] text-white shadow-lg hover:shadow-xl"
-                  onClick={() => navigate("/plans")}
+                  onClick={() => scrollTo("pricing")}
                 >
                   Assinar Agora
                   <ArrowRight className="w-5 h-5 ml-1" />
@@ -262,7 +278,7 @@ export default function Welcome() {
               period="/mês"
               description="Para dentistas iniciando com IA"
               features={["Até 30 exames/mês", "Raio-X panorâmico", "1 usuário", "Laudo PDF", "Suporte por email"]}
-              onAction={() => navigate("/plans")}
+              onAction={() => handleCheckout("starter")}
             />
             <PricingCard
               name="PRO"
@@ -271,7 +287,7 @@ export default function Welcome() {
               description="O mais popular para clínicas"
               features={["Até 100 exames/mês", "Rx + Tomografia", "1 usuário", "Laudo Médico-Legal", "Suporte prioritário", "Chat IA ilimitado"]}
               highlighted
-              onAction={() => navigate("/plans")}
+              onAction={() => handleCheckout("pro")}
             />
             <PricingCard
               name="Clínica"
@@ -279,7 +295,7 @@ export default function Welcome() {
               period="/mês"
               description="Para clínicas com múltiplos dentistas"
               features={["Exames ilimitados", "Rx + TC + Clínico", "Até 10 dentistas", "Laudo com logo da clínica", "Gerente de conta dedicado", "Treinamento personalizado"]}
-              onAction={() => navigate("/plans")}
+              onAction={() => handleCheckout("clinica")}
             />
           </div>
         </div>
@@ -300,7 +316,7 @@ export default function Welcome() {
           <Button
             size="xl"
             className="bg-[hsl(var(--landing-teal))] hover:bg-[hsl(186,85%,24%)] text-white shadow-lg"
-            onClick={() => navigate("/plans")}
+            onClick={() => scrollTo("pricing")}
           >
             Assinar Agora
             <ArrowRight className="w-5 h-5 ml-1" />
