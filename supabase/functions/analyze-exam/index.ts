@@ -233,16 +233,86 @@ Avaliar sistematicamente TODAS as regiões anatômicas em sequência:
   12. Espaços das vias aéreas: largura da via aérea faríngea
 
 ### 3. TOMOGRAFIA COMPUTADORIZADA DE FEIXE CÔNICO (CBCT)
-- Avaliar em reconstrução multiplanar (axial, coronal, sagital e 3D quando disponível).
-- Áreas de foco clínico:
-  - Planejamento de implantes: volume ósseo (altura/largura), densidade qualitativa, proximidade a estruturas vitais
-  - Endodontia: morfologia dos canais radiculares (classificação de Vertucci), calcificações, anatomia interna, canais não tratados
-  - Patologia: tamanho, extensão, expansão cortical, efeito nas estruturas adjacentes, multilocularidade, deslocamento de dentes/nervos
-  - Periodontia: mapeamento 3D de defeitos ósseos (intraósseo, furcação, fenestração, deiscência)
-  - Ortodontia: caninos impactados — localização (vestibular/palatino), reabsorção radicular de dentes adjacentes
-  - ATM: morfologia condilar, superfície articular, alterações subcondrais, avaliação do espaço articular
-  - Trauma: padrão de fratura, deslocamento, contagem de fragmentos, envolvimento sinusal
-- Sempre sinalizar: proximidade de raízes/implantes ao canal alveolar inferior (medido em mm).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ LIMITAÇÃO FUNDAMENTAL DA IMAGEM 2D DE CBCT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Quando receber uma captura de tela ou imagem exportada de software de CBCT (ex: iCat, Galileos, Planmeca, ProMax, Carestream), IDENTIFICAR OBRIGATORIAMENTE qual corte está sendo exibido:
+• CORTE AXIAL (horizontal/transversal): visão de cima para baixo — avalia largura vestibulolingual, posição de canais
+• CORTE CORONAL (frontal): visão frente-atrás — avalia altura óssea, relação com assoalho sinusal
+• CORTE SAGITAL (lateral): visão lado a lado — avalia comprimento anteroposterior, inclinação
+• RECONSTRUÇÃO PANORÂMICA (curvilínea): similar a panorâmica convencional
+• RECONSTRUÇÃO 3D: visão volumétrica — apenas para orientação espacial, não para medições
+• CORTE TRANSVERSAL (cross-section): perpendicular ao arco — ideal para planejamento de implantes
+
+REGRA: Declarar explicitamente qual corte está sendo analisado antes de qualquer conclusão. Medições só são válidas quando o corte é adequado para aquela dimensão.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO DE AVALIAÇÃO POR ÁREA CLÍNICA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PLANEJAMENTO DE IMPLANTES (corte transversal obrigatório):
+• Altura óssea disponível (mm): da crista alveolar até estrutura anatômica limitante (seio maxilar, canal alveolar inferior, forame)
+• Largura óssea vestibulolingual (mm): crista + nível do implante planejado (1/3 médio, apical)
+• Densidade óssea qualitativa: tipo I (cortical densa) / II (cortical espessa + trabeculado denso) / III (cortical fina + trabeculado) / IV (cortical fina + trabeculado esparso)
+• Distância de segurança ao canal alveolar inferior: mínimo 2mm de segurança
+• Distância ao assoalho sinusal: mínimo 1mm para implante padrão, ou necessidade de enxerto
+• Distância a raízes adjacentes: mínimo 1,5mm de segurança
+• Presença de defeitos ósseos: deiscências, fenestrações, reabsorções
+• Indicar: implante pode ser instalado / necessita enxerto ósseo / necessita levantamento de seio / risco cirúrgico elevado
+
+ENDODONTIA (corte axial + sagital):
+• Número de canais radiculares: classificar por Vertucci (Tipos I-VIII)
+  - Tipo I: 1 canal único | Tipo II: 2 canais → 1 | Tipo III: 1 → 2 → 1
+  - Tipo IV: 2 canais separados | Tipo V: 1 → 2 | Tipo VI: 2 → 1 → 2
+  - Tipo VII: 1 → 2 → 1 → 2 | Tipo VIII: 3 canais separados
+• Calcificações pulpares: localização, extensão, impacto no tratamento
+• Anatomia de bifurcação/trifurcação
+• Curvatura radicular: grau leve (<10°) / moderado (10-30°) / severo (>30°) — Schneider
+• Canais não tratados em retratamentos
+• Lesão periapical: tamanho em mm, expansão cortical, envolvimento de estruturas
+
+ATM — ANÁLISE BILATERAL OBRIGATÓRIA (corte sagital + coronal + axial):
+• Morfologia condilar: normal / achatado / erosão / osteófito / fragmentação
+• Superfície articular: regular / irregular / esclerótica
+• Espaço articular: simétrico / assimétrico / estreitado / ampliado
+• Posição do côndilo: centralizado / anteriorizado / posteriorizado / lateralizado
+• Alterações subcondrais: cistos subcondrais, esclerose, erosão
+• Sempre comparar bilateralmente — assimetria é achado relevante
+
+PATOLOGIA ÓSSEA (todos os cortes):
+• Dimensões tridimensionais: altura × largura × profundidade em mm
+• Localização precisa: relação com raízes, canal, seio, córtex
+• Expansão cortical: presente / ausente / perfuração
+• Efeito em estruturas adjacentes: deslocamento de raízes, compressão de nervo
+• Padrão interno: radiolúcido / radiopaco / misto / multilocular / unilocular
+• Borda: bem definida / mal definida / esclerótica / em bisel
+• Diagnóstico diferencial tridimensional — lesões que parecem iguais em 2D podem ter apresentações distintas em 3D
+
+PERIODONTIA (cortes transversais por dente):
+• Nível ósseo vestibular e lingual/palatino separadamente (muitas vezes diferem)
+• Defeitos intraósseos: classificar (1, 2 ou 3 paredes)
+• Envolvimento de furca: classe I / II / III — avaliar em corte axial
+• Fenestrações e deiscências: localização e extensão
+• Espessura da tábua óssea vestibular: fina (<1mm) / adequada (1-2mm) / espessa (>2mm)
+
+TRAUMA / FRATURAS:
+• Trajetória da fratura em 3D (axial + coronal + sagital)
+• Deslocamento de fragmentos: direção e magnitude em mm
+• Envolvimento do canal alveolar inferior
+• Envolvimento sinusal: comunicação oroantral
+• Dentes inclusos em linha de fratura
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ARTEFATOS DE CBCT — NÃO CONFUNDIR COM PATOLOGIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Artefato metálico (streak artifact): raios de hiperdensidade irradiando de restaurações metálicas, implantes, pivôs — NÃO são fraturas ou lesões
+• Artefato de movimento: imagem borrada/dupla — declarar limitação diagnóstica
+• Artefato de endurecimento de feixe: escurecimento próximo a estruturas densas
+• Artefato de campo de visão (FOV): estruturas fora do FOV → dados incompletos
+• Ruído (baixa resolução): voxel grande → não confundir granulação com lesão óssea
+
+Sempre declarar se artefatos presentes comprometem a avaliação de regiões específicas.
 
 ### 4. FOTOGRAFIAS INTRAORAIS E IMAGENS CLÍNICAS
 - Avaliar: anomalias de cor/textura de tecidos moles, contorno gengival, lesões mucosas (descrever tamanho, bordas, base, superfície), alterações de cor dental, linhas de fratura visíveis clinicamente, facetas de desgaste, restaurações.

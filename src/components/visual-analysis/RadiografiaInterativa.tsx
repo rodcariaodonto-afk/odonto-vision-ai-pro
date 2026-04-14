@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { TipoMarcacao, MarcacaoManual, TipoEstrutura, EstruturaManual, tipoMarcacaoConfig, estruturaConfig } from "./OdontogramaInterativo";
+import { ProstheticItem, ProstheticsOverlay } from "./DentalProsthetics";
 import { toast } from "sonner";
 
 // Interface para traço de desenho livre
@@ -27,6 +28,11 @@ interface RadiografiaInterativaProps {
   estruturasManuais?: EstruturaManual[];
   onAddEstruturaManual?: (estrutura: EstruturaManual) => void;
   onResetEstrutura?: (tipo: TipoEstrutura, lado: "direito" | "esquerdo") => void;
+  // Próteses (implantes e coroas)
+  prostheticItems?: ProstheticItem[];
+  onMoveProsthetic?: (id: string, x: number, y: number) => void;
+  selectedProstheticId?: string | null;
+  onSelectProsthetic?: (id: string) => void;
 }
 
 // Tamanhos específicos para cada tipo de marcação (muito menores)
@@ -109,6 +115,10 @@ export function RadiografiaInterativa({
   estruturasManuais = [],
   onAddEstruturaManual,
   onResetEstrutura,
+  prostheticItems = [],
+  onMoveProsthetic,
+  selectedProstheticId,
+  onSelectProsthetic,
 }: RadiografiaInterativaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -355,6 +365,17 @@ export function RadiografiaInterativa({
             className="block w-full h-auto"
             draggable={false}
           />
+
+          {/* Próteses overlay (implantes e coroas) */}
+          {prostheticItems.length > 0 && onMoveProsthetic && onSelectProsthetic && (
+            <ProstheticsOverlay
+              items={prostheticItems}
+              selectedId={selectedProstheticId ?? null}
+              onSelect={onSelectProsthetic}
+              onMove={onMoveProsthetic}
+              containerRef={containerRef}
+            />
+          )}
           
           {/* SVG Overlay */}
           <svg

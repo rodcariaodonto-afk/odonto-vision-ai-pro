@@ -6,8 +6,9 @@ import { RadiografiaInterativa } from "./RadiografiaInterativa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2 } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
+import { DentalProstheticsPanel, ProstheticItem } from "./DentalProsthetics";
 
 // Ordem FDI padrão para garantir listagem correta de dentes
 const FDI_ORDER = [
@@ -142,6 +143,9 @@ export function VisualAnalysis({
   const [showOdontograma, setShowOdontograma] = useState(false);
   const [showDrawingMode, setShowDrawingMode] = useState(false);
   const [showMarcacoes, setShowMarcacoes] = useState(true);
+  const [showProsthetics, setShowProsthetics] = useState(false);
+  const [prostheticItems, setProstheticItems] = useState<ProstheticItem[]>([]);
+  const [selectedProstheticId, setSelectedProstheticId] = useState<string | null>(null);
   const [modoAtivo, setModoAtivo] = useState<{ dente: string | null; tipo: TipoMarcacao | null }>({ dente: null, tipo: null });
   const [estruturaAtiva, setEstruturaAtiva] = useState<{ tipo: TipoEstrutura | null; lado: "direito" | "esquerdo" | null }>({ tipo: null, lado: null });
   const [estruturasManuais, setEstruturasManuais] = useState<EstruturaManual[]>([]);
@@ -614,6 +618,21 @@ export function VisualAnalysis({
               <span className="hidden xs:inline">Desenho</span>
             </Button>
           )}
+
+          {editable && (
+            <Button
+              variant={showProsthetics ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowProsthetics(!showProsthetics)}
+              className="min-h-[44px]"
+            >
+              <Stethoscope className="w-4 h-4 mr-1" />
+              <span className="hidden xs:inline">Implantes & Coroas</span>
+              {prostheticItems.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">{prostheticItems.length}</Badge>
+              )}
+            </Button>
+          )}
         </div>
         
         <div className="flex gap-2">
@@ -650,11 +669,30 @@ export function VisualAnalysis({
         estruturasManuais={estruturasManuais}
         onAddEstruturaManual={handleAddEstruturaManual}
         onResetEstrutura={handleResetEstrutura}
+        prostheticItems={prostheticItems}
+        onMoveProsthetic={(id, x, y) =>
+          setProstheticItems(prev => prev.map(i => i.id === id ? { ...i, x, y } : i))
+        }
+        selectedProstheticId={selectedProstheticId}
+        onSelectProsthetic={setSelectedProstheticId}
       />
       
       {/* Modo de desenho */}
       {showDrawingMode && editable && (
         <DrawingCanvas imageUrl={imageUrl} />
+      )}
+
+      {/* Painel de implantes e coroas */}
+      {showProsthetics && editable && (
+        <DentalProstheticsPanel
+          items={prostheticItems}
+          onItemsChange={(items) => {
+            setProstheticItems(items);
+            if (items.length > 0) {
+              setSelectedProstheticId(items[items.length - 1].id);
+            }
+          }}
+        />
       )}
 
       {/* Legenda das estruturas */}
