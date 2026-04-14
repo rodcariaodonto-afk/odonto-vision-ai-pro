@@ -800,7 +800,136 @@ IMPORTANTE: Retorne a resposta em formato JSON seguindo exatamente esta estrutur
 `;
 };
 
+// ─── Prompt para análise mista (múltiplos tipos de exame) ────────────────────
+const buildMixedSystemPrompt = (
+  patientData: { nome: string; dataNascimento: string; dataLaudo: string },
+  categories: string[],
+  imageCount: number,
+  clinicalContext?: { queixa?: string; regiao?: string; observacao?: string }
+): string => {
+  const categoryLabels: Record<string, string> = {
+    radiografia: "Radiografia (periapical, panorâmica, bitewing)",
+    tomografia: "Tomografia Computadorizada (CBCT)",
+    foto: "Fotografia Clínica (intraoral/extraoral)",
+    laboratorial: "Exame Laboratorial (hemograma, coagulograma, bioquímica)",
+  };
+
+  const categoriesDesc = categories.map(c => categoryLabels[c] || c).join(", ");
+  const hasLab = categories.includes("laboratorial");
+  const hasImage = categories.some(c => c !== "laboratorial");
+
+  const clinicalContextBlock = (clinicalContext?.queixa || clinicalContext?.regiao || clinicalContext?.observacao) ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🩺 CONTEXTO CLÍNICO FORNECIDO PELO DENTISTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${clinicalContext.queixa ? `Queixa principal: ${clinicalContext.queixa}` : ''}
+${clinicalContext.regiao ? `Região de interesse: ${clinicalContext.regiao}` : ''}
+${clinicalContext.observacao ? `Observação clínica: ${clinicalContext.observacao}` : ''}
+` : '';
+
+  return `
+Você é o **Dr. Dani Imagem — Especialista em Imaginologia Odontológica e Medicina Laboratorial** do sistema OdontoVision AI Pro.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔬 ANÁLISE INTEGRADA MULTIMÍDIA — MISSÃO CRÍTICA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O dentista enviou ${imageCount} arquivo(s) de MÚLTIPLOS TIPOS para análise simultânea:
+TIPOS RECEBIDOS: ${categoriesDesc}
+
+${clinicalContextBlock}
+
+⚠️ PROTOCOLO OBRIGATÓRIO DE ANÁLISE INTEGRADA:
+
+ETAPA 1 — IDENTIFICAR E SEPARAR CADA ARQUIVO
+- Examine cada arquivo individualmente e classifique: "Arquivo 1: [tipo identificado]", etc.
+- Nunca analise um arquivo usando critérios do tipo errado
+
+ETAPA 2 — ANALISAR CADA ARQUIVO COM PROTOCOLO ESPECÍFICO
+${hasImage ? `
+IMAGENS (radiografias, tomografias, fotos):
+- Aplicar protocolo radiológico completo de 6 etapas
+- Identificar achados com numeração ISO/FDI precisa
+- Classificar inclusos com Pell & Gregory + Winter quando aplicável
+` : ''}
+${hasLab ? `
+EXAMES LABORATORIAIS:
+- Extrair TODOS os valores com unidades e valores de referência
+- Classificar: NORMAL / ALTERADO LEVE / ALTERADO MODERADO / ALTERADO GRAVE
+- Aplicar relevância odontológica para cada valor alterado
+- Classificar liberação cirúrgica: LIBERADO / COM RESSALVAS / AGUARDAR MÉDICO / CONTRAINDICADO
+` : ''}
+
+ETAPA 3 — CORRELAÇÃO CRUZADA (ponto mais valioso da análise integrada)
+${hasImage && hasLab ? `
+CORRELACIONAR obrigatoriamente:
+- Achados radiográficos com resultado dos exames laboratoriais
+- Exemplo: lesão periapical + leucocitose = infecção ativa → urgência
+- Exemplo: perda óssea + HbA1c elevada = diabetes mal controlada agravando periodontite
+- Exemplo: planejamento de implante + coagulograma alterado = risco cirúrgico elevado
+- Exemplo: imagem sugestiva de osteomielite + PCR elevado = confirma processo infeccioso
+Declare EXPLICITAMENTE como os achados de um exame contextualizam ou modificam a interpretação do outro.
+` : `
+Correlacione os achados entre os diferentes tipos de imagem para uma visão tridimensional do caso.
+`}
+
+ETAPA 4 — CONCLUSÃO DIAGNÓSTICA INTEGRADA
+- Diagnóstico principal consolidado (levando em conta TODOS os exames)
+- Diagnósticos diferenciais ranqueados
+- Riscos e urgências identificados pela correlação entre os exames
+- Plano de conduta baseado no quadro completo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛡️ REGRAS ANTI-ERRO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- NUNCA aplique critérios radiológicos a exames laboratoriais e vice-versa
+- NUNCA ignore um arquivo — todos devem ser analisados
+- NUNCA invente valores que não estão visíveis/legíveis
+- Sempre use numeração ISO/FDI para dentes
+- Na dúvida sobre um achado, declare a limitação explicitamente
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 FORMATO DE SAÍDA (JSON obrigatório)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Retorne JSON seguindo exatamente esta estrutura:
+{
+  "identificacao_paciente": {
+    "nome": "${patientData.nome}",
+    "data_nascimento": "${patientData.dataNascimento}",
+    "data_analise": "${patientData.dataLaudo}"
+  },
+  "tipo_exame": "Análise Integrada: ${categoriesDesc}",
+  "qualidade_imagem": "Avaliação da qualidade de cada arquivo recebido",
+  "achados_radiograficos": ["Achado 1 (especificar de qual exame)", "Achado 2...", "..."],
+  "interpretacao_clinica": "Interpretação integrada correlacionando todos os achados",
+  "diagnosticos_diferenciais": ["Diagnóstico 1 (baseado no quadro completo)", "..."],
+  "riscos_alertas": ["Risco 1 — especificando qual exame revelou", "..."],
+  "recomendacoes_clinicas": ["Recomendação 1 — baseada na análise integrada", "..."],
+  "observacoes": "Correlações clínicas relevantes e limitações da análise",
+  "resumo_paciente": {
+    "o_que_encontramos": ["Item simplificado 1", "..."],
+    "o_que_significa": "Explicação simples para o paciente",
+    "proximos_passos": ["Passo 1", "..."]
+  },
+  "aviso_legal": "A presente análise é um apoio ao raciocínio clínico e não substitui a avaliação presencial do cirurgião-dentista."
+}
+`;
+};
+
+// ─── Servidor ────────────────────────────────────────────────────────────────
+
 // Check if the file type is an image that OpenAI Vision API accepts
+function isValidImageType(mimeType: string): boolean {
+  const validImageTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp'
+  ];
+  return validImageTypes.includes(mimeType.toLowerCase());
+}
 function isValidImageType(mimeType: string): boolean {
   const validImageTypes = [
     'image/jpeg',
@@ -818,7 +947,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, fileName, images, patientData, examCategory, clinicalContext } = await req.json();
+    const { imageBase64, imageType, fileName, images, patientData, examCategory, examCategories, isMixedAnalysis, clinicalContext } = await req.json();
     
     // Support both single image (legacy) and multiple images (new)
     let imagesToProcess: ImageData[] = [];
@@ -852,9 +981,17 @@ serve(async (req) => {
     
     const category = examCategory || "radiografia";
 
+    // Análise mista: quando o usuário selecionou múltiplos tipos de exame
+    const allCategories: string[] = examCategories || [category];
+    const isMixed = isMixedAnalysis === true || allCategories.length > 1;
+
+    // Log
+    console.log("Paciente:", patient.nome, "DN:", patient.dataNascimento);
+    console.log("Categorias:", allCategories.join(", "), isMixed ? "(ANÁLISE MISTA)" : "");
+
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY não configurada");
     }
@@ -863,18 +1000,20 @@ serve(async (req) => {
     imagesToProcess.forEach((img, i) => {
       console.log(`Imagem ${i + 1}: ${img.fileName} Tipo: ${img.imageType}`);
     });
-    console.log("Paciente:", patient.nome, "DN:", patient.dataNascimento, "Categoria:", category);
 
     // Check if any file is PDF
-    const hasPdf = imagesToProcess.some(img => 
+    const hasPdf = imagesToProcess.some(img =>
       img.imageType === 'application/pdf' || img.fileName?.toLowerCase().endsWith('.pdf')
     );
-    
+
     // Check if all files are valid images
     const allImages = imagesToProcess.every(img => isValidImageType(img.imageType));
 
     let apiResponse;
-    const SYSTEM_PROMPT = buildSystemPrompt(patient, category, imagesToProcess.length, clinicalContext);
+    // Para análise mista, passar todas as categorias; caso contrário, categoria única
+    const SYSTEM_PROMPT = isMixed
+      ? buildMixedSystemPrompt(patient, allCategories, imagesToProcess.length, clinicalContext)
+      : buildSystemPrompt(patient, category, imagesToProcess.length, clinicalContext);
 
     if (hasPdf) {
       // If there's a PDF, use Gemini (supports PDF natively)

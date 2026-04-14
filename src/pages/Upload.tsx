@@ -134,69 +134,86 @@ const saveDraft = (data: PatientData): void => {
 const clearDraft = (): void => {
   try {
     localStorage.removeItem(STORAGE_KEY);
-    sessionStorage.removeItem(RESULT_STORAGE_KEY);
+    localStorage.removeItem(RESULT_STORAGE_KEY); // agora usa localStorage
   } catch (e) {
     console.error("Erro ao limpar rascunho:", e);
   }
 };
 
-// Save analysis result to sessionStorage
+// Save analysis result to localStorage
 const saveAnalysisResult = (
-  result: AnalysisResult, 
-  rawContent: string | null, 
-  patientData: PatientData, 
-  examCategory: ExamCategory,
+  result: AnalysisResult,
+  rawContent: string | null,
+  patientData: PatientData,
+  examCategories: ExamCategory[],
   visualAnalysis?: VisualAnalysisResult | null,
   previewUrls?: string[]
 ): void => {
   try {
-    sessionStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({ 
-      result, 
-      rawContent, 
-      patientData, 
-      examCategory,
+    // previewUrls podem ser grandes (base64) — truncar para evitar quota
+    const safeUrls = (previewUrls || []).map(u =>
+      u && u.length > 200_000 ? u.substring(0, 200_000) : u
+    );
+    localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({
+      result,
+      rawContent,
+      patientData,
+      examCategories,
       visualAnalysis: visualAnalysis || null,
-      previewUrls: previewUrls || []
+      previewUrls: safeUrls,
+      savedAt: Date.now(),
     }));
   } catch (e) {
-    console.error("Erro ao salvar resultado:", e);
+    // Se quota exceder, salvar sem previewUrls
+    try {
+      localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify({
+        result, rawContent, patientData, examCategories,
+        visualAnalysis: visualAnalysis || null,
+        previewUrls: [],
+        savedAt: Date.now(),
+      }));
+    } catch {
+      console.error("Erro ao salvar resultado:", e);
+    }
   }
 };
 
-// Load analysis result from sessionStorage
-const loadAnalysisResult = (): { 
-  result: AnalysisResult; 
-  rawContent: string | null; 
-  patientData: PatientData; 
-  examCategory: ExamCategory | null;
+// Load analysis result from localStorage
+const loadAnalysisResult = (): {
+  result: AnalysisResult;
+  rawContent: string | null;
+  patientData: PatientData;
+  examCategories: ExamCategory[];
   visualAnalysis: VisualAnalysisResult | null;
   previewUrls: string[];
 } | null => {
-  // Safety check for SSR
   if (typeof window === 'undefined') return null;
-  
   try {
-    const saved = sessionStorage.getItem(RESULT_STORAGE_KEY);
+    const saved = localStorage.getItem(RESULT_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Validate parsed data has required fields
       if (parsed && typeof parsed === 'object' && parsed.result) {
+        const age = Date.now() - (parsed.savedAt || 0);
+        if (age > 24 * 60 * 60 * 1000) {
+          localStorage.removeItem(RESULT_STORAGE_KEY);
+          return null;
+        }
+        // Compatibilidade retroativa: examCategory (string) → examCategories (array)
+        const cats: ExamCategory[] = parsed.examCategories ||
+          (parsed.examCategory ? [parsed.examCategory] : []);
         return {
           result: parsed.result,
           rawContent: parsed.rawContent || null,
           patientData: parsed.patientData || { nome: "", dataNascimento: "", dataLaudo: "" },
-          examCategory: parsed.examCategory || null,
+          examCategories: cats,
           visualAnalysis: parsed.visualAnalysis || null,
-          previewUrls: parsed.previewUrls || []
+          previewUrls: parsed.previewUrls || [],
         };
       }
     }
   } catch (e) {
     console.error("Erro ao carregar resultado:", e);
-    // Clear corrupted data
-    try {
-      sessionStorage.removeItem(RESULT_STORAGE_KEY);
-    } catch {}
+    try { localStorage.removeItem(RESULT_STORAGE_KEY); } catch {}
   }
   return null;
 };
@@ -219,7 +236,7 @@ export default function Upload() {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [rawContent, setRawContent] = useState<string | null>(null);
-  const [examCategory, setExamCategory] = useState<ExamCategory | null>(null);
+  const [examCategories, setExamCategories] = useState<ExamCategory[]>([]);
   
   // Patient data state - use defaults initially
   const [patientData, setPatientData] = useState<PatientData>({
@@ -246,8 +263,8 @@ export default function Upload() {
     
     if (savedResult) {
       // Load exam category
-      if (savedResult.examCategory) {
-        setExamCategory(savedResult.examCategory);
+      if (savedResult.examCategories?.length) {
+        setExamCategories(savedResult.examCategories);
       }
       
       // Load patient data
@@ -290,12 +307,12 @@ export default function Upload() {
 
   // Auto-save visual analysis and preview URLs when they change
   useEffect(() => {
-    if (result && examCategory) {
+    if (result && examCategories.length > 0) {
       saveAnalysisResult(
-        result, 
-        rawContent, 
-        patientData, 
-        examCategory,
+        result,
+        rawContent,
+        patientData,
+        examCategories,
         visualAnalysisResult,
         previewUrls
       );
@@ -409,8 +426,8 @@ export default function Upload() {
 
   const handleAnalyze = async () => {
     if (selectedFiles.length === 0) return;
-    if (!examCategory) {
-      toast.error("Por favor, selecione o tipo de exame.");
+    if (examCategories.length === 0) {
+      toast.error("Por favor, selecione pelo menos um tipo de exame.");
       return;
     }
     if (!validatePatientData()) return;
@@ -435,16 +452,23 @@ export default function Upload() {
         })
       );
 
-      // Format patient name with proper capitalization
       const formattedName = capitalizeFullName(patientData.nome);
-      
-      toast.info(`Analisando ${imagesData.length} arquivo(s)... Isso pode levar alguns segundos.`);
-      
-      // Call the edge function with all images
+
+      // Categoria primária = primeira selecionada; lista completa para o prompt
+      const primaryCategory = examCategories[0];
+      const isMixed = examCategories.length > 1;
+      const categoriesLabel = examCategories
+        .map(c => EXAM_CATEGORIES.find(x => x.id === c)?.label || c)
+        .join(" + ");
+
+      toast.info(`Analisando ${imagesData.length} arquivo(s) [${categoriesLabel}]... Aguarde.`);
+
       const { data, error } = await supabase.functions.invoke("analyze-exam", {
         body: {
           images: imagesData,
-          examCategory,
+          examCategory: primaryCategory,
+          examCategories,           // array completo para o prompt
+          isMixedAnalysis: isMixed, // flag de análise mista
           patientData: {
             nome: formattedName,
             dataNascimento: patientData.dataNascimento,
@@ -458,22 +482,16 @@ export default function Upload() {
         },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
 
       setResult(data.analysis);
       setRawContent(data.rawContent);
-      // Save result to prevent loss on refresh
       saveAnalysisResult(data.analysis, data.rawContent, {
         nome: formattedName,
         dataNascimento: patientData.dataNascimento,
         dataLaudo: patientData.dataLaudo,
-      }, examCategory!, null, previewUrls);
+      }, examCategories, null, previewUrls);
       toast.success("Análise concluída com sucesso!");
     } catch (error) {
       console.error("Erro na análise:", error);
@@ -596,22 +614,24 @@ export default function Upload() {
     checkPageBreak(25);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    const qualityLabel = examCategory === "laboratorial" ? "3) Qualidade do Documento" : "3) Qualidade da Imagem";
+    const qualityLabel = examCategories.includes("laboratorial") ? "3) Qualidade do Documento" : "3) Qualidade da Imagem";
     doc.text(qualityLabel, margin, yPosition);
     yPosition += 7;
     doc.setFont("helvetica", "normal");
     yPosition = addWrappedText(result.qualidade_imagem || "Não avaliada", yPosition);
 
-    // 4) Achados - título varia conforme tipo de exame
+    // 4) Achados - título varia conforme tipos de exame
     if (result.achados_radiograficos?.length > 0) {
       checkPageBreak(30);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      const achadosLabel = examCategory === "laboratorial" 
-        ? "4) Resultados dos Exames" 
-        : examCategory === "foto" 
-          ? "4) Achados Clínicos" 
-          : "4) Achados Radiográficos";
+      const achadosLabel = examCategories.includes("laboratorial") && examCategories.length === 1
+        ? "4) Resultados dos Exames"
+        : examCategories.includes("foto") && examCategories.length === 1
+          ? "4) Achados Clínicos"
+          : examCategories.length > 1
+            ? "4) Achados Integrados"
+            : "4) Achados Radiográficos";
       doc.text(achadosLabel, margin, yPosition);
       yPosition += 7;
       doc.setFont("helvetica", "normal");
@@ -762,7 +782,7 @@ export default function Upload() {
       setResult(null);
       setRawContent(null);
       setReportGenerated(false);
-      setExamCategory(null);
+      setExamCategories([]);
       clearDraft();
       setPatientData({
         nome: "",
@@ -778,11 +798,13 @@ export default function Upload() {
 
     const formatText = (text: string) => text.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n');
 
-    const achadosLabel = examCategory === "laboratorial" 
-      ? "Resultados dos Exames" 
-      : examCategory === "foto" 
-        ? "Achados Clínicos" 
-        : "Achados Radiográficos";
+    const achadosLabel = examCategories.includes("laboratorial") && examCategories.length === 1
+      ? "Resultados dos Exames"
+      : examCategories.includes("foto") && examCategories.length === 1
+        ? "Achados Clínicos"
+        : examCategories.length > 1
+          ? "Achados Integrados"
+          : "Achados Radiográficos";
 
     const reportText = `LAUDO RADIOLÓGICO – ODONTOVISION AI PRO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -838,8 +860,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setIsSaving(true);
 
     try {
-      // Use exam category label if no files are selected (restored session)
-      const examTypeLabel = EXAM_CATEGORIES.find(c => c.id === examCategory)?.label || "Exame";
+      // Label do tipo: concatena múltiplos se necessário
+      const examTypeLabel = examCategories.length > 1
+        ? examCategories.map(c => EXAM_CATEGORIES.find(x => x.id === c)?.label || c).join(" + ")
+        : EXAM_CATEGORIES.find(c => c.id === examCategories[0])?.label || "Exame";
       const firstFile = selectedFiles[0];
       const examType = firstFile ? getExamType(firstFile.name, firstFile.type) : examTypeLabel;
       const fileNames = selectedFiles.length > 0 ? selectedFiles.map(f => f.name).join(", ") : "Restaurado da sessão";
@@ -881,7 +905,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setResult(null);
     setRawContent(null);
     setReportGenerated(false);
-    setExamCategory(null);
+    setExamCategories([]);
     setVisualAnalysisResult(null);
     setShowVisualAnalysis(false);
     clearDraft();
@@ -898,7 +922,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
   };
 
   const handleVisualAnalysis = async () => {
-    if (examCategory === "laboratorial") {
+    if (examCategories.length > 0 && examCategories.every(c => c === "laboratorial")) {
       toast.error("Análise visual disponível apenas para imagens");
       return;
     }
@@ -940,7 +964,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         body: {
           imageBase64,
           imageType,
-          examCategory,
+          examCategory: examCategories[0] || "radiografia",
           clinicalContext: {
             queixa: clinicalContext.queixa || undefined,
             regiao: clinicalContext.regiao || undefined,
@@ -988,7 +1012,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     }
   };
 
-  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo && examCategory && selectedFiles.length > 0;
+  const isFormValid = patientData.nome.trim() && patientData.dataNascimento && patientData.dataLaudo && examCategories.length > 0 && selectedFiles.length > 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -1142,37 +1166,67 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         </CardContent>
       </Card>
 
-      {/* Exam Type Selection */}
+      {/* Exam Type Selection — multi-select */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileCheck className="w-5 h-5 text-primary" />
             Tipo de Exame
+            {examCategories.length > 1 && (
+              <span className="ml-1 text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                {examCategories.length} tipos selecionados — análise integrada
+              </span>
+            )}
           </CardTitle>
           <CardDescription>
-            Selecione o tipo de exame para uma análise mais precisa
+            Selecione um ou mais tipos para análise integrada (ex: Radiografia + Exame Laboratorial)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {EXAM_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setExamCategory(cat.id)}
-                className={cn(
-                  "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 touch-manipulation min-h-[100px]",
-                  examCategory === cat.id
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border hover:border-primary/50 hover:bg-muted/50 active:bg-muted"
-                )}
-              >
-                <span className="text-2xl">{cat.icon}</span>
-                <span className="font-medium text-sm">{cat.label}</span>
-                <span className="text-xs text-muted-foreground text-center">{cat.description}</span>
-              </button>
-            ))}
+            {EXAM_CATEGORIES.map((cat) => {
+              const isSelected = examCategories.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setExamCategories(prev =>
+                      prev.includes(cat.id)
+                        ? prev.filter(c => c !== cat.id)
+                        : [...prev, cat.id]
+                    );
+                  }}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 touch-manipulation min-h-[100px] relative",
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50 active:bg-muted"
+                  )}
+                >
+                  {/* Checkmark quando selecionado */}
+                  {isSelected && (
+                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+                      ✓
+                    </span>
+                  )}
+                  <span className="text-2xl">{cat.icon}</span>
+                  <span className="font-medium text-sm">{cat.label}</span>
+                  <span className="text-xs text-muted-foreground text-center">{cat.description}</span>
+                </button>
+              );
+            })}
           </div>
+          {examCategories.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Selecione pelo menos um tipo de exame
+            </p>
+          )}
+          {examCategories.length > 1 && (
+            <div className="mt-3 p-2 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary">
+              💡 A IA analisará todos os arquivos de forma integrada, correlacionando os achados entre os diferentes tipos de exame.
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1467,7 +1521,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
           </div>
 
           {/* Visual Analysis Button and Component */}
-          {examCategory !== "laboratorial" && previewUrls.some(p => p !== "pdf" && (p.startsWith("data:image") || p.startsWith("blob:"))) && (
+          {!examCategories.every(c => c === "laboratorial") && previewUrls.some(p => p !== "pdf" && (p.startsWith("data:image") || p.startsWith("blob:"))) && (
             <div className="space-y-4">
               <Button
                 variant={showVisualAnalysis ? "default" : "outline"}
