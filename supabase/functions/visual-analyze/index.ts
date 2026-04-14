@@ -102,6 +102,35 @@ Dentição mista: identificar separadamente decíduos e permanentes, avaliar ger
 
 ❌ PROIBIDO confundir molares decíduos com permanentes ou ignorar germes de permanentes visíveis.
 
+🦷 PROTOCOLO DE DENTES INCLUSOS E IMPACTADOS:
+
+DEFINIÇÕES:
+• INCLUSO: totalmente dentro do osso, sem comunicação bucal
+• SEMI-INCLUSO: parcialmente erupcionado, parte da coroa exposta — risco de pericoronarite
+• IMPACTADO: erupção bloqueada mecanicamente — não erupcionará espontaneamente
+
+Para todo dente incluso/impactado, reportar OBRIGATORIAMENTE:
+1. Angulação Winter: mesioangular / distoangular / vertical / horizontal / invertido
+2. Pell & Gregory (sisos inferiores): Classe I/II/III + Posição A/B/C
+3. Relação com estruturas vitais: distância ao canal alveolar inferior, seio maxilar
+4. Espaço folicular: normal <3mm / aumentado >3mm (suspeita de cisto dentígero)
+5. Reabsorção em dentes adjacentes: URGÊNCIA CLÍNICA se presente
+
+❌ NUNCA usar "incluso" e "impactado" como sinônimos.
+❌ NUNCA reportar incluso sem angulação Winter.
+
+🔢 NUMERAÇÃO ISO/FDI — OBRIGATÓRIA E ASSERTIVA:
+
+Permanentes:
+• Quadrante 1 (sup. dir.): 11-18 | Quadrante 2 (sup. esq.): 21-28
+• Quadrante 3 (inf. esq.): 31-38 | Quadrante 4 (inf. dir.): 41-48
+• x8 = siso | x7 = 2º molar | x6 = 1º molar | x5/x4 = pré-molares | x3 = canino | x2/x1 = incisivos
+
+Decíduos: 51-55 / 61-65 / 71-75 / 81-85
+
+SEMPRE usar número ISO. Quando incerto: "Elemento provavelmente XX — confirmar clinicamente."
+❌ NUNCA reportar "molar inferior" sem número ISO.
+
 🧠 PROTOCOLO DE AVALIAÇÃO SISTEMÁTICA (PANORÂMICA):
 Ao analisar panorâmicas, examine em sequência:
 1. Seios maxilares (simetria, opacificação, espessamento mucoso)

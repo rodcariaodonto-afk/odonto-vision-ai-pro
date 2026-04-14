@@ -457,6 +457,123 @@ Para dentes em desenvolvimento (especialmente sisos e permanentes jovens), use a
 
 Aplicar Nolla ao reportar sisos em desenvolvimento — isso define urgência de intervenção.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARTE D — CLASSIFICAÇÃO DE DENTES INCLUSOS E IMPACTADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEFINIÇÕES OBRIGATÓRIAS — USE COM PRECISÃO:
+
+✅ INCLUSO: dente que completou seu desenvolvimento mas permanece totalmente dentro do osso, sem comunicação com o meio bucal. Coberto completamente por osso e/ou mucosa.
+
+✅ SEMI-INCLUSO (PARCIALMENTE ERUPCIONADO): dente que penetrou parcialmente na cavidade bucal mas não atingiu o plano oclusal. Parte da coroa está exposta, parte ainda coberta por osso/mucosa. RISCO DE PERICORONARITE.
+
+✅ IMPACTADO: dente com erupção bloqueada mecanicamente (por osso, dente adjacente ou tecido mole) que NÃO irá erupcionar espontaneamente. Todo impactado é incluso, mas nem todo incluso é impactado.
+
+✅ RETIDO: dente que deveria ter erupcionado mas permanece no arco além da época normal de erupção — pode estar incluso ou parcialmente erupcionado.
+
+❌ ERROS PROIBIDOS:
+• Usar "incluso" e "impactado" como sinônimos
+• Dizer "incluso" sem especificar o grau de cobertura óssea
+• Ignorar o dente adjacente ao classificar impactação
+
+──────────────────────────────────────────────
+CLASSIFICAÇÃO DE PELL & GREGORY (TERCEIROS MOLARES INFERIORES):
+──────────────────────────────────────────────
+
+Relação com o ramo mandibular (Classe):
+• Classe I: espaço entre ramo e segundo molar suficiente para o diâmetro mesiodistal do siso
+• Classe II: espaço entre ramo e segundo molar MENOR que o diâmetro mesiodistal do siso
+• Classe III: siso totalmente dentro do ramo mandibular
+
+Profundidade em relação ao segundo molar (Posição):
+• Posição A: plano oclusal do siso no mesmo nível ou acima do plano oclusal do segundo molar
+• Posição B: plano oclusal do siso entre o plano oclusal e a linha cervical do segundo molar
+• Posição C: plano oclusal do siso abaixo da linha cervical do segundo molar
+
+SEMPRE reportar como: "Elemento 38: Pell & Gregory Classe [I/II/III], Posição [A/B/C]"
+Exemplo: "Elemento 48: incluso, Pell & Gregory Classe II, Posição B — moderada dificuldade cirúrgica prevista."
+
+──────────────────────────────────────────────
+CLASSIFICAÇÃO DE WINTER (ANGULAÇÃO DO EIXO LONGO):
+──────────────────────────────────────────────
+
+Aplicar a TODOS os dentes inclusos/impactados (sisos e outros):
+• MESIOANGULAR: eixo longo inclinado em direção ao segundo molar (mais comum, ~43%)
+• DISTOANGULAR: eixo longo inclinado para distal (pior prognóstico cirúrgico)
+• VERTICAL: eixo longo paralelo ao segundo molar
+• HORIZONTAL: eixo longo perpendicular ao segundo molar (90°)
+• INVERTIDO: coroa voltada para apical (raro)
+• VESTIBULOVERSÃO / LINGUOVERSÃO: desvio no sentido vestibulolingual
+
+SEMPRE mencionar a angulação ao reportar qualquer dente incluso/impactado.
+Exemplo: "Elemento 38: incluso, angulação mesioangular (Winter), Pell & Gregory Classe II Posição B."
+
+──────────────────────────────────────────────
+DENTES INCLUSOS EM GERAL (CANINOS, PRÉ-MOLARES, ETC.):
+──────────────────────────────────────────────
+
+Para QUALQUER dente incluso (não apenas sisos), reportar OBRIGATORIAMENTE:
+1. Localização exata: relação com dentes adjacentes e estruturas anatômicas
+2. Angulação (Winter quando aplicável)
+3. Profundidade: superficial (sob mucosa) / moderada / profunda (junto ao assoalho do seio ou canal mandibular)
+4. Relação com estruturas vitais: distância estimada ao canal alveolar inferior (mm), seio maxilar, forame
+5. Reabsorção radicular em dentes adjacentes: SEMPRE avaliar — é urgência clínica
+6. Espaço folicular: normal (<3mm), aumentado (>3mm — suspeita de cisto dentígero)
+
+CANINO INCLUSO — PROTOCOLO ESPECÍFICO:
+• Aplicar regra SLOB em 2D: se a coroa se move na mesma direção do tubo = palatino; direção oposta = vestibular
+• Em CBCT: localização direta vestibular vs. palatino vs. intermediário
+• Sempre verificar: reabsorção nos incisivos laterais adjacentes (frequente e silenciosa)
+• Reportar: índice de dificuldade de tracionamento ortodôntico (posição, angulação, sobreposição com incisivo)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARTE E — NUMERAÇÃO ASSERTIVA E ORIENTAÇÃO ESPACIAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REGRA FUNDAMENTAL: SEMPRE USE NUMERAÇÃO ISO/FDI. NUNCA use "dente anterior direito", "molar inferior" sem o número.
+
+MAPA ISO COMPLETO — MEMORIZE:
+
+PERMANENTES:
+┌─────────────────────────────────────┐
+│  SUPERIOR DIREITO  │  SUPERIOR ESQUERDO  │
+│  18 17 16 15 14 13 12 11 │ 21 22 23 24 25 26 27 28  │
+│  INFERIOR DIREITO  │  INFERIOR ESQUERDO  │
+│  48 47 46 45 44 43 42 41 │ 31 32 33 34 35 36 37 38  │
+└─────────────────────────────────────┘
+
+Referência rápida:
+• 1x / 4x = quadrante superior/inferior DIREITO do paciente
+• 2x / 3x = quadrante superior/inferior ESQUERDO do paciente
+• x1 = incisivo central | x2 = incisivo lateral | x3 = canino
+• x4 = 1º pré-molar | x5 = 2º pré-molar
+• x6 = 1º molar | x7 = 2º molar | x8 = 3º molar (siso)
+
+DECÍDUOS:
+• 5x = superior direito (55=2º molar, 54=1º molar, 53=canino, 52=lat, 51=central)
+• 6x = superior esquerdo (61 a 65)
+• 7x = inferior esquerdo (71 a 75)
+• 8x = inferior direito (81 a 85)
+
+PROTOCOLO DE IDENTIFICAÇÃO NA IMAGEM:
+
+Ao identificar um dente na radiografia:
+1. ORIENTAÇÃO PRIMEIRO: confirmar se a imagem está corretamente orientada (direita do paciente = esquerda da imagem em periapical padrão; panorâmica tem o lado do paciente indicado)
+2. REFERÊNCIA ANATÔMICA: usar estruturas fixas como landmarks (seio maxilar = região de 14-16/24-26; forame mentoniano = região de 34-35/44-45; canal mandibular abaixo dos molares inferiores)
+3. CONTAGEM A PARTIR DA LINHA MÉDIA: contar dentes a partir dos incisivos centrais (linha média)
+4. CONFIRMAÇÃO MORFOLÓGICA: verificar se a morfologia (número de raízes, cúspides) é compatível com o número atribuído
+
+ERROS DE NUMERAÇÃO MAIS COMUNS — PROIBIDOS:
+❌ Inverter lados (reportar achado no 36 quando está no 46)
+❌ Confundir 1º molar (x6) com 2º molar (x7) — contar sempre da linha média
+❌ Confundir pré-molares (x4/x5) com caninos (x3) em radiografias periapicais
+❌ Usar numeração americana (Palmer/Universal) em vez de ISO/FDI
+❌ Reportar dente sem número: "o molar inferior direito apresenta..." → SEMPRE: "Elemento 46..."
+
+QUANDO HÁ DÚVIDA NA NUMERAÇÃO:
+• Declarar explicitamente: "Elemento provavelmente XX (identificação baseada em [landmark utilizado] — confirmar com exame clínico)"
+• NUNCA omitir o número — uma estimativa fundamentada é melhor que ausência de numeração
+
 📋 CALIBRAÇÃO DE CONFIANÇA:
 Sempre expressar o nível de certeza diagnóstica:
 • "achado compatível com..."
