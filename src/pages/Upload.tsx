@@ -37,6 +37,12 @@ interface PatientData {
   dataLaudo: string;
 }
 
+interface ClinicalContext {
+  queixa: string;
+  regiao: string;
+  observacao: string;
+}
+
 interface VisualAnalysisResult {
   marcacoes: Marcacao[];
   resumo?: string;
@@ -220,6 +226,13 @@ export default function Upload() {
     nome: "",
     dataNascimento: "",
     dataLaudo: getTodayFormatted(),
+  });
+
+  // Clinical context state
+  const [clinicalContext, setClinicalContext] = useState<ClinicalContext>({
+    queixa: "",
+    regiao: "",
+    observacao: "",
   });
 
   // Visual analysis states
@@ -436,6 +449,11 @@ export default function Upload() {
             nome: formattedName,
             dataNascimento: patientData.dataNascimento,
             dataLaudo: patientData.dataLaudo,
+          },
+          clinicalContext: {
+            queixa: clinicalContext.queixa || undefined,
+            regiao: clinicalContext.regiao || undefined,
+            observacao: clinicalContext.observacao || undefined,
           },
         },
       });
@@ -872,6 +890,11 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       dataNascimento: "",
       dataLaudo: getTodayFormatted(),
     });
+    setClinicalContext({
+      queixa: "",
+      regiao: "",
+      observacao: "",
+    });
   };
 
   const handleVisualAnalysis = async () => {
@@ -914,7 +937,15 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     toast.info("Iniciando análise visual...");
     try {
       const { data, error } = await supabase.functions.invoke("visual-analyze", {
-        body: { imageBase64, imageType },
+        body: {
+          imageBase64,
+          imageType,
+          examCategory,
+          clinicalContext: {
+            queixa: clinicalContext.queixa || undefined,
+            regiao: clinicalContext.regiao || undefined,
+          },
+        },
       });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
@@ -1047,6 +1078,66 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 className="w-full"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Clinical Context */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-primary" />
+            Contexto Clínico
+            <span className="text-xs font-normal text-muted-foreground ml-1">(opcional — melhora muito a precisão do laudo)</span>
+          </CardTitle>
+          <CardDescription>
+            Quanto mais contexto, mais preciso e direcionado será o diagnóstico da IA
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="queixa">Queixa Principal</Label>
+              <Input
+                id="queixa"
+                placeholder="Ex: dor espontânea no elemento 36, sensibilidade ao frio..."
+                value={clinicalContext.queixa}
+                onChange={(e) => setClinicalContext({ ...clinicalContext, queixa: e.target.value })}
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="regiao">Região de Interesse</Label>
+              <select
+                id="regiao"
+                value={clinicalContext.regiao}
+                onChange={(e) => setClinicalContext({ ...clinicalContext, regiao: e.target.value })}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Selecionar região (opcional)</option>
+                <option value="Arcada completa">Arcada completa</option>
+                <option value="Maxila direita">Maxila direita</option>
+                <option value="Maxila esquerda">Maxila esquerda</option>
+                <option value="Mandíbula direita">Mandíbula direita</option>
+                <option value="Mandíbula esquerda">Mandíbula esquerda</option>
+                <option value="Região anterior superior">Região anterior superior</option>
+                <option value="Região anterior inferior">Região anterior inferior</option>
+                <option value="ATM direita">ATM direita</option>
+                <option value="ATM esquerda">ATM esquerda</option>
+                <option value="Seios maxilares">Seios maxilares</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="observacao">Observação Clínica Relevante</Label>
+            <textarea
+              id="observacao"
+              placeholder="Ex: histórico de tratamento endodôntico há 2 anos, paciente diabético, uso de bisfosfonatos..."
+              value={clinicalContext.observacao}
+              onChange={(e) => setClinicalContext({ ...clinicalContext, observacao: e.target.value })}
+              rows={2}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
           </div>
         </CardContent>
       </Card>

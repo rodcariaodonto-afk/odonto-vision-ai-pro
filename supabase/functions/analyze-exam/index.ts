@@ -42,9 +42,27 @@ const getExamCategoryLabel = (category: string): { findingsLabel: string; qualit
   }
 };
 
-const buildSystemPrompt = (patientData: { nome: string; dataNascimento: string; dataLaudo: string }, examCategory: string, imageCount: number) => {
+const buildSystemPrompt = (
+  patientData: { nome: string; dataNascimento: string; dataLaudo: string },
+  examCategory: string,
+  imageCount: number,
+  clinicalContext?: { queixa?: string; regiao?: string; observacao?: string }
+) => {
   const labels = getExamCategoryLabel(examCategory);
   const isRadiographic = examCategory === "radiografia" || examCategory === "tomografia";
+
+  const clinicalContextBlock = (clinicalContext?.queixa || clinicalContext?.regiao || clinicalContext?.observacao) ? `
+-------------------------------------------------------------------
+🩺 CONTEXTO CLÍNICO FORNECIDO PELO DENTISTA (USE COMO ÂNCORA DIAGNÓSTICA)
+-------------------------------------------------------------------
+${clinicalContext.queixa ? `Queixa principal: ${clinicalContext.queixa}` : ''}
+${clinicalContext.regiao ? `Região de interesse: ${clinicalContext.regiao}` : ''}
+${clinicalContext.observacao ? `Observação clínica: ${clinicalContext.observacao}` : ''}
+
+⚠️ ATENÇÃO: Direcione ESPECIAL ATENÇÃO à região e queixa informadas acima. Ainda assim, realize avaliação COMPLETA de todas as estruturas visíveis — achados incidentais devem ser reportados.
+` : '';
+
+
   
   const multipleImagesInstruction = imageCount > 1 ? `
 -------------------------------------------------------------------
@@ -90,6 +108,7 @@ Tom: Clínico, preciso, educativo — como um especialista ditando um laudo radi
 📋 MODO DE ANÁLISE
 -------------------------------------------------------------------
 ${labels.modeDescription}
+${clinicalContextBlock}
 ${multipleImagesInstruction}
 
 -------------------------------------------------------------------
@@ -436,7 +455,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType, fileName, images, patientData, examCategory } = await req.json();
+    const { imageBase64, imageType, fileName, images, patientData, examCategory, clinicalContext } = await req.json();
     
     // Support both single image (legacy) and multiple images (new)
     let imagesToProcess: ImageData[] = [];
@@ -492,7 +511,7 @@ serve(async (req) => {
     const allImages = imagesToProcess.every(img => isValidImageType(img.imageType));
 
     let apiResponse;
-    const SYSTEM_PROMPT = buildSystemPrompt(patient, category, imagesToProcess.length);
+    const SYSTEM_PROMPT = buildSystemPrompt(patient, category, imagesToProcess.length, clinicalContext);
 
     if (hasPdf) {
       // If there's a PDF, use Gemini (supports PDF natively)
@@ -590,9 +609,9 @@ Forneça a análise no formato JSON especificado.`
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4.1-2025-04-14",
+          model: "gpt-4o",
           messages,
-          max_completion_tokens: 8000,
+          max_tokens: 16000,
         }),
       });
     } else {
@@ -634,56 +653,73 @@ Forneça a análise no formato JSON especificado.`
 
     console.log("Análise concluída com sucesso");
 
-    // Try to parse JSON from the response
-    let analysis;
-    try {
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      analysis = JSON.parse(jsonStr.trim());
-      console.log("JSON parseado com sucesso");
-    } catch (parseError) {
-      console.log("Falha ao parsear JSON, tentando extrair seções do texto...", parseError);
-      
+    // ── Função auxiliar: tenta extrair JSON válido de uma string ──────────────
+    const tryParseJson = (raw: string): any | null => {
+      // 1. Tenta direto
+      try { return JSON.parse(raw.trim()); } catch {}
+      // 2. Remove blocos de código markdown
+      const mdMatch = raw.match(/```json\s*([\s\S]*?)\s*```/) || raw.match(/```\s*([\s\S]*?)\s*```/);
+      if (mdMatch) { try { return JSON.parse(mdMatch[1].trim()); } catch {} }
+      // 3. Extrai do primeiro { até o último }
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        try { return JSON.parse(raw.substring(start, end + 1)); } catch {}
+      }
+      return null;
+    };
+
+    // ── Tenta parsear o JSON ───────────────────────────────────────────────────
+    let analysis = tryParseJson(content);
+
+    // ── Retry: se falhou, pede ao modelo para corrigir o JSON ─────────────────
+    if (!analysis && allImages) {
+      console.log("JSON inválido — iniciando retry de correção...");
+      try {
+        const retryMessages = [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: [{ type: "text", text: "Sua resposta anterior não foi JSON válido. Retorne APENAS o JSON especificado no sistema, sem nenhum texto antes ou depois, sem blocos de código markdown. Apenas o objeto JSON puro." }] },
+          { role: "assistant", content },
+          { role: "user", content: [{ type: "text", text: "Corrija e retorne somente o JSON válido agora." }] },
+        ];
+        const retryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "gpt-4o", messages: retryMessages, max_tokens: 16000 }),
+        });
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const retryContent = retryData.choices?.[0]?.message?.content;
+          if (retryContent) {
+            analysis = tryParseJson(retryContent);
+            if (analysis) console.log("JSON corrigido com sucesso no retry.");
+          }
+        }
+      } catch (retryErr) {
+        console.error("Retry falhou:", retryErr);
+      }
+    }
+
+    // ── Fallback estruturado (último recurso) ──────────────────────────────────
+    if (!analysis) {
+      console.log("Usando fallback estruturado...");
       const extractListItems = (text: string): string[] => {
         const items = text.split(/[\n•\-\*]/).map(s => s.trim()).filter(s => s.length > 10);
         return items.length > 0 ? items : [text];
       };
-
-      const findJsonObject = content.match(/\{[\s\S]*"identificacao_paciente"[\s\S]*\}/);
-      if (findJsonObject) {
-        try {
-          analysis = JSON.parse(findJsonObject[0]);
-          console.log("JSON encontrado em substring");
-        } catch {
-          console.log("Substring JSON também falhou, usando extração de texto");
-        }
-      }
-
-      if (!analysis) {
-        const achadosMatch = content.match(/(?:achados|findings|4\))[:\s]*([\s\S]*?)(?:5\)|interpreta|$)/i);
-        const interpretacaoMatch = content.match(/(?:interpreta|5\))[:\s]*([\s\S]*?)(?:6\)|diagn|$)/i);
-        const diagnosticosMatch = content.match(/(?:diagn|6\))[:\s]*([\s\S]*?)(?:7\)|risco|alert|$)/i);
-        const riscosMatch = content.match(/(?:risco|alert|7\))[:\s]*([\s\S]*?)(?:8\)|recomenda|$)/i);
-        const recomendacoesMatch = content.match(/(?:recomenda|8\))[:\s]*([\s\S]*?)(?:9\)|observa|$)/i);
-        const observacoesMatch = content.match(/(?:observa|9\))[:\s]*([\s\S]*?)$/i);
-
-        analysis = {
-          identificacao_paciente: {
-            nome: patient.nome,
-            data_nascimento: patient.dataNascimento,
-            data_analise: patient.dataLaudo,
-          },
-          tipo_exame: category === "laboratorial" ? "Exame Laboratorial" : category === "foto" ? "Fotografia Clínica" : category === "tomografia" ? "Tomografia Computadorizada" : "Radiografia",
-          qualidade_imagem: "Documento processado com sucesso",
-          achados_radiograficos: achadosMatch ? extractListItems(achadosMatch[1]) : extractListItems(content.substring(0, 2000)),
-          interpretacao_clinica: interpretacaoMatch ? interpretacaoMatch[1].trim() : content.substring(0, 1500),
-          diagnosticos_diferenciais: diagnosticosMatch ? extractListItems(diagnosticosMatch[1]) : ["Consulte a interpretação clínica para diagnósticos diferenciais"],
-          riscos_alertas: riscosMatch ? extractListItems(riscosMatch[1]) : ["Verifique valores alterados na análise completa"],
-          recomendacoes_clinicas: recomendacoesMatch ? extractListItems(recomendacoesMatch[1]) : ["Avaliação clínica complementar recomendada"],
-          observacoes: observacoesMatch ? observacoesMatch[1].trim() : "Este laudo é baseado na análise automática do documento. A interpretação final deve ser realizada pelo dentista responsável."
-        };
-      }
+      analysis = {
+        identificacao_paciente: { nome: patient.nome, data_nascimento: patient.dataNascimento, data_analise: patient.dataLaudo },
+        tipo_exame: category === "laboratorial" ? "Exame Laboratorial" : category === "foto" ? "Fotografia Clínica" : category === "tomografia" ? "Tomografia Computadorizada" : "Radiografia",
+        qualidade_imagem: "Documento processado — estruturação automática aplicada",
+        achados_radiograficos: extractListItems(content.substring(0, 3000)),
+        interpretacao_clinica: content.substring(0, 2000),
+        diagnosticos_diferenciais: ["Consulte a interpretação clínica para diagnósticos diferenciais"],
+        riscos_alertas: ["Verifique a análise completa para riscos e alertas"],
+        recomendacoes_clinicas: ["Avaliação clínica complementar recomendada"],
+        observacoes: "Laudo gerado em modo de recuperação. A interpretação final é responsabilidade do dentista responsável."
+      };
     }
+
 
     // Ensure all required fields exist
     analysis = {

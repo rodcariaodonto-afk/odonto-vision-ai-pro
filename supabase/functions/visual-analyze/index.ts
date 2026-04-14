@@ -403,11 +403,17 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, imageType } = await req.json();
+    const { imageBase64, imageType, examCategory, clinicalContext } = await req.json();
 
     if (!imageBase64) {
       throw new Error("Nenhuma imagem fornecida");
     }
+
+    const clinicalContextNote = (clinicalContext?.queixa || clinicalContext?.regiao)
+      ? `\n\nCONTEXTO CLÍNICO FORNECIDO:\n${clinicalContext.queixa ? `- Queixa: ${clinicalContext.queixa}` : ''}\n${clinicalContext.regiao ? `- Região de interesse: ${clinicalContext.regiao}` : ''}\nDirecione atenção especial a esta região ao mapear as coordenadas.`
+      : '';
+
+    const examNote = examCategory ? `\nTIPO DE EXAME: ${examCategory.toUpperCase()}` : '';
 
     console.log("🔬 Iniciando análise visual CONSERVADORA...");
     console.log("📷 Tipo da imagem:", imageType);
@@ -419,7 +425,7 @@ serve(async (req) => {
     // ========================================================================
     console.log("\n📝 Obtendo análise visual conservadora...");
     
-    const analysis = await callGeminiVision(CONSERVATIVE_VISUAL_PROMPT, imageBase64, imageType);
+    const analysis = await callGeminiVision(CONSERVATIVE_VISUAL_PROMPT + examNote + clinicalContextNote, imageBase64, imageType);
     console.log("✅ Análise obtida");
     
     // Log do status dos sisos (deve ser conservador)
