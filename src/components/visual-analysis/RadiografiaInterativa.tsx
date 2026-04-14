@@ -361,13 +361,16 @@ export function RadiografiaInterativa({
             ref={svgRef}
             className="absolute inset-0 w-full h-full"
             viewBox="0 0 100 100"
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
             style={{ cursor: getCursorStyle() }}
             onClick={handleClick}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchStart={(e) => { e.preventDefault(); handleMouseDown(e as any); }}
+            onTouchMove={(e)  => { e.preventDefault(); handleMouseMove(e as any); }}
+            onTouchEnd={(e)   => { e.preventDefault(); handleMouseUp(); }}
           >
             {/* Estruturas manuais (desenho livre) */}
             {renderEstruturasManuais()}

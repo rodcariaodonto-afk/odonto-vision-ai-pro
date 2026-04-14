@@ -18,7 +18,104 @@ const getExamCategoryLabel = (category: string): { findingsLabel: string; qualit
       return {
         findingsLabel: "Resultados dos Exames",
         qualityLabel: "Qualidade do Documento",
-        modeDescription: "Você está analisando um EXAME LABORATORIAL (hemograma, coagulograma, glicemia, etc.)."
+        modeDescription: `Você está analisando um EXAME LABORATORIAL (hemograma, coagulograma, bioquímica, glicemia, etc.).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔬 PROTOCOLO OBRIGATÓRIO — LAUDOS LABORATORIAIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 1 — IDENTIFICAR TODOS OS EXAMES PRESENTES
+Liste cada exame com: nome completo, valor encontrado, unidade, valor de referência do laboratório (se impresso) e status (NORMAL / ALTERADO LEVE / ALTERADO MODERADO / ALTERADO GRAVE).
+
+PASSO 2 — VALORES DE REFERÊNCIA PADRÃO (use quando o laboratório não imprime os seus)
+Use os valores de referência baseados nas diretrizes da Sociedade Brasileira de Patologia Clínica (SBPC/ML) e Conselho Federal de Medicina (CFM):
+
+HEMOGRAMA COMPLETO:
+• Hemoglobina: H 13,5–17,5 g/dL | M 12,0–16,0 g/dL
+• Hematócrito: H 41–53% | M 36–46%
+• Eritrócitos: H 4,5–5,9 milhões/μL | M 4,0–5,2 milhões/μL
+• VCM: 80–100 fL
+• HCM: 27–33 pg
+• CHCM: 32–36 g/dL
+• RDW: 11–15%
+• Leucócitos totais: 4.000–11.000/μL
+  - Neutrófilos: 1.800–7.700/μL (45–70%)
+  - Linfócitos: 1.000–4.800/μL (20–40%)
+  - Monócitos: 200–1.000/μL (2–10%)
+  - Eosinófilos: 0–500/μL (1–5%)
+  - Basófilos: 0–100/μL (0–1%)
+• Plaquetas: 150.000–400.000/μL
+• VHS: H <15mm/h | M <20mm/h
+
+COAGULOGRAMA:
+• TAP (TP): 11–13 segundos | RNI (INR): 0,8–1,2
+• TTPA: 25–35 segundos | Relação TTPA: 0,8–1,2
+• Fibrinogênio: 200–400 mg/dL
+• Tempo de sangramento: 2–9 minutos (Ivy)
+
+GLICEMIA E METABOLISMO:
+• Glicemia jejum: 70–99 mg/dL | Pré-diabetes: 100–125 | DM: ≥126
+• HbA1c: <5,7% normal | 5,7–6,4% pré-diabetes | ≥6,5% DM
+• Insulina jejum: 2,6–24,9 μUI/mL
+• Ureia: 15–45 mg/dL
+• Creatinina: H 0,7–1,3 mg/dL | M 0,5–1,1 mg/dL
+• Ácido úrico: H 3,4–7,0 mg/dL | M 2,4–6,0 mg/dL
+
+PERFIL LIPÍDICO (Diretriz SBC 2020):
+• Colesterol total: desejável <190 mg/dL
+• LDL: ótimo <100 mg/dL | desejável 100–129 | limítrofe 130–159 | alto ≥160
+• HDL: H >40 mg/dL | M >50 mg/dL (protetor)
+• Triglicerídeos: normal <150 mg/dL | limítrofe 150–199 | alto 200–499 | muito alto ≥500
+• VLDL: <30 mg/dL
+
+FUNÇÃO HEPÁTICA:
+• AST (TGO): H ≤37 U/L | M ≤31 U/L
+• ALT (TGP): H ≤41 U/L | M ≤31 U/L
+• Gama-GT: H ≤61 U/L | M ≤36 U/L
+• Fosfatase alcalina: 40–130 U/L
+• Bilirrubina total: 0,3–1,2 mg/dL
+• Proteínas totais: 6,0–8,0 g/dL | Albumina: 3,5–5,0 g/dL
+
+ELETRÓLITOS E MINERAIS:
+• Sódio: 136–145 mEq/L
+• Potássio: 3,5–5,0 mEq/L
+• Cálcio total: 8,5–10,5 mg/dL
+• Magnésio: 1,6–2,6 mg/dL
+• Fósforo: 2,5–4,5 mg/dL
+
+FUNÇÃO TIREOIDIANA:
+• TSH: 0,4–4,0 mUI/L
+• T4 livre: 0,8–1,8 ng/dL
+• T3 livre: 2,3–4,2 pg/mL
+
+MARCADORES INFLAMATÓRIOS / INFECCIOSOS:
+• PCR ultrassensível: <1,0 mg/L (baixo risco CV); <5,0 mg/L (ausência de processo inflamatório agudo)
+• VHS: ver hemograma
+• Ferritina: H 24–336 ng/mL | M 11–307 ng/mL
+
+PASSO 3 — RELEVÂNCIA ODONTOLÓGICA OBRIGATÓRIA
+Para cada valor alterado, declare explicitamente a implicação clínica odontológica:
+
+• COAGULOGRAMA ALTERADO → risco hemorrágico em cirurgias, extrações, implantes — especificar se há contraindicação relativa ou absoluta
+• GLICEMIA/HbA1c ELEVADA → diabetes mal controlada → maior risco infeccioso pós-operatório, cicatrização comprometida, contraindicação relativa a implantes
+• PLAQUETAS BAIXAS (<100.000) → risco hemorrágico → consultar hematologista antes de procedimentos cirúrgicos
+• INR ELEVADO (>2,0) → paciente anticoagulado → protocolo de manejo pré-cirúrgico necessário (contato com médico prescriptor)
+• HEMOGLOBINA BAIXA → anemia → avaliar capacidade de suporte anestésico, cicatrização
+• LEUCÓCITOS ALTERADOS → avaliar imunossupressão ou infecção ativa
+• CREATININA ELEVADA → insuficiência renal → ajuste de dose de anestésicos e antibióticos
+• AST/ALT MUITO ELEVADAS (>3x normal) → hepatopatia → metabolismo de fármacos comprometido
+• PROTEÍNAS TOTAIS/ALBUMINA BAIXAS → desnutrição → cicatrização comprometida
+
+PASSO 4 — CLASSIFICAÇÃO DE URGÊNCIA CIRÚRGICA
+Ao final, classifique o paciente para procedimentos odontológico-cirúrgicos:
+• LIBERADO: todos os parâmetros dentro dos limites ou com alterações sem impacto cirúrgico
+• LIBERADO COM RESSALVAS: alterações que requerem cuidados específicos — descrever quais
+• AGUARDAR AVALIAÇÃO MÉDICA: alterações que exigem avaliação/otimização médica antes do procedimento
+• CONTRAINDICADO TEMPORARIAMENTE: valores que contraindicam procedimentos cirúrgicos até correção
+
+PASSO 5 — NUNCA INVENTAR VALORES
+Se um exame não estiver claramente legível no documento, declare: "Valor não legível/ausente no documento — solicitar novo exame."
+NUNCA complete valores que não estão visíveis na imagem.`
       };
     case "foto":
       return {
@@ -798,6 +895,10 @@ Forneça a análise no formato JSON especificado.`
         { role: "user", content: contentArray }
       ];
 
+      // For laboratorial exams, enable web search so the model can verify
+      // reference values from authoritative sources (SBPC/ML, SBC, CFM, etc.)
+      const isLaboratorial = category === "laboratorial";
+
       apiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -808,6 +909,10 @@ Forneça a análise no formato JSON especificado.`
           model: "gpt-4o",
           messages,
           max_tokens: 16000,
+          ...(isLaboratorial && {
+            tools: [{ type: "web_search_preview" }],
+            tool_choice: "auto",
+          }),
         }),
       });
     } else {
