@@ -553,19 +553,64 @@ export function DentalProstheticsPanel({ items, onItemsChange }: DentalProstheti
               </div>
             )}
 
-            {/* Rotação — para todos */}
-            <div className="space-y-1">
+            {/* Rotação — range completo para arcada superior e inferior */}
+            <div className="space-y-2">
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Rotação</span>
-                <span>{selectedItem.rotation > 0 ? `+${selectedItem.rotation}°` : `${selectedItem.rotation}°`}</span>
+                <span className="font-bold text-foreground">
+                  {selectedItem.rotation > 0 ? `+${selectedItem.rotation}°` : `${selectedItem.rotation}°`}
+                </span>
               </div>
-              <Slider value={[selectedItem.rotation]}
+
+              {/* Atalhos rápidos de arcada */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  size="sm"
+                  variant={selectedItem.rotation === 0 ? "default" : "outline"}
+                  onClick={() => updateSelected({ rotation: 0 })}
+                  className="h-8 text-xs gap-1"
+                >
+                  ⬇️ Arcada inferior
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedItem.rotation === 180 ? "default" : "outline"}
+                  onClick={() => updateSelected({ rotation: 180 })}
+                  className="h-8 text-xs gap-1"
+                >
+                  ⬆️ Arcada superior
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedItem.rotation === -90 ? "default" : "outline"}
+                  onClick={() => updateSelected({ rotation: -90 })}
+                  className="h-8 text-xs gap-1"
+                >
+                  ↩️ -90°
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedItem.rotation === 90 ? "default" : "outline"}
+                  onClick={() => updateSelected({ rotation: 90 })}
+                  className="h-8 text-xs gap-1"
+                >
+                  ↪️ +90°
+                </Button>
+              </div>
+
+              {/* Slider fino para ajuste preciso */}
+              <Slider
+                value={[selectedItem.rotation]}
                 onValueChange={([v]) => updateSelected({ rotation: Math.round(v) })}
-                min={-45} max={45} step={1} />
+                min={-180} max={180} step={1}
+              />
+              <p className="text-[10px] text-muted-foreground text-center">
+                Arraste para ângulo livre — ou use os atalhos acima
+              </p>
             </div>
 
             <Button variant="destructive" size="sm" onClick={deleteSelected} className="w-full h-8 text-xs">
-              <Trash2 className="w-3 h-3 mr-1" /> Remover
+              <Trash2 className="w-3 h-3 mr-1" /> Remover este item
             </Button>
           </div>
         )}
@@ -573,30 +618,63 @@ export function DentalProstheticsPanel({ items, onItemsChange }: DentalProstheti
         {/* ── LISTA DE ITENS ── */}
         {items.length > 0 && (
           <div className="border-t pt-2 space-y-1">
-            <p className="text-xs text-muted-foreground">Itens na radiografia:</p>
+            <p className="text-xs text-muted-foreground">Itens na radiografia ({items.length}):</p>
             {items.map(item => (
               <div key={item.id}
-                onClick={() => setSelectedId(item.id)}
                 className={cn(
-                  "flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs transition-colors",
+                  "flex items-center gap-2 p-1.5 rounded text-xs transition-colors group",
                   selectedId === item.id ? "bg-primary/10 text-primary" : "hover:bg-muted/50"
                 )}>
-                <div style={{ width: 18, height: 22, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {/* Miniatura — clica para selecionar */}
+                <div
+                  onClick={() => setSelectedId(item.id)}
+                  style={{
+                    width: 18, height: 22, flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer",
+                  }}>
                   {isImplant(item.type)
                     ? <ImplantSVG diameter={Math.min(item.diameter, 4)} length={Math.min(item.length, 12)} />
-                    : <CrownSVG type={item.type === "crown_molar" ? "molar" : item.type === "crown_premolar" ? "premolar" : "anterior"}
+                    : <CrownSVG
+                        type={item.type === "crown_molar" ? "molar" : item.type === "crown_premolar" ? "premolar" : "anterior"}
                         color="#F59E0B" size={18} />
                   }
                 </div>
-                <span className="truncate flex-1">
+
+                {/* Label — clica para selecionar */}
+                <span
+                  onClick={() => setSelectedId(item.id)}
+                  className="truncate flex-1 cursor-pointer">
                   {item.type === "implant" || item.type === "crown_on_implant"
                     ? `${item.type === "crown_on_implant" ? "Coroa+Impl." : "Implante"} ${item.diameter}×${item.length}mm`
                     : item.type.replace("crown_", "Coroa ").replace("_", "-")}
                 </span>
-                {selectedId === item.id && (
-                  <span className="text-[10px] text-primary font-bold">selecionado</span>
+
+                {/* Indicador de rotação */}
+                {item.rotation !== 0 && (
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                    {item.rotation === 180 ? "↑sup" :
+                     item.rotation === 90  ? "→90°" :
+                     item.rotation === -90 ? "←90°" :
+                     `${item.rotation > 0 ? "+" : ""}${item.rotation}°`}
+                  </span>
                 )}
+
+                {/* Botão de remoção individual — sempre visível */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onItemsChange(items.filter(i => i.id !== item.id));
+                    if (selectedId === item.id) setSelectedId(null);
+                    toast.success("Item removido");
+                  }}
+                  className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                  title="Remover este item"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
               </div>
             ))}
           </div>
