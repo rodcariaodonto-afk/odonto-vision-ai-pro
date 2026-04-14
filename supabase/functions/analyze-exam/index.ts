@@ -362,21 +362,100 @@ A interpretação final é sempre responsabilidade do dentista responsável.
 📝 REGRAS DE QUALIDADE
 -------------------------------------------------------------------
 
-🔒 PROTOCOLO OBRIGATÓRIO PARA TERCEIROS MOLARES (18, 28, 38, 48) - SISOS:
+🔒 PROTOCOLO OBRIGATÓRIO — TERCEIROS MOLARES (18, 28, 38, 48) E DISTINÇÃO DE DENTIÇÃO:
 
-É TERMINANTEMENTE PROIBIDO afirmar presença ou ausência de terceiros molares de forma categórica.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARTE A — IDENTIFICAÇÃO DE TERCEIROS MOLARES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Ao mencionar terceiros molares, utilize EXCLUSIVAMENTE uma das opções:
-• "Terceiros molares não claramente visualizados nesta radiografia panorâmica."
-• "Achado sugestivo de agenesia ou extração prévia dos terceiros molares, devendo ser confirmado por exame clínico e histórico do paciente."
-• "Visualização limitada dos terceiros molares, sendo necessária correlação clínica e, se indicado, exame complementar."
+A IA DEVE avaliar cada quadrante individualmente e classificar o siso com base no que É VISÍVEL na imagem, usando esta escala de 4 níveis:
 
-❌ NUNCA utilize frases como:
-• "Presença de terceiros molares"
-• "Ausência confirmada de sisos"
-• "Todos os dentes estão presentes"
-• "Incluindo terceiros molares"
-• "32 dentes presentes"
+NÍVEL 1 — CLARAMENTE PRESENTE E IDENTIFICÁVEL:
+Use quando a coroa e/ou raiz do siso são inequivocamente visíveis na imagem.
+✅ Frases permitidas:
+• "Elemento 18: terceiro molar claramente visualizado, [descrever posição/angulação/estágio]."
+• "Elemento 38: siso visível com [erupcionado/incluso/semi-incluso], angulação [mesioangular/distoangular/vertical/horizontal]."
+• "Elemento 48: visualizado com formação radicular [completa/incompleta/em estágio X de Nolla]."
+
+NÍVEL 2 — PROVÁVEL PRESENÇA (IMAGEM PARCIAL OU SOBREPOSIÇÃO):
+Use quando há estrutura sugestiva de siso mas com sobreposição ou corte da imagem.
+⚠️ Frases permitidas:
+• "Elemento 28: estrutura radiopaca na região do terceiro molar sugestiva de coroa em formação — visualização parcial, correlação clínica indicada."
+• "Elemento 48: imagem sugestiva de terceiro molar incluso, parcialmente visualizado — confirmação por CBCT recomendada se intervenção planejada."
+
+NÍVEL 3 — ESPAÇO VAZIO / AUSÊNCIA RADIOGRÁFICA (SEM ESTRUTURA VISÍVEL):
+Use quando não há NENHUMA estrutura dentária visível na região do siso, mas NÃO é possível afirmar se é agenesia ou extração prévia.
+⚠️ Frases permitidas:
+• "Elemento 18: ausência radiográfica de estrutura dentária na região — não é possível diferenciar agenesia de extração prévia sem histórico clínico."
+• "Região do elemento 38: sem estrutura dentária identificável — correlação com histórico do paciente necessária."
+
+NÍVEL 4 — REGIÃO NÃO VISUALIZADA (CORTE FORA DO CAMPO / ARTEFATO):
+Use apenas quando a região do siso está fora do campo radiográfico ou encoberta por artefato.
+🚫 Frases permitidas:
+• "Elemento 48: região não incluída no campo radiográfico desta incidência."
+• "Elemento 28: região com artefato que impede avaliação — incidência complementar recomendada."
+
+❌ NUNCA USE (independentemente do nível):
+• "Todos os dentes presentes" ou "32 dentes presentes"
+• Afirmações de agenesia SEM mencionar a necessidade de confirmação clínica
+• Ignorar completamente os sisos sem mencionar sua avaliação
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARTE B — DISTINÇÃO DE DENTIÇÃO (CRÍTICO)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ERRO PROIBIDO: Confundir dentes decíduos com permanentes ou vice-versa.
+
+COMO DIFERENCIAR NA IMAGEM:
+
+Dentes DECÍDUOS (primários):
+• Coroas mais arredondadas e bulbosas proporcionalmente maiores
+• Câmara pulpar PROPORCIONALMENTE MAIOR em relação à coroa
+• Raízes mais curtas, delgadas e divergentes (nos molares decíduos)
+• Raízes com reabsorção fisiológica se o permanente está em erupção
+• Esmalte mais branco/opaco radiograficamente
+• Menor tamanho geral
+• Numeração ISO: 51-55 (superior direito), 61-65 (superior esquerdo), 71-75 (inferior esquerdo), 81-85 (inferior direito)
+
+Dentes PERMANENTES:
+• Coroas com anatomia mais complexa (cúspides mais definidas)
+• Câmara pulpar proporcionalmente menor
+• Raízes mais longas e robustas
+• Numeração ISO: 11-18, 21-28, 31-38, 41-48
+
+DENTIÇÃO MISTA (pacientes em desenvolvimento — aproximadamente 6-12 anos):
+⚠️ PROTOCOLO ESPECIAL:
+• SEMPRE identificar separadamente os dentes decíduos presentes e os permanentes já erupcionados
+• SEMPRE verificar e reportar: presença de germes de permanentes abaixo dos decíduos
+• SEMPRE avaliar: reabsorção radicular dos decíduos pelos permanentes
+• SEMPRE avaliar: espaço disponível para os permanentes (análise de espaço)
+• Mencionar o estágio de desenvolvimento de cada permanente visível (escala de Nolla se aplicável)
+• Avaliar: simetria do desenvolvimento bilateral (atraso de um lado em relação ao outro é achado relevante)
+
+ERROS COMUNS A EVITAR:
+❌ Reportar molares decíduos como "primeiros molares permanentes"
+❌ Confundir incisivos permanentes em erupção com incisivos decíduos
+❌ Ignorar germes de permanentes visíveis abaixo de decíduos
+❌ Não mencionar reabsorção radicular fisiológica em decíduos como achado normal
+❌ Usar numeração ISO de permanentes para dentes decíduos
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARTE C — ESTÁGIOS DE DESENVOLVIMENTO RADICULAR (NOLLA)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Para dentes em desenvolvimento (especialmente sisos e permanentes jovens), use a escala de Nolla:
+• Nolla 1: criptia apenas
+• Nolla 2: início de calcificação
+• Nolla 3: 1/3 de coroa formada
+• Nolla 4: 2/3 de coroa formada
+• Nolla 5: coroa completa
+• Nolla 6: 1/3 de raiz formada
+• Nolla 7: 2/3 de raiz formada
+• Nolla 8: raiz quase completa, ápice aberto
+• Nolla 9: raiz completa, ápice aberto
+• Nolla 10: raiz completa, ápice fechado
+
+Aplicar Nolla ao reportar sisos em desenvolvimento — isso define urgência de intervenção.
 
 📋 CALIBRAÇÃO DE CONFIANÇA:
 Sempre expressar o nível de certeza diagnóstica:

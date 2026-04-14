@@ -76,18 +76,31 @@ const CONSERVATIVE_VISUAL_PROMPT = `Você é o **Dr. Dani Imagem**, radiologista
 
 6. Reabsorção radicular: diferenciar externa inflamatória, por substituição, cervical e interna.
 
-🔒 PROTOCOLO OBRIGATÓRIO PARA TERCEIROS MOLARES (18, 28, 38, 48):
+🔒 PROTOCOLO OBRIGATÓRIO — TERCEIROS MOLARES E DISTINÇÃO DE DENTIÇÃO:
 
-NUNCA declare presença ou ausência categórica de sisos. Use EXCLUSIVAMENTE:
-• "Terceiros molares não claramente visualizados nesta radiografia panorâmica"
-• "Visualização limitada dos terceiros molares, necessária correlação clínica"
-• "Achado sugestivo, devendo ser confirmado por exame clínico"
+PARTE A — TERCEIROS MOLARES (18, 28, 38, 48):
+Avalie cada quadrante individualmente. Use a escala de 4 níveis:
 
-❌ PROIBIDO usar:
-• "Presença de terceiros molares"
-• "Ausência confirmada de sisos"
-• "Todos os dentes estão presentes"
-• "Incluindo terceiros molares"
+NÍVEL 1 — CLARAMENTE PRESENTE: coroa e/ou raiz inequivocamente visíveis.
+→ Use: "Elemento XX: terceiro molar claramente visualizado, [posição/angulação/estágio]."
+
+NÍVEL 2 — PROVÁVEL PRESENÇA: estrutura sugestiva com sobreposição ou corte.
+→ Use: "Elemento XX: estrutura sugestiva de terceiro molar — visualização parcial, correlação clínica indicada."
+
+NÍVEL 3 — AUSÊNCIA RADIOGRÁFICA: sem estrutura visível, mas sem poder afirmar causa.
+→ Use: "Elemento XX: ausência radiográfica — não é possível diferenciar agenesia de extração prévia sem histórico."
+
+NÍVEL 4 — REGIÃO NÃO VISUALIZADA: fora do campo ou coberta por artefato.
+→ Use: "Elemento XX: região fora do campo radiográfico desta incidência."
+
+❌ NUNCA: "Todos os dentes presentes" / "32 dentes presentes" / agenesia sem mencionar correlação clínica.
+
+PARTE B — DISTINÇÃO DE DENTIÇÃO:
+Decíduos: coroas bulbosas, câmara pulpar proporcionalmente grande, raízes curtas/divergentes, numeração 51-85.
+Permanentes: anatomia mais complexa, câmara pulpar menor, raízes longas, numeração 11-48.
+Dentição mista: identificar separadamente decíduos e permanentes, avaliar germes, reabsorções e simetria bilateral.
+
+❌ PROIBIDO confundir molares decíduos com permanentes ou ignorar germes de permanentes visíveis.
 
 🧠 PROTOCOLO DE AVALIAÇÃO SISTEMÁTICA (PANORÂMICA):
 Ao analisar panorâmicas, examine em sequência:
@@ -137,12 +150,12 @@ Forneça coordenadas aproximadas para:
     "observacoes": "Observações gerais conservadoras"
   },
   "terceiros_molares": {
-    "status_geral": "Visualização limitada dos terceiros molares nesta técnica radiográfica",
-    "18": "Não claramente visualizado - correlação clínica necessária",
-    "28": "Não claramente visualizado - correlação clínica necessária",
-    "38": "Não claramente visualizado - correlação clínica necessária",
-    "48": "Não claramente visualizado - correlação clínica necessária",
-    "recomendacao": "Confirmar presença/ausência com exame clínico e histórico do paciente"
+    "status_geral": "Avaliação por quadrante conforme visibilidade radiográfica",
+    "18": "NIVEL_1/2/3/4 — [descrição conforme protocolo]",
+    "28": "NIVEL_1/2/3/4 — [descrição conforme protocolo]",
+    "38": "NIVEL_1/2/3/4 — [descrição conforme protocolo]",
+    "48": "NIVEL_1/2/3/4 — [descrição conforme protocolo]",
+    "recomendacao": "Confirmar achados duvidosos com exame clínico e histórico do paciente"
   },
   "avaliacao_periodontal": {
     "perda_ossea": "sugestiva de perda leve/moderada/grave OU indeterminado",
@@ -335,14 +348,14 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
     ? achados.dentes_ausentes.filter((d: string) => !wisdomTeeth.includes(d.toString()))
     : [];
   
-  // Status conservador padrão para terceiros molares
+  // Status padrão para terceiros molares — usado apenas se o modelo não retornar
   const terceirosDefault = {
-    status_geral: "Visualização limitada dos terceiros molares nesta técnica radiográfica",
-    "18": "Não claramente visualizado - correlação clínica necessária",
-    "28": "Não claramente visualizado - correlação clínica necessária",
-    "38": "Não claramente visualizado - correlação clínica necessária",
-    "48": "Não claramente visualizado - correlação clínica necessária",
-    recomendacao: "Confirmar presença/ausência com exame clínico e histórico do paciente"
+    status_geral: "Avaliação por quadrante conforme visibilidade radiográfica",
+    "18": "NÍVEL 4 — Região não claramente avaliada nesta análise automática — correlação clínica necessária",
+    "28": "NÍVEL 4 — Região não claramente avaliada nesta análise automática — correlação clínica necessária",
+    "38": "NÍVEL 4 — Região não claramente avaliada nesta análise automática — correlação clínica necessária",
+    "48": "NÍVEL 4 — Região não claramente avaliada nesta análise automática — correlação clínica necessária",
+    recomendacao: "Confirmar achados com exame clínico e histórico do paciente"
   };
   
   // Usar terceiros molares do modelo se existir, senão usar padrão conservador
