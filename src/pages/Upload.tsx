@@ -1801,6 +1801,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 color="text-primary"
                 feedbackMode={feedbackMode}
                 fieldName="achados_radiograficos"
+                reviewerSuggestions={reviewerFlags
+                  .filter(f => f.startsWith("OMISSÃO:") || f.startsWith("🔍"))
+                  .map(f => f.replace(/^(OMISSÃO:|🔍)\s*/, "").trim())
+                }
                 onCorrect={(original, corrected, type) =>
                   handleSaveFeedback("achados_radiograficos", original, corrected, type)
                 }
@@ -1842,6 +1846,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 color="text-success"
                 feedbackMode={feedbackMode}
                 fieldName="diagnosticos_diferenciais"
+                reviewerSuggestions={reviewerFlags
+                  .filter(f => f.startsWith("QUESTIONÁVEL:") || f.startsWith("❓"))
+                  .map(f => f.replace(/^(QUESTIONÁVEL:|❓)\s*/, "").trim())
+                }
                 onCorrect={(original, corrected, type) =>
                   handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
                 }
@@ -1857,6 +1865,15 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 color="text-destructive"
                 feedbackMode={feedbackMode}
                 fieldName="riscos_alertas"
+                reviewerSuggestions={reviewerFlags
+                  .filter(f =>
+                    f.startsWith("INTERPOLAÇÃO SUSPEITA:") ||
+                    f.startsWith("⚠️") ||
+                    f.includes("FLAG") ||
+                    f.includes("OMISSÃO LABORATORIAL")
+                  )
+                  .map(f => f.replace(/^(INTERPOLAÇÃO SUSPEITA:|⚠️|FLAG\s*\d+:\s*)/i, "").trim())
+                }
                 onCorrect={(original, corrected, type) =>
                   handleSaveFeedback("riscos_alertas", original, corrected, type)
                 }
@@ -1872,6 +1889,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 color="text-primary"
                 feedbackMode={feedbackMode}
                 fieldName="recomendacoes_clinicas"
+                reviewerSuggestions={[]}
                 onCorrect={(original, corrected, type) =>
                   handleSaveFeedback("recomendacoes_clinicas", original, corrected, type)
                 }
@@ -2035,6 +2053,7 @@ function ResultCard({
   feedbackMode = false,
   fieldName = "",
   onCorrect,
+  reviewerSuggestions = [],
 }: {
   title: string;
   items: string[];
@@ -2043,6 +2062,7 @@ function ResultCard({
   feedbackMode?: boolean;
   fieldName?: string;
   onCorrect?: (original: string, corrected: string, type: "correction" | "addition" | "removal") => void;
+  reviewerSuggestions?: string[];
 }) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -2140,35 +2160,121 @@ function ResultCard({
 
         {/* Botão adicionar novo achado (modo correção) */}
         {feedbackMode && onCorrect && (
-          <AddFeedbackItem fieldName={fieldName} onAdd={(val) => onCorrect("", val, "addition")} />
+          <AddFeedbackItem
+            fieldName={fieldName}
+            reviewerSuggestions={reviewerSuggestions}
+            onAdd={(val) => onCorrect?.("", val, "addition")}
+          />
         )}
       </CardContent>
     </Card>
   );
 }
 
-function AddFeedbackItem({ fieldName, onAdd }: { fieldName: string; onAdd: (val: string) => void }) {
-  const [adding, setAdding] = useState(false);
-  const [val, setVal] = useState("");
+function AddFeedbackItem({
+  fieldName,
+  reviewerSuggestions = [],
+  onAdd,
+}: {
+  fieldName: string;
+  reviewerSuggestions?: string[];
+  onAdd: (val: string) => void;
+}) {
+  const [adding, setAdding]   = useState(false);
+  const [val, setVal]         = useState("");
+  const [saved, setSaved]     = useState<string[]>([]);
+
+  const handleAdd = (text: string) => {
+    if (!text.trim()) return;
+    onAdd(text.trim());
+    setSaved(prev => [...prev, text.trim()]);
+    setVal("");
+  };
+
+  // Sugestões ainda não inseridas
+  const pendingSuggestions = reviewerSuggestions.filter(s => !saved.includes(s));
+
   return adding ? (
-    <div className="mt-2 space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/30">
-      <p className="text-xs text-green-600 font-medium">Adicionar achado que a IA não identificou:</p>
-      <textarea value={val} onChange={e => setVal(e.target.value)}
-        className="w-full text-sm p-2 rounded border bg-background resize-none" rows={2} autoFocus
-        placeholder="Descreva o achado correto..." />
+    <div className="mt-2 space-y-3 p-3 bg-green-500/5 rounded-lg border border-green-500/30">
+      <p className="text-xs text-green-600 font-semibold">
+        Adicionar achado que a IA não identificou:
+      </p>
+
+      {/* ── Sugestões do revisor ── */}
+      {pendingSuggestions.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            🔍 <span>Sugestões do revisor — clique para inserir:</span>
+          </p>
+          {pendingSuggestions.map((sug, i) => (
+            <button
+              key={i}
+              onClick={() => handleAdd(sug)}
+              className="w-full text-left text-xs px-3 py-2 rounded-lg border border-green-500/30 bg-green-500/5 hover:bg-green-500/15 hover:border-green-500/60 transition-colors flex items-start gap-2 group"
+            >
+              <span className="text-green-600 flex-shrink-0 mt-0.5">+</span>
+              <span className="text-foreground leading-relaxed">{sug}</span>
+              <span className="ml-auto flex-shrink-0 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-medium">
+                inserir ✓
+              </span>
+            </button>
+          ))}
+
+          {/* Itens já inseridos */}
+          {saved.length > 0 && (
+            <div className="space-y-1 pt-1">
+              {saved.map((s, i) => (
+                <div key={i} className="text-xs text-green-600 flex items-center gap-1 px-2 opacity-70">
+                  <span>✅</span>
+                  <span className="truncate">{s}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="border-t border-green-500/20 pt-2">
+            <p className="text-xs text-muted-foreground mb-1.5">Ou escreva manualmente:</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Campo livre ── */}
+      <textarea
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        className="w-full text-sm p-2 rounded border bg-background resize-none"
+        rows={2}
+        autoFocus={pendingSuggestions.length === 0}
+        placeholder="Descreva o achado que a IA não identificou..."
+      />
       <div className="flex gap-2">
-        <button onClick={() => { if (val.trim()) { onAdd(val); setVal(""); setAdding(false); } }}
-          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-500">
-          ✅ Salvar adição
+        <button
+          onClick={() => handleAdd(val)}
+          disabled={!val.trim()}
+          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-500 disabled:opacity-40"
+        >
+          ✅ Salvar
         </button>
-        <button onClick={() => setAdding(false)}
-          className="px-3 py-1.5 bg-muted text-xs rounded">Cancelar</button>
+        <button
+          onClick={() => { setAdding(false); setVal(""); }}
+          className="px-3 py-1.5 bg-muted text-xs rounded hover:bg-muted/80"
+        >
+          Fechar
+        </button>
       </div>
     </div>
   ) : (
-    <button onClick={() => setAdding(true)}
-      className="mt-2 w-full text-xs text-green-600 border border-dashed border-green-500/40 rounded-lg py-2 hover:bg-green-500/5 transition-colors">
-      + Adicionar achado que a IA não identificou
+    <button
+      onClick={() => setAdding(true)}
+      className="mt-2 w-full text-xs text-green-600 border border-dashed border-green-500/40 rounded-lg py-2 hover:bg-green-500/5 transition-colors flex items-center justify-center gap-1.5"
+    >
+      <span>+</span>
+      <span>Adicionar achado que a IA não identificou</span>
+      {pendingSuggestions.length > 0 && (
+        <span className="ml-1 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+          {pendingSuggestions.length} sugestões do revisor
+        </span>
+      )}
     </button>
   );
 }
