@@ -988,19 +988,6 @@ export default function Upload() {
     const patientNameClean = patientData.nome.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
     doc.save(`laudo-${patientNameClean}-${patientData.dataLaudo}.pdf`);
     toast.success("PDF gerado com sucesso!");
-
-    // Reset form
-    setTimeout(() => {
-      setSelectedFiles([]);
-      setPreviewUrls([]);
-      setResult(null);
-      setRawContent(null);
-      setReportGenerated(false);
-      setExamCategories([]);
-      clearDraft();
-      setPatientData({ nome: "", dataNascimento: "", dataLaudo: getTodayFormatted() });
-      toast.info("Formulário resetado para nova análise");
-    }, 500);
   };
 
   const handleCopyToClipboard = () => {
@@ -1109,8 +1096,13 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         setSavedCaseId(data[0].id);
       }
 
-      toast.success("Caso salvo com sucesso!");
-      navigate("/cases");
+      toast.success("Caso salvo! Você pode baixar o PDF ou iniciar uma nova análise.", {
+        action: {
+          label: "Ver Meus Casos",
+          onClick: () => navigate("/cases"),
+        },
+        duration: 6000,
+      });
     } catch (error) {
       console.error("Erro ao salvar:", error);
       toast.error("Erro ao salvar o caso. Verifique o console para detalhes.");
@@ -1162,6 +1154,11 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setExamCategories([]);
     setVisualAnalysisResult(null);
     setShowVisualAnalysis(false);
+    setReviewerFlags([]);
+    setReviewScore(null);
+    setShowReviewerPanel(false);
+    setFeedbackMode(false);
+    setSavedCaseId(null);
     clearDraft();
     setPatientData({
       nome: "",
@@ -2163,7 +2160,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
           <div className="flex flex-col gap-3">
             {/* Botões de Download e Copiar */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
+              <Button
                 variant="hero"
                 size="lg"
                 className="flex-1 min-h-[52px] touch-manipulation active:opacity-80"
@@ -2172,7 +2169,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 <Download className="w-5 h-5" />
                 <span>Baixar PDF</span>
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 size="lg"
                 className="flex-1 min-h-[52px] touch-manipulation active:bg-muted"
@@ -2185,17 +2182,22 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
 
             {/* Botões de Ação */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
-                variant="success" 
+              <Button
+                variant={savedCaseId ? "outline" : "success"}
                 size="lg"
                 className="flex-1 min-h-[52px] touch-manipulation active:opacity-80"
-                onClick={handleSaveCase}
+                onClick={savedCaseId ? () => navigate("/cases") : handleSaveCase}
                 disabled={isSaving}
               >
                 {isSaving ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>Salvando...</span>
+                  </>
+                ) : savedCaseId ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span>Salvo — Ver Meus Casos</span>
                   </>
                 ) : (
                   <>
@@ -2204,8 +2206,8 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                   </>
                 )}
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="lg"
                 className="flex-1 min-h-[52px] touch-manipulation active:bg-muted"
                 onClick={clearFiles}
