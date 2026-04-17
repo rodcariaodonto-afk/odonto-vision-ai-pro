@@ -1,0 +1,1 @@
+ALTER TABLE public.cases ADD COLUMN patient_folder text;
