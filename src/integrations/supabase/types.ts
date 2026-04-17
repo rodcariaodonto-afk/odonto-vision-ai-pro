@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      case_feedback: {
+        Row: {
+          case_id: string | null
+          corrected_value: string
+          created_at: string
+          exam_category: string | null
+          feedback_type: string
+          field_index: number | null
+          field_name: string
+          id: string
+          notes: string | null
+          original_value: string | null
+          user_id: string
+        }
+        Insert: {
+          case_id?: string | null
+          corrected_value: string
+          created_at?: string
+          exam_category?: string | null
+          feedback_type?: string
+          field_index?: number | null
+          field_name: string
+          id?: string
+          notes?: string | null
+          original_value?: string | null
+          user_id: string
+        }
+        Update: {
+          case_id?: string | null
+          corrected_value?: string
+          created_at?: string
+          exam_category?: string | null
+          feedback_type?: string
+          field_index?: number | null
+          field_name?: string
+          id?: string
+          notes?: string | null
+          original_value?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_feedback_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           analysis: Json | null
@@ -25,6 +75,9 @@ export type Database = {
           name: string
           patient_folder: string | null
           raw_content: string | null
+          review_score: number | null
+          reviewer_analysis: Json | null
+          reviewer_flags: string[] | null
           status: string
           updated_at: string
           user_id: string
@@ -40,6 +93,9 @@ export type Database = {
           name: string
           patient_folder?: string | null
           raw_content?: string | null
+          review_score?: number | null
+          reviewer_analysis?: Json | null
+          reviewer_flags?: string[] | null
           status?: string
           updated_at?: string
           user_id: string
@@ -55,6 +111,9 @@ export type Database = {
           name?: string
           patient_folder?: string | null
           raw_content?: string | null
+          review_score?: number | null
+          reviewer_analysis?: Json | null
+          reviewer_flags?: string[] | null
           status?: string
           updated_at?: string
           user_id?: string
