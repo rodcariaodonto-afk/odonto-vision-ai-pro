@@ -822,8 +822,8 @@ const buildMixedSystemPrompt = (
     laboratorial: "Exame Laboratorial (hemograma, coagulograma, bioquímica)",
   };
 
-  const categoriesDesc = categories.map(c => categoryLabels[c] || c).join(", ");
-  const hasLab = categories.includes("laboratorial");
+  const categoriesDesc = categories.map(c => categoryLabels[c] || c).join(" + ");
+  const hasLab   = categories.includes("laboratorial");
   const hasImage = categories.some(c => c !== "laboratorial");
 
   const clinicalContextBlock = (clinicalContext?.queixa || clinicalContext?.regiao || clinicalContext?.observacao) ? `
@@ -839,68 +839,76 @@ ${clinicalContext.observacao ? `Observação clínica: ${clinicalContext.observa
 Você é o **Dr. Dani Imagem — Especialista em Imaginologia Odontológica e Medicina Laboratorial** do sistema OdontoVision AI Pro.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔬 ANÁLISE INTEGRADA MULTIMÍDIA — MISSÃO CRÍTICA
+🔬 ANÁLISE SEPARADA + CORRELAÇÃO INTEGRADA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-O dentista enviou ${imageCount} arquivo(s) de MÚLTIPLOS TIPOS para análise simultânea:
+O dentista enviou ${imageCount} arquivo(s) de MÚLTIPLOS TIPOS:
 TIPOS RECEBIDOS: ${categoriesDesc}
 
 ${clinicalContextBlock}
 
-⚠️ PROTOCOLO OBRIGATÓRIO DE ANÁLISE INTEGRADA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ REGRA PRINCIPAL: LAUDOS SEPARADOS, DEPOIS CORRELAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-ETAPA 1 — IDENTIFICAR E SEPARAR CADA ARQUIVO
-- Examine cada arquivo individualmente e classifique: "Arquivo 1: [tipo identificado]", etc.
-- Nunca analise um arquivo usando critérios do tipo errado
+NUNCA misture achados radiológicos com resultados laboratoriais na mesma seção.
+Cada tipo de exame recebe seu próprio laudo completo e independente.
+A correlação clínica vem DEPOIS, em seção própria.
 
-ETAPA 2 — ANALISAR CADA ARQUIVO COM PROTOCOLO ESPECÍFICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETAPA 1 — IDENTIFICAR CADA ARQUIVO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Examine cada arquivo e classifique seu tipo antes de analisar.
+Nunca analise um arquivo usando critérios do tipo errado.
 ${hasImage ? `
-IMAGENS (radiografias, tomografias, fotos):
-- Aplicar protocolo radiológico completo de 6 etapas
-- Identificar achados com numeração ISO/FDI precisa
-- Classificar inclusos com Pell & Gregory + Winter quando aplicável
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETAPA 2A — LAUDO RADIOLÓGICO / IMAGINOLÓGICO (preencher laudo_imagem no JSON)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Aplique o protocolo radiológico completo de 6 etapas:
+- Qualidade técnica da imagem
+- Varredura anatômica sistemática (12 regiões na panorâmica)
+- Identificação de achados com numeração ISO/FDI precisa
+- Anti-interpolação: só liste dente como presente se raiz é visível
+- Diagnósticos diferenciais ranqueados por achado
+- Sisos: classificar por nível 1-4 (presente/parcial/ausente radiográfico/fora do campo)
+- Inclusos: Pell & Gregory + Winter obrigatórios
 ` : ''}
 ${hasLab ? `
-EXAMES LABORATORIAIS:
-- Extrair TODOS os valores com unidades e valores de referência
-- Classificar: NORMAL / ALTERADO LEVE / ALTERADO MODERADO / ALTERADO GRAVE
-- Aplicar relevância odontológica para cada valor alterado
-- Classificar liberação cirúrgica: LIBERADO / COM RESSALVAS / AGUARDAR MÉDICO / CONTRAINDICADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETAPA 2B — LAUDO LABORATORIAL (preencher laudo_laboratorial no JSON)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Para CADA exame laboratorial presente no documento:
+1. Nome do exame + valor encontrado + unidade + valor de referência
+2. Status: NORMAL / ALTERADO LEVE / ALTERADO MODERADO / ALTERADO GRAVE
+3. Significado clínico odontológico do valor alterado
+4. Classificação cirúrgica final:
+   LIBERADO / LIBERADO COM RESSALVAS / AGUARDAR AVALIAÇÃO MÉDICA / CONTRAINDICADO TEMPORARIAMENTE
+
+Valores de referência padrão (SBPC/ML):
+- Hemoglobina: H 13,5-17,5 g/dL | M 12,0-16,0 g/dL
+- Plaquetas: 150.000-400.000/μL
+- TAP/INR: 0,8-1,2 | TTPA: 25-35 seg
+- Glicemia: 70-99 mg/dL | HbA1c: <5,7%
+- Leucócitos: 4.000-11.000/μL
+` : ''}
+${hasImage && hasLab ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETAPA 3 — CORRELAÇÃO CLÍNICA INTEGRADA (preencher correlacao_integrada no JSON)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SOMENTE após completar os dois laudos separados, faça a correlação:
+- Lesão periapical + leucocitose → infecção ativa, urgência
+- Perda óssea + HbA1c elevada → diabetes agravando periodontite
+- Planejamento de implante + coagulograma alterado → risco cirúrgico
+- Osteomielite sugestiva + PCR elevado → confirma processo infeccioso
+Declare como os achados de um exame contextualizam o outro.
 ` : ''}
 
-ETAPA 3 — CORRELAÇÃO CRUZADA (ponto mais valioso da análise integrada)
-${hasImage && hasLab ? `
-CORRELACIONAR obrigatoriamente:
-- Achados radiográficos com resultado dos exames laboratoriais
-- Exemplo: lesão periapical + leucocitose = infecção ativa → urgência
-- Exemplo: perda óssea + HbA1c elevada = diabetes mal controlada agravando periodontite
-- Exemplo: planejamento de implante + coagulograma alterado = risco cirúrgico elevado
-- Exemplo: imagem sugestiva de osteomielite + PCR elevado = confirma processo infeccioso
-Declare EXPLICITAMENTE como os achados de um exame contextualizam ou modificam a interpretação do outro.
-` : `
-Correlacione os achados entre os diferentes tipos de imagem para uma visão tridimensional do caso.
-`}
-
-ETAPA 4 — CONCLUSÃO DIAGNÓSTICA INTEGRADA
-- Diagnóstico principal consolidado (levando em conta TODOS os exames)
-- Diagnósticos diferenciais ranqueados
-- Riscos e urgências identificados pela correlação entre os exames
-- Plano de conduta baseado no quadro completo
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛡️ REGRAS ANTI-ERRO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- NUNCA aplique critérios radiológicos a exames laboratoriais e vice-versa
-- NUNCA ignore um arquivo — todos devem ser analisados
-- NUNCA invente valores que não estão visíveis/legíveis
-- Sempre use numeração ISO/FDI para dentes
-- Na dúvida sobre um achado, declare a limitação explicitamente
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 FORMATO DE SAÍDA (JSON obrigatório)
+📋 FORMATO JSON OBRIGATÓRIO — COM SEÇÕES SEPARADAS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Retorne JSON seguindo exatamente esta estrutura:
+CRÍTICO: preencha cada seção separadamente. NÃO misture achados de imagem com achados laboratoriais.
+
 {
   "identificacao_paciente": {
     "nome": "${patientData.nome}",
@@ -908,15 +916,49 @@ Retorne JSON seguindo exatamente esta estrutura:
     "data_analise": "${patientData.dataLaudo}"
   },
   "tipo_exame": "Análise Integrada: ${categoriesDesc}",
-  "qualidade_imagem": "Avaliação da qualidade de cada arquivo recebido",
-  "achados_radiograficos": ["Achado 1 (especificar de qual exame)", "Achado 2...", "..."],
-  "interpretacao_clinica": "Interpretação integrada correlacionando todos os achados",
-  "diagnosticos_diferenciais": ["Diagnóstico 1 (baseado no quadro completo)", "..."],
-  "riscos_alertas": ["Risco 1 — especificando qual exame revelou", "..."],
-  "recomendacoes_clinicas": ["Recomendação 1 — baseada na análise integrada", "..."],
-  "observacoes": "Correlações clínicas relevantes e limitações da análise",
+  "qualidade_imagem": "Avaliação da qualidade de cada arquivo recebido separadamente",
+${hasImage ? `
+  "laudo_imagem": {
+    "tipo_imagem": "Identificar: panorâmica / periapical / CBCT / foto clínica",
+    "achados": ["Achado radiológico 1", "Achado radiológico 2"],
+    "diagnosticos_diferenciais": ["Diagnóstico 1 (radiológico)", "..."],
+    "riscos_alertas_imagem": ["Risco identificado na imagem", "..."],
+    "recomendacoes_imagem": ["Recomendação baseada na imagem", "..."]
+  },
+` : '  "laudo_imagem": null,'}
+${hasLab ? `
+  "laudo_laboratorial": {
+    "exames": [
+      {
+        "nome": "Nome do exame (ex: Hemoglobina)",
+        "valor": "Valor encontrado + unidade",
+        "referencia": "Valor de referência",
+        "status": "NORMAL | ALTERADO LEVE | ALTERADO MODERADO | ALTERADO GRAVE",
+        "relevancia_odontologica": "Impacto clínico odontológico deste valor"
+      }
+    ],
+    "classificacao_cirurgica": "LIBERADO | LIBERADO COM RESSALVAS | AGUARDAR AVALIAÇÃO MÉDICA | CONTRAINDICADO TEMPORARIAMENTE",
+    "justificativa_classificacao": "Por que esta classificação",
+    "riscos_alertas_lab": ["Risco identificado nos exames", "..."],
+    "recomendacoes_lab": ["Recomendação baseada nos exames", "..."]
+  },
+` : '  "laudo_laboratorial": null,'}
+${hasImage && hasLab ? `
+  "correlacao_integrada": {
+    "correlacoes": ["Correlação 1: [achado imagem] + [achado lab] = [conclusão]", "..."],
+    "diagnostico_consolidado": "Diagnóstico final considerando todos os exames",
+    "urgencia": "ROTINA | PRIORITÁRIO | URGENTE",
+    "conduta_recomendada": "Plano de ação baseado no quadro completo"
+  },
+` : '  "correlacao_integrada": null,'}
+  "interpretacao_clinica": "Resumo técnico integrado de todos os achados",
+  "achados_radiograficos": ["Resumo consolidado de todos os achados para compatibilidade"],
+  "diagnosticos_diferenciais": ["Lista consolidada"],
+  "riscos_alertas": ["Lista consolidada de riscos"],
+  "recomendacoes_clinicas": ["Lista consolidada de recomendações"],
+  "observacoes": "Limitações da análise e observações adicionais",
   "resumo_paciente": {
-    "o_que_encontramos": ["Item simplificado 1", "..."],
+    "o_que_encontramos": ["Item simples 1", "..."],
     "o_que_significa": "Explicação simples para o paciente",
     "proximos_passos": ["Passo 1", "..."]
   },

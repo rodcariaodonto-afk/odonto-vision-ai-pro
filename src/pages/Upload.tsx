@@ -15,6 +15,37 @@ import jsPDF from "jspdf";
 
 type ExamCategory = "radiografia" | "tomografia" | "foto" | "laboratorial";
 
+interface LaudoImagem {
+  tipo_imagem?: string;
+  achados?: string[];
+  diagnosticos_diferenciais?: string[];
+  riscos_alertas_imagem?: string[];
+  recomendacoes_imagem?: string[];
+}
+
+interface ExameLab {
+  nome: string;
+  valor: string;
+  referencia: string;
+  status: "NORMAL" | "ALTERADO LEVE" | "ALTERADO MODERADO" | "ALTERADO GRAVE";
+  relevancia_odontologica: string;
+}
+
+interface LaudoLaboratorial {
+  exames?: ExameLab[];
+  classificacao_cirurgica?: string;
+  justificativa_classificacao?: string;
+  riscos_alertas_lab?: string[];
+  recomendacoes_lab?: string[];
+}
+
+interface CorrelacaoIntegrada {
+  correlacoes?: string[];
+  diagnostico_consolidado?: string;
+  urgencia?: "ROTINA" | "PRIORITÁRIO" | "URGENTE";
+  conduta_recomendada?: string;
+}
+
 interface AnalysisResult {
   identificacao_paciente: {
     nome: string;
@@ -29,6 +60,10 @@ interface AnalysisResult {
   riscos_alertas: string[];
   recomendacoes_clinicas: string[];
   observacoes: string;
+  // Campos de análise mista — presentes quando múltiplos tipos foram enviados
+  laudo_imagem?: LaudoImagem | null;
+  laudo_laboratorial?: LaudoLaboratorial | null;
+  correlacao_integrada?: CorrelacaoIntegrada | null;
 }
 
 interface PatientData {
@@ -1413,8 +1448,190 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </Card>
             )}
 
-            {/* Achados Radiográficos */}
-            {result.achados_radiograficos && result.achados_radiograficos.length > 0 && (
+            {/* ── ANÁLISE MISTA: Laudo Radiológico separado ── */}
+            {result.laudo_imagem && (
+              <Card className="border-primary/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                    <FileImage className="w-5 h-5" />
+                    4A) Laudo Radiológico / Imaginológico
+                    {result.laudo_imagem.tipo_imagem && (
+                      <span className="text-sm font-normal text-muted-foreground ml-1">
+                        — {result.laudo_imagem.tipo_imagem}
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {result.laudo_imagem.achados && result.laudo_imagem.achados.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Achados</p>
+                      <ul className="space-y-2">
+                        {result.laudo_imagem.achados.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {result.laudo_imagem.diagnosticos_diferenciais && result.laudo_imagem.diagnosticos_diferenciais.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Diagnósticos Diferenciais</p>
+                      <ul className="space-y-1">
+                        {result.laudo_imagem.diagnosticos_diferenciais.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="mt-1.5 w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {result.laudo_imagem.riscos_alertas_imagem && result.laudo_imagem.riscos_alertas_imagem.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-destructive uppercase tracking-wide mb-2">Riscos e Alertas</p>
+                      <ul className="space-y-1">
+                        {result.laudo_imagem.riscos_alertas_imagem.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-destructive/90">
+                            <span className="mt-1.5 w-2 h-2 rounded-full bg-destructive flex-shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ── ANÁLISE MISTA: Laudo Laboratorial separado ── */}
+            {result.laudo_laboratorial && (
+              <Card className="border-amber-500/30">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2 text-amber-600">
+                    <FileText className="w-5 h-5" />
+                    4B) Laudo Laboratorial
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Tabela de exames */}
+                  {result.laudo_laboratorial.exames && result.laudo_laboratorial.exames.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Resultados dos Exames</p>
+                      {result.laudo_laboratorial.exames.map((exame, i) => (
+                        <div key={i} className="p-3 rounded-lg border bg-muted/30 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{exame.nome}</span>
+                            <span className={cn(
+                              "text-xs font-bold px-2 py-0.5 rounded-full",
+                              exame.status === "NORMAL"
+                                ? "bg-green-500/20 text-green-600"
+                                : exame.status === "ALTERADO LEVE"
+                                ? "bg-yellow-500/20 text-yellow-600"
+                                : exame.status === "ALTERADO MODERADO"
+                                ? "bg-orange-500/20 text-orange-600"
+                                : "bg-destructive/20 text-destructive"
+                            )}>
+                              {exame.status}
+                            </span>
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            <span>Valor: <strong className="text-foreground">{exame.valor}</strong></span>
+                            <span>Ref: {exame.referencia}</span>
+                          </div>
+                          {exame.relevancia_odontologica && exame.status !== "NORMAL" && (
+                            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                              ⚠️ {exame.relevancia_odontologica}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Classificação cirúrgica */}
+                  {result.laudo_laboratorial.classificacao_cirurgica && (
+                    <div className={cn(
+                      "p-3 rounded-lg border-2 font-semibold text-sm flex items-center gap-2",
+                      result.laudo_laboratorial.classificacao_cirurgica === "LIBERADO"
+                        ? "border-green-500 bg-green-500/10 text-green-600"
+                        : result.laudo_laboratorial.classificacao_cirurgica === "LIBERADO COM RESSALVAS"
+                        ? "border-yellow-500 bg-yellow-500/10 text-yellow-600"
+                        : result.laudo_laboratorial.classificacao_cirurgica === "AGUARDAR AVALIAÇÃO MÉDICA"
+                        ? "border-orange-500 bg-orange-500/10 text-orange-600"
+                        : "border-destructive bg-destructive/10 text-destructive"
+                    )}>
+                      <span className="text-lg">
+                        {result.laudo_laboratorial.classificacao_cirurgica === "LIBERADO" ? "✅" :
+                         result.laudo_laboratorial.classificacao_cirurgica === "LIBERADO COM RESSALVAS" ? "⚠️" :
+                         result.laudo_laboratorial.classificacao_cirurgica === "AGUARDAR AVALIAÇÃO MÉDICA" ? "🟡" : "🔴"}
+                      </span>
+                      <div>
+                        <p>Liberação Cirúrgica: {result.laudo_laboratorial.classificacao_cirurgica}</p>
+                        {result.laudo_laboratorial.justificativa_classificacao && (
+                          <p className="font-normal text-xs mt-0.5 opacity-80">
+                            {result.laudo_laboratorial.justificativa_classificacao}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ── ANÁLISE MISTA: Correlação integrada ── */}
+            {result.correlacao_integrada && (
+              <Card className="border-purple-500/30 bg-purple-500/5">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2 text-purple-600">
+                    <Sparkles className="w-5 h-5" />
+                    4C) Correlação Clínica Integrada
+                    {result.correlacao_integrada.urgencia && (
+                      <span className={cn(
+                        "ml-auto text-xs font-bold px-2 py-0.5 rounded-full",
+                        result.correlacao_integrada.urgencia === "ROTINA"
+                          ? "bg-green-500/20 text-green-600"
+                          : result.correlacao_integrada.urgencia === "PRIORITÁRIO"
+                          ? "bg-orange-500/20 text-orange-600"
+                          : "bg-destructive/20 text-destructive"
+                      )}>
+                        {result.correlacao_integrada.urgencia}
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {result.correlacao_integrada.correlacoes && result.correlacao_integrada.correlacoes.length > 0 && (
+                    <ul className="space-y-2">
+                      {result.correlacao_integrada.correlacoes.map((item, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <span className="mt-1.5 w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {result.correlacao_integrada.diagnostico_consolidado && (
+                    <div className="p-3 bg-background rounded-lg border border-purple-500/20">
+                      <p className="text-xs font-semibold text-purple-600 mb-1">Diagnóstico Consolidado</p>
+                      <p className="text-sm">{result.correlacao_integrada.diagnostico_consolidado}</p>
+                    </div>
+                  )}
+                  {result.correlacao_integrada.conduta_recomendada && (
+                    <div className="p-3 bg-background rounded-lg border border-purple-500/20">
+                      <p className="text-xs font-semibold text-purple-600 mb-1">Conduta Recomendada</p>
+                      <p className="text-sm">{result.correlacao_integrada.conduta_recomendada}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Achados Radiográficos — só mostra quando NÃO é análise mista */}
+            {!result.laudo_imagem && result.achados_radiograficos && result.achados_radiograficos.length > 0 && (
               <ResultCard
                 title="4) Achados Radiográficos"
                 items={result.achados_radiograficos}
