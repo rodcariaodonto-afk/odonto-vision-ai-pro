@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ArrowLeft,
+  Code2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -18,11 +19,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const adminNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
-  { icon: Users, label: "Usuários", path: "/admin/users" },
-  { icon: FileText, label: "Casos", path: "/admin/cases" },
-  { icon: MessageSquare, label: "Suporte", path: "/admin/support" },
-  { icon: Settings, label: "Configurações", path: "/admin/settings" },
+  { icon: LayoutDashboard, label: "Dashboard",        path: "/admin" },
+  { icon: Users,           label: "Usuários",          path: "/admin/users" },
+  { icon: FileText,        label: "Casos",             path: "/admin/cases" },
+  { icon: Code2,           label: "API & Integrações", path: "/admin/api" },
+  { icon: MessageSquare,   label: "Suporte",           path: "/admin/support" },
+  { icon: Settings,        label: "Configurações",     path: "/admin/settings" },
 ];
 
 export default function AdminLayout() {
