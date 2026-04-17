@@ -479,7 +479,12 @@ Incluir obrigatoriamente:
 • Lesões radiolúcidas/radiopacas (com caracterização completa: localização, tamanho, forma, bordas, estrutura interna)
 • Reabsorções
 • Implantes
-• Ausências dentárias
+• Ausências dentárias — PROTOCOLO ANTI-INTERPOLAÇÃO:
+  ⚠️ Liste como AUSENTE apenas dentes onde o espaço edêntulo é claramente visível no osso.
+  ⚠️ Liste como PRESENTE apenas dentes cuja RAIZ é confirmável no osso alveolar.
+  ⚠️ NUNCA infira presença por "completar a sequência" — cada dente requer evidência visual própria.
+  ⚠️ Quando há aparelho ortodôntico: confirme presença pela RAIZ, não pelo bráquete ou banda.
+  ⚠️ Dentes com visualização comprometida (sobreposição, artefato): registrar como "visualização limitada — correlação clínica necessária".
 • Raízes, ápices, dilacerações
 • Anomalias visíveis
 
