@@ -84,23 +84,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Set up auth state listener for ACTUAL auth changes only
+    // IMPORTANT: ignore TOKEN_REFRESHED when the user is the same to avoid
+    // re-renders (and state loss) when the user switches tabs / returns focus.
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
-        // Only update if there's an actual auth change (not just visibility)
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          if (mounted) {
-            setSession(newSession);
-            setUser(newSession?.user ?? null);
-            setLoading(false);
+        if (!mounted) return;
 
-            if (newSession && event === 'SIGNED_IN') {
-              setTimeout(() => {
-                checkSubscription();
-              }, 0);
-            } else if (event === 'SIGNED_OUT') {
-              setSubscription(null);
-            }
+        if (event === 'SIGNED_IN') {
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+          setLoading(false);
+          if (newSession) {
+            setTimeout(() => checkSubscription(), 0);
           }
+          return;
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setSubscription(null);
+          setLoading(false);
+          return;
+        }
+
+        if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          // Update session token silently WITHOUT changing user identity reference
+          // unless the user id actually changed (prevents downstream re-renders).
+          setSession(newSession);
+          setUser((prev) => {
+            const next = newSession?.user ?? null;
+            if (prev?.id === next?.id) return prev; // keep same reference
+            return next;
+          });
         }
       }
     );
