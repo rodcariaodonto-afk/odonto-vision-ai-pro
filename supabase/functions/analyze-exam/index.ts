@@ -1295,10 +1295,180 @@ Forneça a análise no formato JSON especificado.`
       diagnosticos_diferenciais: analysis.diagnosticos_diferenciais?.length > 0 ? analysis.diagnosticos_diferenciais : ["Ver interpretação clínica"],
       riscos_alertas: analysis.riscos_alertas?.length > 0 ? analysis.riscos_alertas : ["Avaliação de riscos incluída na análise"],
       recomendacoes_clinicas: analysis.recomendacoes_clinicas?.length > 0 ? analysis.recomendacoes_clinicas : ["Recomendações clínicas conforme análise"],
-      observacoes: analysis.observacoes || "A interpretação final é responsabilidade do dentista responsável."
+      observacoes: analysis.observacoes || "A interpretação final é responsabilidade do dentista responsável.",
+      // Preservar campos de análise mista se existirem
+      ...(analysis.laudo_imagem !== undefined && { laudo_imagem: analysis.laudo_imagem }),
+      ...(analysis.laudo_laboratorial !== undefined && { laudo_laboratorial: analysis.laudo_laboratorial }),
+      ...(analysis.correlacao_integrada !== undefined && { correlacao_integrada: analysis.correlacao_integrada }),
     };
 
-    return new Response(JSON.stringify({ analysis, rawContent: content }), {
+    // ── SOLUÇÃO 3: Modelo Revisor (Critic) ─────────────────────────────────────
+    // Usa a API da Anthropic (Claude) como segundo modelo para revisar o laudo
+    // gerado pelo GPT-4o, identificar inconsistências e elevar a precisão.
+    let reviewerAnalysis: any = null;
+    let reviewerFlags: string[] = [];
+    let reviewScore: number | null = null;
+
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+
+    if (ANTHROPIC_API_KEY && allImages) {
+      try {
+        console.log("🔍 Iniciando revisão crítica pelo modelo revisor...");
+
+        // Monta o prompt do revisor com o laudo gerado e as imagens originais
+        const reviewerSystemPrompt = `Você é um **Radiologista Odontológico Senior** revisando o laudo gerado por outro modelo de IA.
+
+Sua função é CRÍTICA e INDEPENDENTE: você NÃO deve concordar com o laudo só porque foi gerado.
+Você deve questionar, verificar e identificar erros, omissões e imprecisões.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEU PROTOCOLO DE REVISÃO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. VERIFIQUE CADA ACHADO LISTADO
+   - O achado é visível na imagem? (sim / não / inconclusivo)
+   - A numeração ISO/FDI está correta?
+   - A descrição é precisa ou vaga demais?
+
+2. IDENTIFIQUE OMISSÕES
+   - Há achados visíveis na imagem que o laudo NÃO mencionou?
+   - Há estruturas anatômicas não avaliadas?
+
+3. VERIFIQUE INTERPOLAÇÃO DE DENTES
+   - Os dentes listados como PRESENTES têm raiz visível?
+   - Há espaços edêntulos sendo tratados como dentes presentes?
+
+4. AVALIE A CONSISTÊNCIA CLÍNICA
+   - Os diagnósticos diferenciais são compatíveis com os achados descritos?
+   - A urgência está calibrada corretamente?
+
+5. CALCULE O SCORE DE CONFIANÇA (0-100)
+   - 90-100: Laudo excelente, sem erros identificados
+   - 70-89: Laudo bom, pequenas omissões ou imprecisões
+   - 50-69: Laudo razoável, erros ou omissões relevantes
+   - 0-49: Laudo com erros significativos, requer atenção
+
+Retorne APENAS este JSON:
+{
+  "score": 0-100,
+  "flags": [
+    "FLAG 1: [tipo] — [descrição do problema encontrado]",
+    "FLAG 2: ..."
+  ],
+  "achados_omitidos": ["Achado que a IA não viu mas está na imagem"],
+  "achados_questionaveis": ["Achado listado pela IA que não é claramente visível"],
+  "dentes_suspeitos": ["Elemento XX: listado como presente mas raiz não confirmada"],
+  "diagnostico_revisado": "Se o diagnóstico principal precisa de ajuste, escreva aqui. Se está correto, escreva 'CONFIRMADO'.",
+  "recomendacao_revisor": "Orientação geral sobre a qualidade deste laudo para o dentista.",
+  "aprovado": true ou false
+}`;
+
+        // Monta o conteúdo da mensagem com imagens + laudo para revisar
+        const reviewContent: any[] = [
+          {
+            type: "text",
+            text: `Revise este laudo gerado por IA para o paciente ${patient.nome}.
+
+LAUDO A REVISAR:
+${JSON.stringify(analysis, null, 2)}
+
+Analise as imagens abaixo e verifique se o laudo é preciso, completo e sem erros.`
+          }
+        ];
+
+        // Adiciona as imagens originais para o revisor ver
+        imagesToProcess.forEach((img) => {
+          if (isValidImageType(img.imageType)) {
+            const base64Data = img.imageBase64.includes("base64,")
+              ? img.imageBase64.split("base64,")[1]
+              : img.imageBase64;
+            reviewContent.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: img.imageType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                data: base64Data,
+              }
+            });
+          }
+        });
+
+        const reviewResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-opus-4-5",
+            max_tokens: 4000,
+            system: reviewerSystemPrompt,
+            messages: [{ role: "user", content: reviewContent }],
+          }),
+        });
+
+        if (reviewResponse.ok) {
+          const reviewData = await reviewResponse.json();
+          const reviewContent2 = reviewData.content?.[0]?.text;
+
+          if (reviewContent2) {
+            const reviewJson = (() => {
+              try {
+                const start = reviewContent2.indexOf('{');
+                const end = reviewContent2.lastIndexOf('}');
+                if (start !== -1 && end !== -1) {
+                  return JSON.parse(reviewContent2.substring(start, end + 1));
+                }
+              } catch {}
+              return null;
+            })();
+
+            if (reviewJson) {
+              reviewScore = reviewJson.score ?? null;
+              reviewerFlags = [
+                ...(reviewJson.flags || []),
+                ...(reviewJson.achados_omitidos?.map((a: string) => `OMISSÃO: ${a}`) || []),
+                ...(reviewJson.achados_questionaveis?.map((a: string) => `QUESTIONÁVEL: ${a}`) || []),
+                ...(reviewJson.dentes_suspeitos?.map((a: string) => `INTERPOLAÇÃO SUSPEITA: ${a}`) || []),
+              ];
+              reviewerAnalysis = reviewJson;
+
+              console.log(`✅ Revisão concluída. Score: ${reviewScore}/100. Flags: ${reviewerFlags.length}`);
+
+              // Se revisor encontrou achados omitidos, adicionar ao laudo como alertas
+              if (reviewJson.achados_omitidos?.length > 0) {
+                const omissaoAlerta = `⚠️ REVISOR: Possíveis achados não relatados: ${reviewJson.achados_omitidos.join("; ")}`;
+                analysis.riscos_alertas = [omissaoAlerta, ...analysis.riscos_alertas];
+              }
+
+              // Se diagnóstico foi revisado, adicionar nota
+              if (reviewJson.diagnostico_revisado && reviewJson.diagnostico_revisado !== "CONFIRMADO") {
+                analysis.observacoes = `📋 NOTA DO REVISOR: ${reviewJson.diagnostico_revisado}\n\n${analysis.observacoes}`;
+              }
+
+              // Adicionar recomendação do revisor nas observações se score < 70
+              if (reviewScore !== null && reviewScore < 70 && reviewJson.recomendacao_revisor) {
+                analysis.observacoes = `⚠️ ATENÇÃO: Este laudo foi revisado com score ${reviewScore}/100. ${reviewJson.recomendacao_revisor}\n\n${analysis.observacoes}`;
+              }
+            }
+          }
+        } else {
+          console.warn("Revisor indisponível:", await reviewResponse.text());
+        }
+      } catch (reviewErr) {
+        // Revisão é opcional — não impede o retorno do laudo principal
+        console.warn("Erro na revisão (não crítico):", reviewErr);
+      }
+    }
+
+    return new Response(JSON.stringify({
+      analysis,
+      rawContent: content,
+      reviewerAnalysis,
+      reviewerFlags,
+      reviewScore,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

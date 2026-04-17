@@ -292,6 +292,19 @@ export default function Upload() {
   const [visualAnalysisResult, setVisualAnalysisResult] = useState<VisualAnalysisResult | null>(null);
   const [showVisualAnalysis, setShowVisualAnalysis] = useState(false);
 
+  // Estados do revisor (Solução 3)
+  const [reviewerFlags, setReviewerFlags] = useState<string[]>([]);
+  const [reviewScore, setReviewScore] = useState<number | null>(null);
+  const [showReviewerPanel, setShowReviewerPanel] = useState(false);
+
+  // Estados do feedback/correção (Solução 2)
+  const [feedbackMode, setFeedbackMode] = useState(false);
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  const [feedbackField, setFeedbackField] = useState<string | null>(null);
+  const [feedbackValue, setFeedbackValue] = useState("");
+  const [feedbackType, setFeedbackType] = useState<"correction" | "addition" | "removal">("correction");
+  const [savedCaseId, setSavedCaseId] = useState<string | null>(null);
+
   // Load saved data on mount (client-side only)
   useEffect(() => {
     const savedResult = loadAnalysisResult();
@@ -522,12 +535,29 @@ export default function Upload() {
 
       setResult(data.analysis);
       setRawContent(data.rawContent);
+
+      // Solução 3: capturar dados do revisor
+      if (data.reviewerFlags?.length > 0) {
+        setReviewerFlags(data.reviewerFlags);
+        setShowReviewerPanel(true);
+      }
+      if (data.reviewScore !== null && data.reviewScore !== undefined) {
+        setReviewScore(data.reviewScore);
+      }
+
       saveAnalysisResult(data.analysis, data.rawContent, {
         nome: formattedName,
         dataNascimento: patientData.dataNascimento,
         dataLaudo: patientData.dataLaudo,
       }, examCategories, null, previewUrls);
-      toast.success("Análise concluída com sucesso!");
+
+      // Toast com score do revisor se disponível
+      if (data.reviewScore !== null && data.reviewScore !== undefined) {
+        const scoreEmoji = data.reviewScore >= 90 ? "✅" : data.reviewScore >= 70 ? "⚠️" : "🔴";
+        toast.success(`Análise concluída! ${scoreEmoji} Score do revisor: ${data.reviewScore}/100`);
+      } else {
+        toast.success("Análise concluída com sucesso!");
+      }
     } catch (error) {
       console.error("Erro na análise:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao processar análise");
@@ -923,7 +953,17 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         throw error;
       }
 
-      console.log("Case saved successfully:", data);
+      // Salvar reviewer_analysis se disponível
+      if (data?.[0]?.id && reviewerFlags.length > 0) {
+        setSavedCaseId(data[0].id);
+        await supabase.from("cases").update({
+          reviewer_flags: reviewerFlags,
+          review_score: reviewScore,
+        }).eq("id", data[0].id);
+      } else if (data?.[0]?.id) {
+        setSavedCaseId(data[0].id);
+      }
+
       toast.success("Caso salvo com sucesso!");
       navigate("/cases");
     } catch (error) {
@@ -931,6 +971,40 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       toast.error("Erro ao salvar o caso. Verifique o console para detalhes.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Solução 2: Salvar correção/feedback do dentista
+  const handleSaveFeedback = async (
+    fieldName: string,
+    originalValue: string,
+    correctedValue: string,
+    type: "correction" | "addition" | "removal",
+    notes?: string
+  ) => {
+    if (!user || !correctedValue.trim()) return;
+    setSavingFeedback(true);
+    try {
+      const primaryCategory = examCategories[0] || null;
+      const { error } = await supabase.from("case_feedback").insert([{
+        case_id: savedCaseId || null,
+        user_id: user.id,
+        field_name: fieldName,
+        original_value: originalValue,
+        corrected_value: correctedValue.trim(),
+        feedback_type: type,
+        exam_category: primaryCategory,
+        notes: notes || null,
+      }]);
+      if (error) throw error;
+      toast.success("Correção salva! Obrigado — isso treina o sistema.");
+      setFeedbackField(null);
+      setFeedbackValue("");
+    } catch (err) {
+      console.error("Erro ao salvar feedback:", err);
+      toast.error("Erro ao salvar correção");
+    } finally {
+      setSavingFeedback(false);
     }
   };
 
@@ -1406,10 +1480,98 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       {/* Analysis Result */}
       {result && (
         <div className="space-y-4 animate-slide-up">
-          <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-            <CheckCircle className="w-6 h-6 text-success" />
-            Resultado da Análise
-          </h2>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <CheckCircle className="w-6 h-6 text-success" />
+              Resultado da Análise
+            </h2>
+            <div className="flex items-center gap-2">
+              {/* Score do revisor */}
+              {reviewScore !== null && (
+                <div className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold",
+                  reviewScore >= 90 ? "bg-green-500/15 text-green-600" :
+                  reviewScore >= 70 ? "bg-yellow-500/15 text-yellow-600" :
+                  "bg-destructive/15 text-destructive"
+                )}>
+                  <span>{reviewScore >= 90 ? "✅" : reviewScore >= 70 ? "⚠️" : "🔴"}</span>
+                  <span>Score revisor: {reviewScore}/100</span>
+                </div>
+              )}
+              {/* Botão modo correção */}
+              <Button
+                variant={feedbackMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFeedbackMode(v => !v)}
+                className="gap-1.5"
+              >
+                <span>{feedbackMode ? "✏️ Corrigindo" : "✏️ Corrigir Laudo"}</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Painel do Revisor */}
+          {reviewerFlags.length > 0 && showReviewerPanel && (
+            <Card className={cn(
+              "border-2",
+              reviewScore !== null && reviewScore < 70
+                ? "border-destructive/50 bg-destructive/5"
+                : "border-yellow-500/50 bg-yellow-500/5"
+            )}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    🔍 Revisão Crítica do Segundo Modelo
+                    {reviewScore !== null && (
+                      <span className={cn(
+                        "text-sm font-bold px-2 py-0.5 rounded-full",
+                        reviewScore >= 90 ? "bg-green-500/20 text-green-600" :
+                        reviewScore >= 70 ? "bg-yellow-500/20 text-yellow-600" :
+                        "bg-destructive/20 text-destructive"
+                      )}>
+                        {reviewScore}/100
+                      </span>
+                    )}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+                    onClick={() => setShowReviewerPanel(false)}>
+                    Fechar
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Um segundo modelo de IA revisou este laudo de forma independente e identificou os seguintes pontos:
+                </p>
+                <ul className="space-y-1.5">
+                  {reviewerFlags.map((flag, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 flex-shrink-0">
+                        {flag.startsWith("OMISSÃO") ? "🔍" :
+                         flag.startsWith("QUESTIONÁVEL") ? "❓" :
+                         flag.startsWith("INTERPOLAÇÃO") ? "⚠️" : "📋"}
+                      </span>
+                      <span>{flag}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2 italic">
+                  Esta revisão é um auxílio adicional. A decisão clínica final é sempre do dentista responsável.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Aviso modo correção */}
+          {feedbackMode && (
+            <Card className="border-primary/40 bg-primary/5">
+              <CardContent className="py-3">
+                <p className="text-sm text-primary flex items-center gap-2">
+                  ✏️ <strong>Modo Correção ativo.</strong> Clique em qualquer item do laudo para corrigi-lo. Suas correções treinam o sistema.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid gap-4">
             {/* Identificação do Paciente */}
@@ -1637,6 +1799,11 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 items={result.achados_radiograficos}
                 icon={<AlertCircle className="w-5 h-5" />}
                 color="text-primary"
+                feedbackMode={feedbackMode}
+                fieldName="achados_radiograficos"
+                onCorrect={(original, corrected, type) =>
+                  handleSaveFeedback("achados_radiograficos", original, corrected, type)
+                }
               />
             )}
 
@@ -1673,6 +1840,11 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 items={result.diagnosticos_diferenciais}
                 icon={<Sparkles className="w-5 h-5" />}
                 color="text-success"
+                feedbackMode={feedbackMode}
+                fieldName="diagnosticos_diferenciais"
+                onCorrect={(original, corrected, type) =>
+                  handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+                }
               />
             )}
 
@@ -1683,6 +1855,11 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 items={result.riscos_alertas}
                 icon={<AlertCircle className="w-5 h-5" />}
                 color="text-destructive"
+                feedbackMode={feedbackMode}
+                fieldName="riscos_alertas"
+                onCorrect={(original, corrected, type) =>
+                  handleSaveFeedback("riscos_alertas", original, corrected, type)
+                }
               />
             )}
 
@@ -1693,6 +1870,11 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 items={result.recomendacoes_clinicas}
                 icon={<CheckCircle className="w-5 h-5" />}
                 color="text-primary"
+                feedbackMode={feedbackMode}
+                fieldName="recomendacoes_clinicas"
+                onCorrect={(original, corrected, type) =>
+                  handleSaveFeedback("recomendacoes_clinicas", original, corrected, type)
+                }
               />
             )}
 
@@ -1850,33 +2032,143 @@ function ResultCard({
   items,
   icon,
   color,
+  feedbackMode = false,
+  fieldName = "",
+  onCorrect,
 }: {
   title: string;
   items: string[];
   icon: React.ReactNode;
   color: string;
+  feedbackMode?: boolean;
+  fieldName?: string;
+  onCorrect?: (original: string, corrected: string, type: "correction" | "addition" | "removal") => void;
 }) {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editType, setEditType] = useState<"correction" | "removal">("correction");
+
+  const startEdit = (item: string, idx: number) => {
+    if (!feedbackMode) return;
+    setEditingIndex(idx);
+    setEditValue(item);
+    setEditType("correction");
+  };
+
+  const commitEdit = (original: string) => {
+    if (!onCorrect) return;
+    if (editType === "removal") {
+      onCorrect(original, `[REMOVIDO] ${original}`, "removal");
+    } else {
+      onCorrect(original, editValue, "correction");
+    }
+    setEditingIndex(null);
+    setEditValue("");
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className={cn("text-lg flex items-center gap-2", color)}>
           {icon}
           {title}
+          {feedbackMode && (
+            <span className="ml-auto text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              clique para corrigir
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <ul className="space-y-3">
+      <CardContent className="space-y-1">
+        <ul className="space-y-2">
           {items.map((item, index) => (
-            <li key={index} className="flex items-start gap-3">
-              <span className={cn("mt-1.5 w-2 h-2 rounded-full flex-shrink-0", 
-                color === "text-success" ? "bg-success" : 
-                color === "text-destructive" ? "bg-destructive" : "bg-primary"
-              )} />
-              <span className="text-foreground leading-relaxed">{item}</span>
+            <li key={index}>
+              {editingIndex === index ? (
+                <div className="space-y-2 p-3 bg-primary/5 rounded-lg border border-primary/30">
+                  <div className="flex gap-2 text-xs mb-1">
+                    <button onClick={() => setEditType("correction")}
+                      className={cn("px-2 py-1 rounded", editType === "correction" ? "bg-primary text-white" : "bg-muted")}>
+                      ✏️ Corrigir
+                    </button>
+                    <button onClick={() => setEditType("removal")}
+                      className={cn("px-2 py-1 rounded", editType === "removal" ? "bg-destructive text-white" : "bg-muted")}>
+                      🗑️ Remover
+                    </button>
+                  </div>
+                  {editType === "correction" && (
+                    <textarea
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      className="w-full text-sm p-2 rounded border bg-background resize-none"
+                      rows={3}
+                      autoFocus
+                    />
+                  )}
+                  {editType === "removal" && (
+                    <p className="text-sm text-destructive">Este item será marcado como incorreto/inexistente.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={() => commitEdit(item)}
+                      className="px-3 py-1.5 bg-primary text-white text-xs rounded hover:bg-primary/80">
+                      Salvar correção
+                    </button>
+                    <button onClick={() => setEditingIndex(null)}
+                      className="px-3 py-1.5 bg-muted text-xs rounded hover:bg-muted/80">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => startEdit(item, index)}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg px-2 py-1",
+                    feedbackMode && "cursor-pointer hover:bg-primary/5 hover:border hover:border-primary/20 transition-colors"
+                  )}
+                >
+                  <span className={cn("mt-1.5 w-2 h-2 rounded-full flex-shrink-0",
+                    color === "text-success" ? "bg-success" :
+                    color === "text-destructive" ? "bg-destructive" : "bg-primary"
+                  )} />
+                  <span className="text-foreground leading-relaxed text-sm">{item}</span>
+                  {feedbackMode && <span className="ml-auto text-xs text-muted-foreground flex-shrink-0">✏️</span>}
+                </div>
+              )}
             </li>
           ))}
         </ul>
+
+        {/* Botão adicionar novo achado (modo correção) */}
+        {feedbackMode && onCorrect && (
+          <AddFeedbackItem fieldName={fieldName} onAdd={(val) => onCorrect("", val, "addition")} />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function AddFeedbackItem({ fieldName, onAdd }: { fieldName: string; onAdd: (val: string) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [val, setVal] = useState("");
+  return adding ? (
+    <div className="mt-2 space-y-2 p-3 bg-green-500/5 rounded-lg border border-green-500/30">
+      <p className="text-xs text-green-600 font-medium">Adicionar achado que a IA não identificou:</p>
+      <textarea value={val} onChange={e => setVal(e.target.value)}
+        className="w-full text-sm p-2 rounded border bg-background resize-none" rows={2} autoFocus
+        placeholder="Descreva o achado correto..." />
+      <div className="flex gap-2">
+        <button onClick={() => { if (val.trim()) { onAdd(val); setVal(""); setAdding(false); } }}
+          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-500">
+          ✅ Salvar adição
+        </button>
+        <button onClick={() => setAdding(false)}
+          className="px-3 py-1.5 bg-muted text-xs rounded">Cancelar</button>
+      </div>
+    </div>
+  ) : (
+    <button onClick={() => setAdding(true)}
+      className="mt-2 w-full text-xs text-green-600 border border-dashed border-green-500/40 rounded-lg py-2 hover:bg-green-500/5 transition-colors">
+      + Adicionar achado que a IA não identificou
+    </button>
   );
 }
