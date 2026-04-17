@@ -252,15 +252,15 @@ serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError || !userData?.user) {
       return new Response(
         JSON.stringify({ error: "Sessão inválida ou expirada" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
     console.log("Authenticated user:", userId);
 
     const { messages, imageBase64 } = await req.json();
