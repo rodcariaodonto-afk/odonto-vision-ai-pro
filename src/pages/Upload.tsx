@@ -984,6 +984,67 @@ export default function Upload() {
       drawFooter(p);
     }
 
+    // ── Aviso Legal — inserir na última página antes do footer ────────────────
+    // Vai para a última página e insere o bloco de aviso
+    doc.setPage(total);
+    checkBreak(38);
+    y += 6;
+
+    // Borda e fundo do bloco
+    doc.setDrawColor(200, 60, 60);
+    doc.setLineWidth(0.6);
+    doc.setFillColor(255, 248, 248);
+    doc.roundedRect(ML - 2, y - 2, TW + 4, 32, 2, 2, "FD");
+
+    // Faixa vermelha lateral
+    doc.setFillColor(200, 60, 60);
+    doc.rect(ML - 2, y - 2, 3, 32, "F");
+
+    // Ícone e título
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(180, 30, 30);
+    doc.text("AVISO LEGAL E ETICO — LEIA COM ATENCAO", ML + 6, y + 5);
+
+    // Linha separadora interna
+    doc.setDrawColor(220, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(ML + 4, y + 8, PW - MR - 2, y + 8);
+
+    // Texto do aviso
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 20, 20);
+    doc.text("Este laudo foi gerado automaticamente por Inteligencia Artificial (OdontoVision AI Pro).", ML + 6, y + 13);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(80, 40, 40);
+    const avisoLinhas = doc.splitTextToSize(
+      "O laudo gerado pela IA e uma ferramenta de APOIO ao raciocinio clinico e NAO substitui, em nenhuma hipotese, o exame clinico presencial, o diagnostico e o julgamento profissional do cirurgiao-dentista responsavel. " +
+      "Todos os achados, diagnosticos e recomendacoes descritos neste documento DEVEM ser validados, confirmados ou refutados pelo profissional habilitado antes de qualquer conduta clinica ou terapeutica. " +
+      "A responsabilidade pelo diagnostico final e pela decisao de tratamento e EXCLUSIVAMENTE do dentista responsavel pelo paciente.",
+      TW - 10
+    );
+    avisoLinhas.forEach((linha: string, i: number) => {
+      doc.text(linha, ML + 6, y + 18 + i * 4.2);
+    });
+
+    y += 38;
+
+    // Linha de assinatura
+    checkBreak(22);
+    y += 8;
+    doc.setDrawColor(180, 190, 210);
+    doc.setLineWidth(0.4);
+    doc.line(ML, y, ML + 70, y);
+    doc.line(PW - MR - 70, y, PW - MR, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(GRAY_R, GRAY_G, GRAY_B);
+    doc.text("Assinatura do Cirurgiao-Dentista", ML, y + 5);
+    doc.text("CRO / Data", PW - MR - 70, y + 5);
+
     // Download
     const patientNameClean = patientData.nome.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
     doc.save(`laudo-${patientNameClean}-${patientData.dataLaudo}.pdf`);
