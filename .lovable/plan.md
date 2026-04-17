@@ -1,20 +1,15 @@
 
+The user is providing a SQL migration to fix the build errors. The errors are:
+1. `analyze-exam/index.ts` — duplicate `isValidImageType` function (unrelated to this SQL, pre-existing)
+2. `odonto-chat/index.ts` — `getClaims` doesn't exist (pre-existing)
+3. `Upload.tsx` — `reviewer_flags` and `case_feedback` table missing → fixed by this SQL
 
-## Plano: Inserir links do Mercado Pago nos botões de checkout
+## Plan
 
-### Alteração
+**1. Run the migration** (creates `case_feedback` table + adds `reviewer_flags`, `review_score`, `reviewer_analysis`, `patient_folder` to `cases`). This regenerates `types.ts` and resolves the Upload.tsx errors.
 
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/Welcome.tsx` | Preencher o objeto `CHECKOUT_LINKS` com os 3 links fornecidos |
+**2. Fix `analyze-exam/index.ts`** — remove the duplicate `isValidImageType` function (keep one definition).
 
-### Links
+**3. Fix `odonto-chat/index.ts`** — replace `supabaseClient.auth.getClaims(token)` with `supabaseClient.auth.getUser(token)` (standard Supabase JS API).
 
-- **Starter**: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8`
-- **PRO**: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb`
-- **Clínica**: `https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147`
-
-### Detalhes
-
-Os links do Mercado Pago são de assinatura recorrente (não diferenciam mensal/anual), então o mesmo link será usado para ambos os ciclos de cada plano. O `handleCheckout` já abre via `window.open` em nova aba.
-
+These 3 fixes will clear all build errors.
