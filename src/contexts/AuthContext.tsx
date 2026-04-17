@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,6 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const sessionRef = useRef<Session | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   const checkSubscription = async () => {
     // Get the current session to ensure we have a valid token
@@ -73,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // FIRST check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (mounted) {
+        sessionRef.current = session;
+        userIdRef.current = session?.user?.id ?? null;
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -90,9 +94,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, newSession) => {
         if (!mounted) return;
 
+        const nextUser = newSession?.user ?? null;
+        const nextUserId = nextUser?.id ?? null;
+        const sameUser = userIdRef.current !== null && userIdRef.current === nextUserId;
+
         if (event === 'SIGNED_IN') {
+          sessionRef.current = newSession;
+          userIdRef.current = nextUserId;
+
+          if (sameUser) {
+            setSession(newSession);
+            setUser((prev) => (prev?.id === nextUserId ? prev : nextUser));
+            setLoading(false);
+            return;
+          }
+
           setSession(newSession);
-          setUser(newSession?.user ?? null);
+          setUser(nextUser);
           setLoading(false);
           if (newSession) {
             setTimeout(() => checkSubscription(), 0);
@@ -101,6 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === 'SIGNED_OUT') {
+          sessionRef.current = null;
+          userIdRef.current = null;
           setSession(null);
           setUser(null);
           setSubscription(null);
@@ -109,13 +129,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          sessionRef.current = newSession;
+          userIdRef.current = nextUserId;
           // Update session token silently WITHOUT changing user identity reference
           // unless the user id actually changed (prevents downstream re-renders).
           setSession(newSession);
           setUser((prev) => {
-            const next = newSession?.user ?? null;
-            if (prev?.id === next?.id) return prev; // keep same reference
-            return next;
+            if (prev?.id === nextUser?.id) return prev; // keep same reference
+            return nextUser;
           });
         }
       }
