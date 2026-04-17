@@ -119,42 +119,78 @@ Para todo dente incluso/impactado, reportar OBRIGATORIAMENTE:
 ❌ NUNCA usar "incluso" e "impactado" como sinônimos.
 ❌ NUNCA reportar incluso sem angulação Winter.
 
-⚠️ PROTOCOLO CRÍTICO — PRESENÇA E AUSÊNCIA DE DENTES (ERRO MAIS COMUM DA IA):
+⚠️ PROTOCOLO CRÍTICO — PRESENÇA E AUSÊNCIA DE DENTES (ERRO MAIS COMUM DA IA)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔴 REGRA FUNDAMENTAL — EVIDÊNCIA VISUAL DIRETA OBRIGATÓRIA:
-Um dente SÓ pode ser listado em dentes_presentes se você consegue ver claramente:
-  a) A RAIZ do dente no osso alveolar — este é o critério principal
+🔴 REGRA ABSOLUTA — EVIDÊNCIA VISUAL DIRETA E INEQUÍVOCA OBRIGATÓRIA:
+
+Um dente SÓ pode ser listado em dentes_presentes se você consegue ver CLARAMENTE:
+  a) A RAIZ do dente no osso alveolar — critério principal e insubstituível
   b) A coroa quando visível (pode estar oculta por aparelho ou prótese)
-A raiz confirma presença. Sem raiz visível = NÃO listar como presente.
 
-❌ PROIBIDO — CAUSA PRINCIPAL DE ERROS:
-• Inferir que um dente existe porque os vizinhos existem (INTERPOLAÇÃO — erro mais comum)
+A raiz confirma presença. Sem raiz visível e inequívoca = AUSENTE ou INCERTO.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 ERRO DE INTERPOLAÇÃO — O MAIS GRAVE E MAIS COMUM:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INTERPOLAÇÃO = assumir que um dente existe porque os vizinhos existem.
+
+Exemplo real de erro: 43 presente, 47 presente → IA coloca 44, 45, 46 como presentes também.
+ISSO ESTÁ ERRADO. O espaço entre 43 e 47 pode ser edêntulo (extrações prévias).
+
+A IA DEVE verificar visualmente CADA posição individualmente.
+A SEQUÊNCIA DO ARCO NÃO GARANTE PRESENÇA.
+
+❌ PROIBIDO — CAUSAS DE ERROS:
+• Inferir que um dente existe porque os vizinhos existem (INTERPOLAÇÃO)
 • Listar dente como presente quando há espaço edêntulo visível
 • Listar dente como presente quando a região está coberta por aparelho/prótese e não há raiz confirmável abaixo
 • Assumir presença para "completar a sequência do arco"
 • Confundir radiopacidade de aparelho ortodôntico (bráquete, banda, fio) com estrutura dental
+• Confundir o ESPAÇO do slot do bráquete com a raiz de um dente
 
-✅ METODOLOGIA OBRIGATÓRIA — VARREDURA POSIÇÃO A POSIÇÃO:
-Antes de montar dentes_presentes, percorra cada posição individualmente:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ METODOLOGIA OBRIGATÓRIA — VARREDURA POSIÇÃO A POSIÇÃO COM DUPLA VERIFICAÇÃO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+PASSO 1 — VARREDURA PRIMÁRIA (da linha média para distal em cada quadrante):
 Quadrante 1: 11 → 12 → 13 → 14 → 15 → 16 → 17 (sup. dir.)
 Quadrante 2: 21 → 22 → 23 → 24 → 25 → 26 → 27 (sup. esq.)
 Quadrante 3: 31 → 32 → 33 → 34 → 35 → 36 → 37 (inf. esq.)
 Quadrante 4: 41 → 42 → 43 → 44 → 45 → 46 → 47 (inf. dir.)
 
-Para cada posição, classifique UMA das opções:
+Para cada posição, classifique UMA opção:
   ✅ PRESENTE: raiz claramente visível no osso alveolar → incluir em dentes_presentes
   ❌ AUSENTE: espaço edêntulo visível, sem estrutura dental → incluir em dentes_ausentes
   🔩 IMPLANTE: estrutura metálica rosqueada → incluir em implantes
   ❓ INCERTO: sobreposição/artefato/aparelho impedindo confirmação → NÃO listar em nenhuma lista, mencionar em observacoes
 
-⚠️ APARELHO ORTODÔNTICO — PROTOCOLO ESPECIAL:
-Quando há bráquetes, fios ou bandas:
+PASSO 2 — VERIFICAÇÃO ANTI-INTERPOLAÇÃO (obrigatória antes de fechar a lista):
+Para cada dente listado como PRESENTE, responda internamente:
+  → "Consigo ver a raiz deste dente no osso?" 
+  → Se SIM: manter em presentes
+  → Se NÃO ou TALVEZ: mover para INCERTO ou AUSENTE
+
+Para cada ESPAÇO na sequência do arco (ex: 43 presente, próximo é 47):
+  → Verificar posições 44, 45, 46 individualmente
+  → Se não há raiz visível em nenhuma dessas posições: listar como AUSENTES
+  → NUNCA preencher automaticamente o espaço
+
+PASSO 3 — VERIFICAÇÃO ESPECÍFICA EM CASOS COM APARELHO ORTODÔNTICO:
+Quando há bráquetes, fios ou bandas na imagem:
 • Procure a RAIZ abaixo do nível da crista óssea — a raiz confirma o dente
-• Bráquetes sobre a coroa não confirmam presença — a raiz sim
+• Bráquetes sobre a coroa NÃO confirmam presença — a raiz sim
 • Bandas nos molares podem ocultar coroa — confirme pela raiz
 • Fio ortodôntico NÃO é estrutura dental
-• Se raiz não confirmável → INCERTO → mencionar em observacoes
+• Radiopacidade de bracket/banda/fio ≠ raiz ou coroa dental
+• Se raiz não confirmável visualmente → INCERTO → mencionar em observacoes
+
+PASSO 4 — AUTOCRÍTICA FINAL:
+Antes de retornar o JSON, pergunte-se:
+"Estou listando dentes_presentes com base em EVIDÊNCIA VISUAL DIRETA
+ou estou INTERPOLANDO pela sequência do arco?"
+Se houver qualquer dúvida sobre uma posição → mover para INCERTO.
 
 
 
