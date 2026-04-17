@@ -595,19 +595,485 @@ export default function Upload() {
     if (!result) return;
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const PW = doc.internal.pageSize.getWidth();   // 210
-    const PH = doc.internal.pageSize.getHeight();  // 297
-    const ML = 18; // margem esquerda
-    const MR = 18; // margem direita
-    const TW = PW - ML - MR; // largura de texto
-    const BOTTOM_LIMIT = 272;
+    const PW = doc.internal.pageSize.getWidth();   // 210mm
+    const PH = doc.internal.pageSize.getHeight();  // 297mm
+    const ML = 16;
+    const MR = 16;
+    const TW = PW - ML - MR;
+    const BOTTOM_LIMIT = 268; // reserva espaço para footer (14mm)
+    const HEADER_H = 28;
 
-    // ── Cores da marca ─────────────────────────────────────────────────────────
-    const BLUE_R = 30, BLUE_G = 100, BLUE_B = 210;      // azul primário
-    const DARK_R = 15, DARK_G = 20, DARK_B = 40;        // quase preto
-    const GRAY_R = 110, GRAY_G = 115, GRAY_B = 125;     // cinza texto
-    const LIGHT_R = 245, LIGHT_G = 247, LIGHT_B = 252;  // fundo suave
-    const LINE_R = 220, LINE_G = 225, LINE_B = 235;     // linha divisória
+    // ── Paleta ────────────────────────────────────────────────────────────────
+    const C = {
+      blue:    [26, 86, 219]  as [number,number,number],
+      dark:    [17, 24, 39]   as [number,number,number],
+      gray:    [107,114,128]  as [number,number,number],
+      light:   [241,245,255]  as [number,number,number],
+      line:    [226,232,240]  as [number,number,number],
+      white:   [255,255,255]  as [number,number,number],
+      green:   [22, 163, 74]  as [number,number,number],
+      yellow:  [202,138,  4]  as [number,number,number],
+      orange:  [234, 88, 12]  as [number,number,number],
+      red:     [185, 28, 28]  as [number,number,number],
+      redLight:[254,242,242]  as [number,number,number],
+    };
+
+    let y = 0;
+
+    // ── cleanText: preserva acentos, remove só lixo ─────────────────────────
+    const clean = (text: string): string => {
+      if (!text) return "";
+      return text
+        // Remove caracteres de controle e lixo unicode específico
+        .replace(/[&þØÜËðÿ\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+        // Remove emojis compostos e flags
+        .replace(/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, "")
+        // Remove notas internas do revisor (todas as variações)
+        .replace(/^\s*[\-–]?\s*REVISOR\s*:.*$/gim, "")
+        .replace(/NOTA DO REVISOR\s*:.*?(\n|$)/gi, "")
+        .replace(/^\s*REVISOR\s*:.*$/gim, "")
+        // Substitui bullet unicode por hífen limpo
+        .replace(/[•·⦁◆▪▸►]/g, "-")
+        // Remove emojis de status
+        .replace(/⚠️|✅|🔴|🟡|⚡|ℹ️|📋|🔍|❓/g, "")
+        // μ (U+03BC) e µ (U+00B5) — ambos os micro-símbolos → u
+        .replace(/[\u03BC\u00B5]/g, "u")
+        // Múltiplos espaços
+        .replace(/  +/g, " ")
+        .trim();
+    };
+
+    // ── Helpers de texto ──────────────────────────────────────────────────────
+    const txt = (
+      text: string, x: number, w: number, size: number,
+      weight: "normal"|"bold"|"italic" = "normal",
+      color: [number,number,number] = C.dark
+    ): void => {
+      const t = clean(text);
+      if (!t) return;
+      doc.setFont("helvetica", weight);
+      doc.setFontSize(size);
+      doc.setTextColor(...color);
+      const lines = doc.splitTextToSize(t, w);
+      const lh = size * 0.41;
+      lines.forEach((l: string) => {
+        if (y > BOTTOM_LIMIT) { newPage(); }
+        doc.text(l, x, y);
+        y += lh + 0.6;
+      });
+    };
+
+    const checkBreak = (h: number) => { if (y + h > BOTTOM_LIMIT) newPage(); };
+
+    const divider = () => {
+      y += 3;
+      doc.setDrawColor(...C.line); doc.setLineWidth(0.25);
+      doc.line(ML, y, PW - MR, y);
+      y += 4;
+    };
+
+    // Seção: faixa azul clara com barra lateral + label numérico
+    const section = (num: string, title: string) => {
+      checkBreak(12);
+      y += 3;
+      doc.setFillColor(...C.light);
+      doc.rect(ML, y - 4, TW, 8, "F");
+      doc.setFillColor(...C.blue);
+      doc.rect(ML, y - 4, 2.5, 8, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
+      doc.setTextColor(...C.blue);
+      doc.text(`${num}  ${title}`, ML + 6, y + 0.5);
+      y += 7;
+    };
+
+    // Bullet azul
+    const bullet = (text: string) => {
+      const t = clean(text);
+      if (!t || t.length < 3) return;
+      checkBreak(7);
+      doc.setFillColor(...C.blue);
+      doc.rect(ML + 2, y - 2.2, 1.5, 1.5, "F");
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      doc.setTextColor(...C.dark);
+      const lines = doc.splitTextToSize(t, TW - 9);
+      lines.forEach((l: string) => {
+        if (y > BOTTOM_LIMIT) newPage();
+        doc.text(l, ML + 6, y);
+        y += 4.8;
+      });
+    };
+
+    // Bullet vermelho (riscos)
+    const bulletRed = (text: string) => {
+      const t = clean(text);
+      if (!t || t.length < 3) return;
+      checkBreak(7);
+      doc.setFillColor(...C.red);
+      doc.rect(ML + 2, y - 2.2, 1.5, 1.5, "F");
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      doc.setTextColor(...C.dark);
+      const lines = doc.splitTextToSize(t, TW - 9);
+      lines.forEach((l: string) => {
+        if (y > BOTTOM_LIMIT) newPage();
+        doc.text(l, ML + 6, y);
+        y += 4.8;
+      });
+    };
+
+    // ── Header ────────────────────────────────────────────────────────────────
+    const drawHeader = () => {
+      doc.setFillColor(...C.dark);
+      doc.rect(0, 0, PW, HEADER_H, "F");
+      // Linha azul inferior do header
+      doc.setFillColor(...C.blue);
+      doc.rect(0, HEADER_H, PW, 1.2, "F");
+
+      // Logo
+      if (logoBase64) {
+        try { doc.addImage(logoBase64, "JPEG", ML, 4, 26, 18); } catch {}
+      }
+
+      // Textos do header — ao lado da logo
+      const hx = logoBase64 ? ML + 30 : ML;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+      doc.setTextColor(...C.white);
+      doc.text("OdontoVision AI Pro", hx, 13);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+      doc.setTextColor(180, 200, 235);
+      doc.text("Laudo Radiologico com Inteligencia Artificial", hx, 19);
+      doc.setFontSize(7.5);
+      doc.text(`Emitido em: ${patientData.dataLaudo}`, PW - MR, 13, { align: "right" });
+
+      y = HEADER_H + 8;
+    };
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    const drawFooter = (pg: number) => {
+      doc.setFillColor(...C.dark);
+      doc.rect(0, PH - 12, PW, 12, "F");
+      doc.setFont("helvetica", "italic"); doc.setFontSize(6.5);
+      doc.setTextColor(150, 165, 200);
+      doc.text(
+        "Este laudo foi gerado por IA e NAO substitui avaliacao clinica profissional. Responsabilidade final do dentista.",
+        PW / 2, PH - 5.5, { align: "center" }
+      );
+      doc.setFont("helvetica", "normal"); doc.setFontSize(6.5);
+      doc.setTextColor(130, 150, 190);
+      doc.text(`${pg}`, PW - MR, PH - 5.5, { align: "right" });
+    };
+
+    // ── Nova página ───────────────────────────────────────────────────────────
+    const newPage = () => {
+      doc.addPage();
+      y = 0;
+      drawHeader();
+      drawFooter(doc.getNumberOfPages());
+    };
+
+    // ── Carregar logo ─────────────────────────────────────────────────────────
+    let logoBase64: string | null = null;
+    try {
+      const resp = await fetch(new URL("../assets/logo-odontovision-pro.jpeg", import.meta.url).href);
+      const blob = await resp.blob();
+      logoBase64 = await new Promise<string>((res) => {
+        const r = new FileReader();
+        r.onloadend = () => res((r.result as string).split(",")[1]);
+        r.readAsDataURL(blob);
+      });
+    } catch {}
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // PÁGINA 1
+    // ══════════════════════════════════════════════════════════════════════════
+    drawHeader();
+    drawFooter(1);
+
+    // ── Card Paciente ─────────────────────────────────────────────────────────
+    doc.setFillColor(...C.light);
+    doc.roundedRect(ML, y, TW, 22, 1.5, 1.5, "F");
+    doc.setFillColor(...C.blue);
+    doc.rect(ML, y, 2.5, 22, "F");
+
+    // Label
+    doc.setFont("helvetica", "bold"); doc.setFontSize(7.5);
+    doc.setTextColor(...C.gray);
+    doc.text("PACIENTE", ML + 7, y + 6);
+
+    // Nome
+    const nomeP = capitalizeFullName(result.identificacao_paciente?.nome || patientData.nome);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+    doc.setTextColor(...C.dark);
+    doc.text(nomeP, ML + 7, y + 13);
+
+    // Datas em linha
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+    doc.setTextColor(...C.gray);
+    const dnStr = `Nasc.: ${formatDate(result.identificacao_paciente?.data_nascimento || patientData.dataNascimento)}`;
+    const daStr = `Analise: ${formatDate(result.identificacao_paciente?.data_analise || patientData.dataLaudo)}`;
+    doc.text(dnStr, ML + 7, y + 19);
+    doc.text(daStr, ML + 90, y + 19);
+
+    y += 28;
+    divider();
+
+    // ── Seção 2: Tipo de Exame ────────────────────────────────────────────────
+    section("2", "Tipo de Exame");
+    y += 1;
+    txt(result.tipo_exame || "Nao identificado", ML + 6, TW - 8, 9);
+    y += 2;
+    divider();
+
+    // ── Seção 3: Qualidade ────────────────────────────────────────────────────
+    const qLabel = examCategories.includes("laboratorial") && examCategories.length === 1
+      ? "Qualidade do Documento" : "Qualidade da Imagem";
+    section("3", qLabel);
+    y += 1;
+    txt(result.qualidade_imagem || "Nao avaliada", ML + 6, TW - 8, 9);
+    y += 2;
+    divider();
+
+    // ── Seção 4A: Laudo Radiológico ───────────────────────────────────────────
+    if (result.laudo_imagem) {
+      section("4A", `Laudo Radiologico — ${clean(result.laudo_imagem.tipo_imagem || "Imagem")}`);
+      y += 1;
+      (result.laudo_imagem.achados || []).forEach(a => bullet(a));
+
+      if (result.laudo_imagem.diagnosticos_diferenciais?.length) {
+        y += 2;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+        doc.setTextColor(...C.gray);
+        doc.text("Diagnosticos Diferenciais:", ML + 6, y); y += 5;
+        result.laudo_imagem.diagnosticos_diferenciais.forEach(d => bullet(d));
+      }
+      y += 2; divider();
+    }
+
+    // ── Seção 4B: Laudo Laboratorial ─────────────────────────────────────────
+    if (result.laudo_laboratorial) {
+      section("4B", "Laudo Laboratorial");
+      y += 2;
+
+      (result.laudo_laboratorial.exames || []).forEach(ex => {
+        checkBreak(14);
+        const sc: [number,number,number] =
+          ex.status === "NORMAL"            ? C.green  :
+          ex.status === "ALTERADO LEVE"     ? C.yellow :
+          ex.status === "ALTERADO MODERADO" ? C.orange : C.red;
+
+        // Linha de exame
+        doc.setFillColor(248, 250, 255);
+        doc.roundedRect(ML + 2, y - 1, TW - 4, 11, 1, 1, "F");
+
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
+        doc.setTextColor(...C.dark);
+        doc.text(clean(ex.nome), ML + 5, y + 4);
+
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+        doc.setTextColor(...sc);
+        doc.text(ex.status, PW - MR - 4, y + 4, { align: "right" });
+
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+        doc.setTextColor(...C.gray);
+        // μ → u para não corromper
+        const valStr = `${clean(ex.valor)}   Ref: ${clean(ex.referencia)}`;
+        doc.text(valStr, ML + 5, y + 9);
+        y += 13;
+
+        if (ex.status !== "NORMAL" && ex.relevancia_odontologica) {
+          checkBreak(7);
+          doc.setFont("helvetica", "italic"); doc.setFontSize(8);
+          doc.setTextColor(...C.orange);
+          const rel = doc.splitTextToSize(`  Relevancia: ${clean(ex.relevancia_odontologica)}`, TW - 10);
+          rel.forEach((l: string) => { doc.text(l, ML + 5, y); y += 4.2; });
+          y += 1;
+        }
+      });
+
+      // Badge liberação cirúrgica
+      if (result.laudo_laboratorial.classificacao_cirurgica) {
+        checkBreak(12);
+        y += 2;
+        const cls = result.laudo_laboratorial.classificacao_cirurgica;
+        const bc: [number,number,number] =
+          cls === "LIBERADO"                  ? C.green  :
+          cls === "LIBERADO COM RESSALVAS"    ? C.yellow :
+          cls === "AGUARDAR AVALIACAO MEDICA" ? C.orange : C.red;
+        doc.setFillColor(...bc);
+        doc.roundedRect(ML + 20, y, TW - 40, 9, 2, 2, "F");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+        doc.setTextColor(...C.white);
+        doc.text(`Liberacao Cirurgica: ${cls}`, PW / 2, y + 6, { align: "center" });
+        y += 13;
+      }
+      divider();
+    }
+
+    // ── Achados simples (sem análise mista) ───────────────────────────────────
+    if (!result.laudo_imagem && result.achados_radiograficos?.length > 0) {
+      const aLabel =
+        examCategories.includes("laboratorial") && examCategories.length === 1 ? "Resultados dos Exames" :
+        examCategories.includes("foto") && examCategories.length === 1         ? "Achados Clinicos" :
+        examCategories.length > 1 ? "Achados Integrados" : "Achados Radiograficos";
+      section("4", aLabel);
+      y += 1;
+      result.achados_radiograficos.forEach(a => bullet(a));
+      y += 2; divider();
+    }
+
+    // ── Correlação integrada ─────────────────────────────────────────────────
+    if (result.correlacao_integrada) {
+      section("4C", "Correlacao Clinica Integrada");
+      y += 1;
+      (result.correlacao_integrada.correlacoes || []).forEach(c => bullet(c));
+      if (result.correlacao_integrada.diagnostico_consolidado) {
+        y += 2;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...C.dark);
+        const dcl = doc.splitTextToSize(
+          `Diagnostico consolidado: ${clean(result.correlacao_integrada.diagnostico_consolidado)}`, TW - 8
+        );
+        dcl.forEach((l: string) => { checkBreak(6); doc.text(l, ML + 6, y); y += 4.8; });
+      }
+      y += 2; divider();
+    }
+
+    // ── Seção 5: Interpretação Clínica ────────────────────────────────────────
+    if (result.interpretacao_clinica) {
+      section("5", "Interpretacao Clinica");
+      y += 1;
+      txt(result.interpretacao_clinica, ML + 6, TW - 8, 9);
+      y += 2; divider();
+    }
+
+    // ── Seção 6: Diagnósticos Diferenciais ───────────────────────────────────
+    if (!result.laudo_imagem && result.diagnosticos_diferenciais?.length > 0) {
+      section("6", "Diagnosticos Diferenciais");
+      y += 1;
+      result.diagnosticos_diferenciais.forEach(d => bullet(d));
+      y += 2; divider();
+    }
+
+    // ── Seção 7: Riscos ───────────────────────────────────────────────────────
+    const riscos = (result.riscos_alertas || [])
+      .filter(r => !r.startsWith("& þ") && !r.startsWith("Ø=") && !r.trim().startsWith("-") && r.length > 5)
+      .map(r => r.replace(/^[\-\s]*REVISOR:.*$/gm, "").trim())
+      .filter(r => r.length > 5 && !r.includes("nao relatados:"));
+
+    // Adicionar riscos do laudo_imagem se existir
+    const riscosImg = result.laudo_imagem?.riscos_alertas_imagem || [];
+    const riscosLab = result.laudo_laboratorial?.riscos_alertas_lab || [];
+    const todosRiscos = [...riscos, ...riscosImg, ...riscosLab].filter(r => clean(r).length > 5);
+
+    if (todosRiscos.length > 0) {
+      section("7", "Riscos, Alertas e Pontos de Atencao");
+      y += 1;
+      todosRiscos.forEach(r => bulletRed(r));
+      y += 2; divider();
+    }
+
+    // ── Seção 8: Recomendações ────────────────────────────────────────────────
+    const recs = [
+      ...(result.recomendacoes_clinicas || []),
+      ...(result.laudo_imagem?.recomendacoes_imagem || []),
+      ...(result.laudo_laboratorial?.recomendacoes_lab || []),
+      ...(result.correlacao_integrada?.conduta_recomendada
+          ? [result.correlacao_integrada.conduta_recomendada] : []),
+    ].filter(r => clean(r).length > 5);
+
+    if (recs.length > 0) {
+      section("8", "Recomendacoes Clinicas");
+      y += 1;
+      recs.forEach(r => bullet(r));
+      y += 2; divider();
+    }
+
+    // ── Seção 9: Observações ──────────────────────────────────────────────────
+    const obsLimpa = clean(result.observacoes || "")
+      .replace(/NOTA DO REVISOR:.*?(\n|$)/gi, "")
+      .replace(/^\s*-?\s*REVISOR:.*/gm, "")
+      .trim();
+
+    if (obsLimpa.length > 10) {
+      section("9", "Observacoes");
+      y += 1;
+      txt(obsLimpa, ML + 6, TW - 8, 8.5, "italic", C.gray);
+      y += 2; divider();
+    }
+
+    // ── Score do revisor ──────────────────────────────────────────────────────
+    if (reviewScore !== null) {
+      checkBreak(14);
+      y += 2;
+      doc.setFillColor(...C.light);
+      doc.roundedRect(ML, y, TW, 10, 1.5, 1.5, "F");
+      doc.setFillColor(...C.blue);
+      doc.rect(ML, y, 2.5, 10, "F");
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+      doc.setTextColor(...C.gray);
+      doc.text("Revisao critica pelo segundo modelo de IA:", ML + 7, y + 6.5);
+      const sc: [number,number,number] = reviewScore >= 90 ? C.green : reviewScore >= 70 ? C.yellow : C.red;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+      doc.setTextColor(...sc);
+      doc.text(`${reviewScore}/100`, PW - MR - 4, y + 6.5, { align: "right" });
+      y += 14;
+    }
+
+    // ── Aviso Legal ───────────────────────────────────────────────────────────
+    checkBreak(42);
+    y += 6;
+    doc.setFillColor(...C.redLight);
+    doc.setDrawColor(...C.red);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(ML, y, TW, 36, 2, 2, "FD");
+    doc.setFillColor(...C.red);
+    doc.rect(ML, y, 3, 36, "F");
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.setTextColor(...C.red);
+    doc.text("AVISO LEGAL E ETICO — LEIA COM ATENCAO", ML + 7, y + 7);
+
+    doc.setDrawColor(220, 180, 180); doc.setLineWidth(0.3);
+    doc.line(ML + 5, y + 10, PW - MR - 3, y + 10);
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+    doc.setTextColor(160, 30, 30);
+    doc.text("Este laudo foi gerado automaticamente por Inteligencia Artificial (OdontoVision AI Pro).", ML + 7, y + 15);
+
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+    doc.setTextColor(100, 30, 30);
+    const avisoTxt =
+      "O laudo e uma ferramenta de APOIO ao raciocinio clinico e NAO substitui, em nenhuma hipotese, " +
+      "o exame clinico presencial, o diagnostico e o julgamento profissional do cirurgiao-dentista responsavel. " +
+      "Todos os achados DEVEM ser validados pelo profissional antes de qualquer conduta clinica. " +
+      "A responsabilidade pelo diagnostico final e EXCLUSIVAMENTE do dentista responsavel.";
+    const avisoLines = doc.splitTextToSize(avisoTxt, TW - 12);
+    avisoLines.forEach((l: string, i: number) => {
+      doc.text(l, ML + 7, y + 20 + i * 3.8);
+    });
+    y += 42;
+
+    // ── Linha de assinatura ───────────────────────────────────────────────────
+    checkBreak(20);
+    y += 8;
+    doc.setDrawColor(...C.line); doc.setLineWidth(0.4);
+    doc.line(ML, y, ML + 72, y);
+    doc.line(PW - MR - 55, y, PW - MR, y);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+    doc.setTextColor(...C.gray);
+    doc.text("Assinatura do Cirurgiao-Dentista / CRO", ML, y + 4.5);
+    doc.text("Data", PW - MR - 55, y + 4.5);
+
+    // ── Atualizar footers ─────────────────────────────────────────────────────
+    const total = doc.getNumberOfPages();
+    for (let p = 1; p <= total; p++) {
+      doc.setPage(p);
+      drawFooter(p);
+    }
+
+    // ── Download ───────────────────────────────────────────────────────────────
+    const nomeLimpo = patientData.nome.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 30);
+    doc.save(`laudo-${nomeLimpo}-${patientData.dataLaudo}.pdf`);
+    toast.success("PDF gerado com sucesso!");
+  };
 
     // ── Helpers ────────────────────────────────────────────────────────────────
     let y = 0;
