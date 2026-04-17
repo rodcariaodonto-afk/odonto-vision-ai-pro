@@ -23,6 +23,7 @@ export type Database = {
           file_type: string | null
           id: string
           name: string
+          patient_folder: string | null
           raw_content: string | null
           status: string
           updated_at: string
@@ -37,6 +38,7 @@ export type Database = {
           file_type?: string | null
           id?: string
           name: string
+          patient_folder?: string | null
           raw_content?: string | null
           status?: string
           updated_at?: string
@@ -51,6 +53,7 @@ export type Database = {
           file_type?: string | null
           id?: string
           name?: string
+          patient_folder?: string | null
           raw_content?: string | null
           status?: string
           updated_at?: string
