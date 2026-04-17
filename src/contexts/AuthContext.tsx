@@ -103,9 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           userIdRef.current = nextUserId;
 
           if (sameUser) {
-            setSession(newSession);
-            setUser((prev) => (prev?.id === nextUserId ? prev : nextUser));
-            setLoading(false);
             return;
           }
 
@@ -131,13 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           sessionRef.current = newSession;
           userIdRef.current = nextUserId;
-          // Update session token silently WITHOUT changing user identity reference
-          // unless the user id actually changed (prevents downstream re-renders).
+
+          if (sameUser) {
+            return;
+          }
+
           setSession(newSession);
-          setUser((prev) => {
-            if (prev?.id === nextUser?.id) return prev; // keep same reference
-            return nextUser;
-          });
+          setUser(nextUser);
         }
       }
     );
@@ -147,17 +144,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authSubscription.unsubscribe();
     };
   }, []);
-
-  // Periodically check subscription (every 5 minutes - less frequent to avoid refresh issues)
-  useEffect(() => {
-    if (!session) return;
-
-    const interval = setInterval(() => {
-      checkSubscription();
-    }, 300000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [session]);
 
   const signUp = async (email: string, password: string, name?: string) => {
     const redirectUrl = `${window.location.origin}/`;
