@@ -48,7 +48,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, subscription, subscriptionLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdminRole();
 
-  if (loading || subscriptionLoading || adminLoading) {
+  if (loading || adminLoading || (subscriptionLoading && !subscription && !isAdmin)) {
     return <LoadingSpinner />;
   }
 
