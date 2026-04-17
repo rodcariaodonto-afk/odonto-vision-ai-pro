@@ -1040,16 +1040,30 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     let imageBase64 = "";
     let imageType = "image/jpeg";
     
-    const imageFile = selectedFiles.find(f => f.type.startsWith("image/"));
-    if (imageFile) {
-      // Use file directly
+    // Procurar imagem de exame de imagem (radiografia/foto/tomografia)
+    // excluindo arquivos laboratoriais (PDF de hemograma, etc.)
+    // Critério: arquivo de imagem cujo índice NÃO corresponde a um tipo laboratorial
+    const imageFileIndex = selectedFiles.findIndex(f => f.type.startsWith("image/"));
+    const imageFile = imageFileIndex !== -1 ? selectedFiles[imageFileIndex] : null;
+
+    // Verificar se o arquivo de imagem encontrado é de fato uma imagem clínica
+    // (não um PDF de exame laboratorial convertido para imagem)
+    // Usar o arquivo de imagem se existir, priorizando arquivos que não sejam PDFs
+    const radiographyFile = selectedFiles.find(f =>
+      f.type.startsWith("image/") &&
+      !f.name.toLowerCase().includes("hemograma") &&
+      !f.name.toLowerCase().includes("laboratorial") &&
+      !f.name.toLowerCase().includes("exame")
+    ) || imageFile;
+    if (radiographyFile) {
+      // Usar o arquivo de imagem de radiografia/foto encontrado
       const reader = new FileReader();
       imageBase64 = await new Promise<string>((resolve, reject) => {
         reader.onloadend = () => resolve(reader.result as string);
         reader.onerror = reject;
-        reader.readAsDataURL(imageFile);
+        reader.readAsDataURL(radiographyFile);
       });
-      imageType = imageFile.type;
+      imageType = radiographyFile.type;
     } else {
       // Use previewUrl if available (restored from session)
       const imagePreview = previewUrls.find(p => p !== "pdf" && p.startsWith("data:image"));
@@ -1965,23 +1979,39 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 )}
               </Button>
 
-              {showVisualAnalysis && visualAnalysisResult && previewUrls[0] && previewUrls[0] !== "pdf" && (
-                <VisualAnalysis
-                  imageUrl={previewUrls[0]}
-                  marcacoes={visualAnalysisResult.marcacoes || []}
-                  resumo={visualAnalysisResult.resumo || visualAnalysisResult.resumo_para_paciente?.join(" ") || ""}
-                  observacoes={visualAnalysisResult.observacoes || ""}
-                  editable={true}
-                  onMarcacoesChange={(newMarcacoes) => {
-                    setVisualAnalysisResult(prev => prev ? {
-                      ...prev,
-                      marcacoes: newMarcacoes
-                    } : null);
-                  }}
-                  analiseCompleta={visualAnalysisResult as any}
-                  analiseSimplificada={visualAnalysisResult as any}
-                />
-              )}
+              {showVisualAnalysis && visualAnalysisResult && (() => {
+                // Encontrar a primeira URL de imagem real (radiografia/foto)
+                // Excluindo hemogramas e PDFs
+                const imageUrlForVisual = previewUrls.find((p, idx) => {
+                  if (!p || p === "pdf" || !p.startsWith("data:image")) return false;
+                  // Verificar se o arquivo correspondente não é laboratorial
+                  const file = selectedFiles[idx];
+                  if (file) {
+                    const name = file.name.toLowerCase();
+                    if (name.includes("hemograma") || name.includes("laboratorial") || name.includes("exame")) return false;
+                  }
+                  return true;
+                }) || previewUrls.find(p => p && p !== "pdf" && p.startsWith("data:image"));
+
+                if (!imageUrlForVisual) return null;
+                return (
+                  <VisualAnalysis
+                    imageUrl={imageUrlForVisual}
+                    marcacoes={visualAnalysisResult.marcacoes || []}
+                    resumo={visualAnalysisResult.resumo || visualAnalysisResult.resumo_para_paciente?.join(" ") || ""}
+                    observacoes={visualAnalysisResult.observacoes || ""}
+                    editable={true}
+                    onMarcacoesChange={(newMarcacoes) => {
+                      setVisualAnalysisResult(prev => prev ? {
+                        ...prev,
+                        marcacoes: newMarcacoes
+                      } : null);
+                    }}
+                    analiseCompleta={visualAnalysisResult as any}
+                    analiseSimplificada={visualAnalysisResult as any}
+                  />
+                );
+              })()}
             </div>
           )}
 
