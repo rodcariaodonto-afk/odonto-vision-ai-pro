@@ -980,16 +980,6 @@ function isValidImageType(mimeType: string): boolean {
   ];
   return validImageTypes.includes(mimeType.toLowerCase());
 }
-function isValidImageType(mimeType: string): boolean {
-  const validImageTypes = [
-    'image/jpeg',
-    'image/jpg', 
-    'image/png',
-    'image/gif',
-    'image/webp'
-  ];
-  return validImageTypes.includes(mimeType.toLowerCase());
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
