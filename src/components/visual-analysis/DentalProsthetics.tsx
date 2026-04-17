@@ -675,8 +675,6 @@ export function DentalProstheticsPanel({ items, onItemsChange }: DentalProstheti
                 </button>
               </div>
             ))}
-              </div>
-            ))}
           </div>
         )}
 
