@@ -155,7 +155,10 @@ export default function AdminAPI() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("clinics").insert([clinicForm]);
+      const { error } = await supabase.from("clinics").insert([{
+        ...clinicForm,
+        plan: clinicForm.plan as "basic" | "professional" | "enterprise",
+      }]);
       if (error) throw error;
       toast.success("Clínica criada!");
       setNewClinicOpen(false);
