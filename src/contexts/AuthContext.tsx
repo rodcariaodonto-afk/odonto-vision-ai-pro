@@ -99,7 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
-        if (session) {
+        if (session?.user) {
+          checkBlockedStatus(session.user.id);
           checkSubscription();
         }
       }
@@ -127,8 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(newSession);
           setUser(nextUser);
           setLoading(false);
-          if (newSession) {
-            setTimeout(() => checkSubscription(), 0);
+          if (newSession?.user) {
+            setTimeout(() => {
+              checkBlockedStatus(newSession.user.id);
+              checkSubscription();
+            }, 0);
           }
           return;
         }
@@ -139,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(null);
           setUser(null);
           setSubscription(null);
+          setIsBlocked(false);
           setLoading(false);
           return;
         }
@@ -180,11 +185,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error: error ? new Error(error.message) : null };
+    if (error) return { error: new Error(error.message) };
+
+    // Check if user is blocked
+    if (data.user) {
+      const blocked = await checkBlockedStatus(data.user.id);
+      if (blocked) {
+        // Keep session active so /account-suspended page works, but flag as blocked.
+        // The route guard will redirect to /account-suspended.
+        return { error: null };
+      }
+    }
+    return { error: null };
   };
 
   const signOut = async () => {
@@ -197,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       session, 
       loading, 
+      isBlocked,
       subscription, 
       subscriptionLoading,
       signUp, 
