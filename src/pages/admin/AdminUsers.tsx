@@ -229,7 +229,11 @@ export default function AdminUsers() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="default">Ativo</Badge>
+                    {u.blocked_at ? (
+                      <Badge variant="destructive">Bloqueado</Badge>
+                    ) : (
+                      <Badge variant="default">Ativo</Badge>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => setSelectedUser(u)}>
                       <Eye className="w-5 h-5" />
                     </Button>
