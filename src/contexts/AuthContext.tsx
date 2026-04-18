@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isBlocked: boolean;
   subscription: SubscriptionStatus | null;
   subscriptionLoading: boolean;
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>;
