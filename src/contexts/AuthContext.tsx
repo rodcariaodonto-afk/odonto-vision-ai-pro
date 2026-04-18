@@ -28,10 +28,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const sessionRef = useRef<Session | null>(null);
   const userIdRef = useRef<string | null>(null);
+
+  const checkBlockedStatus = async (userId: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("blocked_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const blocked = !!data?.blocked_at;
+      setIsBlocked(blocked);
+      return blocked;
+    } catch {
+      setIsBlocked(false);
+      return false;
+    }
+  };
 
   const checkSubscription = async () => {
     // Get the current session to ensure we have a valid token
