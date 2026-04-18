@@ -38,6 +38,25 @@ export default function AdminUsers() {
   // Delete user state
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [blockingId, setBlockingId] = useState<string | null>(null);
+
+  const handleToggleBlock = async (u: UserProfile) => {
+    const isBlocked = !!u.blocked_at;
+    setBlockingId(u.user_id);
+    try {
+      const res = await supabase.functions.invoke("manage-user", {
+        body: { action: isBlocked ? "unblock" : "block", user_id: u.user_id },
+      });
+      if (res.error || res.data?.error) throw new Error(res.data?.error || "Erro");
+      toast.success(isBlocked ? "Usuário desbloqueado" : "Usuário bloqueado");
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar");
+    } finally {
+      setBlockingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
