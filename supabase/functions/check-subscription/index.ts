@@ -46,10 +46,16 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Admin has full access without payment
-    const ADMIN_EMAILS = ["rodcaria.odonto@gmail.com", "servmaisdigital@gmail.com"];
-    if (ADMIN_EMAILS.includes(user.email)) {
-      logStep("Admin user detected - granting full access");
+    // Admin has full access without payment - check via user_roles table
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc("has_role", {
+      _user_id: user.id,
+      _role: "admin",
+    });
+    if (roleError) {
+      logStep("Role check error", { error: roleError.message });
+    }
+    if (isAdmin === true) {
+      logStep("Admin user detected via user_roles - granting full access");
       return new Response(JSON.stringify({
         subscribed: true,
         plan: "admin",
