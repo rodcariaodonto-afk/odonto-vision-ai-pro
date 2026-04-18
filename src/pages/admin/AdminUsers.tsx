@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, User, Calendar, Mail, ArrowLeft, Eye, FileText, MessageSquare, Trash2, Loader2, Plus } from "lucide-react";
+import { Search, User, Calendar, Mail, ArrowLeft, Eye, FileText, MessageSquare, Trash2, Loader2, Plus, Ban, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ interface UserProfile {
   email: string | null;
   cro: string | null;
   created_at: string;
+  blocked_at: string | null;
 }
 
 export default function AdminUsers() {
