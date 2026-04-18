@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isBlocked: boolean;
   subscription: SubscriptionStatus | null;
   subscriptionLoading: boolean;
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>;
@@ -27,10 +28,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const sessionRef = useRef<Session | null>(null);
   const userIdRef = useRef<string | null>(null);
+
+  const checkBlockedStatus = async (userId: string): Promise<boolean> => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("blocked_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const blocked = !!data?.blocked_at;
+      setIsBlocked(blocked);
+      return blocked;
+    } catch {
+      setIsBlocked(false);
+      return false;
+    }
+  };
 
   const checkSubscription = async () => {
     // Get the current session to ensure we have a valid token
@@ -81,7 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
-        if (session) {
+        if (session?.user) {
+          checkBlockedStatus(session.user.id);
           checkSubscription();
         }
       }
@@ -109,8 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(newSession);
           setUser(nextUser);
           setLoading(false);
-          if (newSession) {
-            setTimeout(() => checkSubscription(), 0);
+          if (newSession?.user) {
+            setTimeout(() => {
+              checkBlockedStatus(newSession.user.id);
+              checkSubscription();
+            }, 0);
           }
           return;
         }
@@ -121,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(null);
           setUser(null);
           setSubscription(null);
+          setIsBlocked(false);
           setLoading(false);
           return;
         }
@@ -162,11 +185,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error: error ? new Error(error.message) : null };
+    if (error) return { error: new Error(error.message) };
+
+    // Check if user is blocked
+    if (data.user) {
+      const blocked = await checkBlockedStatus(data.user.id);
+      if (blocked) {
+        // Keep session active so /account-suspended page works, but flag as blocked.
+        // The route guard will redirect to /account-suspended.
+        return { error: null };
+      }
+    }
+    return { error: null };
   };
 
   const signOut = async () => {
@@ -179,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       session, 
       loading, 
+      isBlocked,
       subscription, 
       subscriptionLoading,
       signUp, 

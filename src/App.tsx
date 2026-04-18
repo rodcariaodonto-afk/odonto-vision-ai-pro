@@ -20,6 +20,7 @@ import Cases from "./pages/Cases";
 import Compare from "./pages/Compare";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import AccountSuspended from "./pages/AccountSuspended";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -46,7 +47,7 @@ function LoadingSpinner() {
 
 // Protected Route component - requires login AND active subscription
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, subscription, subscriptionLoading } = useAuth();
+  const { user, loading, isBlocked, subscription, subscriptionLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdminRole();
 
   if (loading || adminLoading || (subscriptionLoading && !subscription && !isAdmin)) {
@@ -55,6 +56,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isBlocked && !isAdmin) {
+    return <Navigate to="/account-suspended" replace />;
   }
 
   // Admin always has access
@@ -126,11 +131,16 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 // Public Route that redirects authenticated users with subscription
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, subscription, subscriptionLoading } = useAuth();
+  const { user, loading, isBlocked, subscription, subscriptionLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdminRole();
 
   if (loading || adminLoading) {
     return <LoadingSpinner />;
+  }
+
+  // Blocked users go to suspended page
+  if (user && isBlocked && !isAdmin) {
+    return <Navigate to="/account-suspended" replace />;
   }
 
   // If user is logged in with active subscription or is admin, redirect to dashboard
@@ -152,6 +162,7 @@ function AppRoutes() {
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfUse />} />
+      <Route path="/account-suspended" element={<AccountSuspended />} />
       
       {/* Protected Routes with Layout */}
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
