@@ -105,6 +105,31 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
+    } else if (action === "block" || action === "unblock") {
+      const { user_id } = body;
+      if (!user_id) throw new Error("ID do usuário não fornecido");
+
+      const blocked_at = action === "block" ? new Date().toISOString() : null;
+
+      const { error: updateError } = await supabaseAdmin
+        .from("profiles")
+        .update({ blocked_at })
+        .eq("user_id", user_id);
+
+      if (updateError) throw new Error(`Erro ao atualizar usuário: ${updateError.message}`);
+
+      // When blocking, also revoke active sessions
+      if (action === "block") {
+        await supabaseAdmin.auth.admin.signOut(user_id).catch(() => {});
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: action === "block" ? "Usuário bloqueado" : "Usuário desbloqueado",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
     } else if (action === "delete") {
       const { user_id, email } = body;
 

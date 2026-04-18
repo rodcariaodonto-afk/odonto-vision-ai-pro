@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, User, Calendar, Mail, ArrowLeft, Eye, FileText, MessageSquare, Trash2, Loader2, Plus } from "lucide-react";
+import { Search, User, Calendar, Mail, ArrowLeft, Eye, FileText, MessageSquare, Trash2, Loader2, Plus, Ban, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ interface UserProfile {
   email: string | null;
   cro: string | null;
   created_at: string;
+  blocked_at: string | null;
 }
 
 export default function AdminUsers() {
@@ -37,6 +38,25 @@ export default function AdminUsers() {
   // Delete user state
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [blockingId, setBlockingId] = useState<string | null>(null);
+
+  const handleToggleBlock = async (u: UserProfile) => {
+    const isBlocked = !!u.blocked_at;
+    setBlockingId(u.user_id);
+    try {
+      const res = await supabase.functions.invoke("manage-user", {
+        body: { action: isBlocked ? "unblock" : "block", user_id: u.user_id },
+      });
+      if (res.error || res.data?.error) throw new Error(res.data?.error || "Erro");
+      toast.success(isBlocked ? "Usuário desbloqueado" : "Usuário bloqueado");
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar");
+    } finally {
+      setBlockingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -209,7 +229,11 @@ export default function AdminUsers() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="default">Ativo</Badge>
+                    {u.blocked_at ? (
+                      <Badge variant="destructive">Bloqueado</Badge>
+                    ) : (
+                      <Badge variant="default">Ativo</Badge>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => setSelectedUser(u)}>
                       <Eye className="w-5 h-5" />
                     </Button>
@@ -280,6 +304,21 @@ export default function AdminUsers() {
                   <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { setSelectedUser(null); handleSendSupport(selectedUser.user_id); }}>
                     <MessageSquare className="w-4 h-4" />
                     Enviar mensagem de suporte
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    disabled={blockingId === selectedUser.user_id}
+                    onClick={() => handleToggleBlock(selectedUser)}
+                  >
+                    {blockingId === selectedUser.user_id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : selectedUser.blocked_at ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <Ban className="w-4 h-4" />
+                    )}
+                    {selectedUser.blocked_at ? "Desbloquear usuário" : "Bloquear usuário"}
                   </Button>
                   <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={() => setUserToDelete(selectedUser)}>
                     <Trash2 className="w-4 h-4" />
