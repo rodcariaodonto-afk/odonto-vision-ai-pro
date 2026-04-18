@@ -155,7 +155,10 @@ export default function AdminAPI() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("clinics").insert([clinicForm]);
+      const { error } = await supabase.from("clinics").insert([{
+        ...clinicForm,
+        plan: clinicForm.plan as "basic" | "professional" | "enterprise",
+      }]);
       if (error) throw error;
       toast.success("Clínica criada!");
       setNewClinicOpen(false);
@@ -184,8 +187,8 @@ export default function AdminAPI() {
         name: keyForm.name,
         key_hash: keyHash,
         key_preview: keyPreview,
-        environment: keyForm.environment,
-        plan,
+        environment: keyForm.environment as "live" | "test",
+        plan: plan as "basic" | "professional" | "enterprise",
         monthly_limit,
         usage_reset_at: new Date(
           new Date().getFullYear(),

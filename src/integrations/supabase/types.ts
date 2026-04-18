@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          environment: Database["public"]["Enums"]["api_environment"]
+          id: string
+          key_hash: string
+          key_preview: string
+          last_used_at: string | null
+          monthly_limit: number
+          name: string
+          plan: Database["public"]["Enums"]["clinic_plan"]
+          usage_count: number
+          usage_reset_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          environment?: Database["public"]["Enums"]["api_environment"]
+          id?: string
+          key_hash: string
+          key_preview: string
+          last_used_at?: string | null
+          monthly_limit?: number
+          name: string
+          plan?: Database["public"]["Enums"]["clinic_plan"]
+          usage_count?: number
+          usage_reset_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          environment?: Database["public"]["Enums"]["api_environment"]
+          id?: string
+          key_hash?: string
+          key_preview?: string
+          last_used_at?: string | null
+          monthly_limit?: number
+          name?: string
+          plan?: Database["public"]["Enums"]["clinic_plan"]
+          usage_count?: number
+          usage_reset_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_usage: {
+        Row: {
+          api_key_id: string | null
+          clinic_id: string | null
+          created_at: string
+          endpoint: string
+          exam_category: string | null
+          id: string
+          ip_address: string | null
+          processing_ms: number | null
+          status_code: number
+        }
+        Insert: {
+          api_key_id?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          endpoint: string
+          exam_category?: string | null
+          id?: string
+          ip_address?: string | null
+          processing_ms?: number | null
+          status_code: number
+        }
+        Update: {
+          api_key_id?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          endpoint?: string
+          exam_category?: string | null
+          id?: string
+          ip_address?: string | null
+          processing_ms?: number | null
+          status_code?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_usage_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_usage_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_feedback: {
         Row: {
           case_id: string | null
@@ -145,6 +252,39 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      clinics: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          plan: Database["public"]["Enums"]["clinic_plan"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          plan?: Database["public"]["Enums"]["clinic_plan"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          plan?: Database["public"]["Enums"]["clinic_plan"]
+          updated_at?: string
         }
         Relationships: []
       }
@@ -321,6 +461,56 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_configs: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          failure_count: number
+          id: string
+          last_status: string | null
+          last_triggered_at: string | null
+          name: string
+          secret_hash: string
+          secret_preview: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          failure_count?: number
+          id?: string
+          last_status?: string | null
+          last_triggered_at?: string | null
+          name?: string
+          secret_hash: string
+          secret_preview: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          failure_count?: number
+          id?: string
+          last_status?: string | null
+          last_triggered_at?: string | null
+          name?: string
+          secret_hash?: string
+          secret_preview?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_configs_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -365,7 +555,9 @@ export type Database = {
       }
     }
     Enums: {
+      api_environment: "live" | "test"
       app_role: "admin" | "user"
+      clinic_plan: "basic" | "professional" | "enterprise"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -493,7 +685,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      api_environment: ["live", "test"],
       app_role: ["admin", "user"],
+      clinic_plan: ["basic", "professional", "enterprise"],
     },
   },
 } as const
