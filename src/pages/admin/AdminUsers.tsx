@@ -305,6 +305,21 @@ export default function AdminUsers() {
                     <MessageSquare className="w-4 h-4" />
                     Enviar mensagem de suporte
                   </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    disabled={blockingId === selectedUser.user_id}
+                    onClick={() => handleToggleBlock(selectedUser)}
+                  >
+                    {blockingId === selectedUser.user_id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : selectedUser.blocked_at ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <Ban className="w-4 h-4" />
+                    )}
+                    {selectedUser.blocked_at ? "Desbloquear usuário" : "Bloquear usuário"}
+                  </Button>
                   <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={() => setUserToDelete(selectedUser)}>
                     <Trash2 className="w-4 h-4" />
                     Excluir usuário
