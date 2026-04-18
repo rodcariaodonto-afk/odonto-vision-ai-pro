@@ -174,6 +174,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          blocked_at: string | null
           created_at: string
           cro: string | null
           email: string | null
@@ -183,6 +184,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          blocked_at?: string | null
           created_at?: string
           cro?: string | null
           email?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          blocked_at?: string | null
           created_at?: string
           cro?: string | null
           email?: string | null
@@ -340,6 +343,7 @@ export type Database = {
       get_all_users: {
         Args: never
         Returns: {
+          blocked_at: string
           created_at: string
           cro: string
           email: string
