@@ -162,7 +162,7 @@ export default function Cephalometry() {
       doc.setFontSize(16); doc.setFont("helvetica", "bold");
       doc.text("LAUDO CEFALOMÉTRICO", pageW / 2, 12, { align: "center" });
       doc.setFontSize(9); doc.setFont("helvetica", "normal");
-      doc.text("OdontoVision AI Pro · Steiner · McNamara · Ricketts", pageW / 2, 19, { align: "center" });
+      doc.text(`OdontoVision AI Pro · Análise de ${currentAnalysis.name} (${currentAnalysis.year})`, pageW / 2, 19, { align: "center" });
 
       doc.setTextColor(0, 0, 0);
       y = 35;
@@ -188,7 +188,7 @@ export default function Cephalometry() {
       // Measurements
       if (y > 220) { doc.addPage(); y = 15; }
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
-      doc.text("Medidas Cefalométricas", 15, y); y += 6;
+      doc.text(`Medidas Cefalométricas – ${currentAnalysis.name}`, 15, y); y += 6;
       doc.setFontSize(9); doc.setFont("helvetica", "bold");
       doc.text("Medida", 15, y);
       doc.text("Valor", 80, y);
@@ -196,14 +196,15 @@ export default function Cephalometry() {
       doc.text("Status", 165, y);
       y += 2; doc.line(15, y, pageW - 15, y); y += 5;
       doc.setFont("helvetica", "normal");
-      Object.entries(result.measurements).forEach(([k, v]) => {
+      currentAnalysis.measures.forEach((m) => {
+        const v = result.measurements[m.key];
+        if (v === undefined || v === null) return;
         if (y > 275) { doc.addPage(); y = 15; }
-        const ref = REFERENCES[k];
-        const s = getStatus(k, v as number);
+        const s = getStatus(m, v);
         const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
-        doc.text(k, 15, y);
-        doc.text(`${v}${ref?.unit ?? "°"}`, 80, y);
-        doc.text(ref?.value ?? "-", 115, y);
+        doc.text(m.name, 15, y);
+        doc.text(`${v}${m.unit}`, 80, y);
+        doc.text(formatRange(m), 115, y);
         if (s === "normal") doc.setTextColor(34, 139, 34);
         else if (s === "high") doc.setTextColor(200, 0, 0);
         else doc.setTextColor(200, 130, 0);
