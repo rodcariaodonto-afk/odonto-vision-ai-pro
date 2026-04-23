@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,57 +7,103 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText, Activity, Ruler, Download, History } from "lucide-react";
+import {
+  ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText,
+  Activity, Download, History, Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import {
   ALL_ANALYSES, ANALYSES_BY_ID, AnalysisType,
-  CephalometricAnalysisDefinition, getStatus, formatRange,
+  getStatus, formatRange,
 } from "@/types/cephalometric-analyses";
+import {
+  Landmark, Measurements, recalcAll,
+} from "@/lib/cephalometric-math";
+import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
 
-interface Landmark { x: number; y: number; name: string; confidence: number; }
-type Measurements = Record<string, number>;
-interface Analysis {
-  id: string; patient_name: string; patient_id: string;
+interface HistoryItem {
+  id: string; patient_name: string | null; patient_id: string;
   landmarks: Landmark[]; measurements: Measurements;
-  interpretation: string; status: string; created_at: string;
-  analysis_type?: AnalysisType;
+  interpretation: string | null; status: string; created_at: string;
+  analysis_type?: AnalysisType; image_storage_path: string; image_url: string;
 }
+
+interface ResultState {
+  analysisId: string;
+  landmarks: Landmark[];
+  selectedTypes: AnalysisType[];
+  results: Partial<Record<AnalysisType, { measurements: Measurements; interpretation: string }>>;
+}
+
+const DRAFT_KEY = "cephalo_draft_v2";
 
 export default function Cephalometry() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisType>("steiner");
+
+  const [selectedTypes, setSelectedTypes] = useState<AnalysisType[]>(["steiner"]);
   const [patientId, setPatientId] = useState("");
   const [patientName, setPatientName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [result, setResult] = useState<{
-    landmarks: Landmark[]; measurements: Measurements;
-    interpretation: string; analysisId: string; usedFallback?: boolean;
-    analysisType: AnalysisType;
-  } | null>(null);
-  const [history, setHistory] = useState<Analysis[]>([]);
+  const [result, setResult] = useState<ResultState | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const currentAnalysis: CephalometricAnalysisDefinition = ANALYSES_BY_ID[selectedAnalysis];
+  // Per-analysis canvases for PDF export
+  const canvasMap = useRef<Map<AnalysisType, HTMLCanvasElement>>(new Map());
 
-  useEffect(() => { loadHistory(); }, []);
-  useEffect(() => { if (result && imagePreview) drawAnalysisOverlay(); }, [result, imagePreview]);
+  // ── Restore draft from sessionStorage on mount ─────────────────────
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.patientId) setPatientId(d.patientId);
+        if (d.patientName) setPatientName(d.patientName);
+        if (Array.isArray(d.selectedTypes) && d.selectedTypes.length) setSelectedTypes(d.selectedTypes);
+        if (d.imagePreview) setImagePreview(d.imagePreview);
+        if (d.result) setResult(d.result);
+      }
+    } catch {}
+    loadHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persist draft on changes ───────────────────────────────────────
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        patientId, patientName, selectedTypes, imagePreview, result,
+      }));
+    } catch {}
+  }, [patientId, patientName, selectedTypes, imagePreview, result]);
 
   async function loadHistory() {
+    if (!user?.id) return;
     setLoadingHistory(true);
     try {
       const { data } = await supabase
         .from("cephalometric_analyses").select("*")
-        .eq("user_id", user?.id).order("created_at", { ascending: false }).limit(20);
-      if (data) setHistory(data as unknown as Analysis[]);
+        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
+      if (data) setHistory(data as unknown as HistoryItem[]);
     } catch {} finally { setLoadingHistory(false); }
+  }
+
+  function toggleType(t: AnalysisType) {
+    setSelectedTypes((cur) => {
+      if (cur.includes(t)) {
+        const next = cur.filter((x) => x !== t);
+        return next.length ? next : cur; // keep at least 1
+      }
+      return [...cur, t];
+    });
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -65,6 +111,7 @@ export default function Cephalometry() {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast.error("Imagem maior que 10MB"); return; }
     setSelectedFile(file);
+    setResult(null); setCaseSaved(false);
     const reader = new FileReader();
     reader.onload = (ev) => setImagePreview(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -75,6 +122,7 @@ export default function Cephalometry() {
       toast.error("Selecione uma imagem e informe o ID do paciente");
       return;
     }
+    if (!selectedTypes.length) { toast.error("Selecione ao menos uma análise"); return; }
     setLoading(true); setResult(null); setCaseSaved(false);
     try {
       const fileName = `${user!.id}/${Date.now()}-${selectedFile.name}`;
@@ -88,38 +136,69 @@ export default function Cephalometry() {
           imageUrl: urlData.publicUrl, imageStoragePath: fileName,
           userId: user!.id, patientId: patientId.trim(),
           patientName: patientName.trim() || undefined,
-          analysisType: selectedAnalysis,
+          analysisTypes: selectedTypes,
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setResult({
-        landmarks: data.landmarks, measurements: data.measurements,
-        interpretation: data.interpretation, analysisId: data.analysisId,
-        usedFallback: data.usedFallback,
-        analysisType: (data.analysisType ?? selectedAnalysis) as AnalysisType,
+        analysisId: data.analysisId,
+        landmarks: data.landmarks,
+        selectedTypes: (data.analysisTypes ?? selectedTypes) as AnalysisType[],
+        results: data.results ?? {},
       });
-      toast.success(`Análise ${currentAnalysis.name} concluída!`);
+      toast.success(`Análise concluída em ${selectedTypes.length} método(s)!`);
       loadHistory();
     } catch (err: any) {
-      toast.error("Erro: " + err.message);
+      toast.error("Erro: " + (err?.message ?? "falha na análise"));
     } finally { setLoading(false); }
   }
+
+  // Recalculate measurements when user drags landmarks
+  const handleLandmarksChange = useCallback((lm: Landmark[]) => {
+    setResult((cur) => {
+      if (!cur) return cur;
+      const recalc = recalcAll(lm, cur.selectedTypes);
+      const merged: ResultState["results"] = {};
+      cur.selectedTypes.forEach((t) => {
+        merged[t] = {
+          measurements: recalc[t] ?? {},
+          interpretation: cur.results[t]?.interpretation ?? "",
+        };
+      });
+      return { ...cur, landmarks: lm, results: merged };
+    });
+  }, []);
+
+  const registerCanvas = useCallback((t: AnalysisType, c: HTMLCanvasElement | null) => {
+    if (c) canvasMap.current.set(t, c);
+    else canvasMap.current.delete(t);
+  }, []);
 
   async function handleSaveToCases() {
     if (!result || !user) return;
     setSavingCase(true);
     try {
-      const measurementsList = currentAnalysis.measures.map((m) => {
-        const v = result.measurements[m.key];
-        if (v === undefined || v === null) return `${m.name}: —`;
-        const s = getStatus(m, v);
-        const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
-        return `${m.name}: ${v}${m.unit} (ref: ${formatRange(m)}) — ${status}`;
+      const analyses = result.selectedTypes.map((t) => {
+        const def = ANALYSES_BY_ID[t]; const r = result.results[t];
+        const measurementsList = def.measures.map((m) => {
+          const v = r?.measurements[m.key];
+          if (v === undefined || v === null) return `${m.name}: —`;
+          const s = getStatus(m, v);
+          const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
+          return `${m.name}: ${v}${m.unit} (ref: ${formatRange(m)}) — ${status}`;
+        });
+        return {
+          analysis_type: t,
+          analysis_name: def.name,
+          measurements: measurementsList,
+          interpretation: r?.interpretation ?? "",
+        };
       });
-      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria (${currentAnalysis.name})`;
+      const names = result.selectedTypes.map((t) => ANALYSES_BY_ID[t].name).join(" + ");
+      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria (${names})`;
       const { error } = await supabase.from("cases").insert({
-        user_id: user.id,
-        name: caseName,
+        user_id: user.id, name: caseName,
         exam_type: "cefalometria",
         file_name: selectedFile?.name ?? null,
         file_type: selectedFile?.type ?? "image/jpeg",
@@ -129,13 +208,9 @@ export default function Cephalometry() {
             nome: patientName.trim() || patientId.trim(),
             data_analise: new Date().toLocaleDateString("pt-BR"),
           },
-          tipo_exame: `Telerradiografia / Cefalometria – ${currentAnalysis.name} (${currentAnalysis.year})`,
-          achados_radiograficos: measurementsList,
-          interpretacao_clinica: result.interpretation,
-          recomendacoes_clinicas: [
-            "Validação clínica obrigatória pelo cirurgião-dentista responsável.",
-          ],
-          analysis_type: result.analysisType,
+          tipo_exame: `Telerradiografia / Cefalometria (${names})`,
+          analyses,
+          analysis_types: result.selectedTypes,
         },
       });
       if (error) throw error;
@@ -153,83 +228,81 @@ export default function Cephalometry() {
     try {
       const doc = new jsPDF();
       const pageW = doc.internal.pageSize.getWidth();
-      let y = 15;
 
-      // Header
-      doc.setFillColor(13, 43, 78);
-      doc.rect(0, 0, pageW, 25, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16); doc.setFont("helvetica", "bold");
-      doc.text("LAUDO CEFALOMÉTRICO", pageW / 2, 12, { align: "center" });
-      doc.setFontSize(9); doc.setFont("helvetica", "normal");
-      doc.text(`OdontoVision AI Pro · Análise de ${currentAnalysis.name} (${currentAnalysis.year})`, pageW / 2, 19, { align: "center" });
+      result.selectedTypes.forEach((t, idx) => {
+        if (idx > 0) doc.addPage();
+        const def = ANALYSES_BY_ID[t]; const r = result.results[t];
+        let y = 15;
 
-      doc.setTextColor(0, 0, 0);
-      y = 35;
+        // header
+        doc.setFillColor(13, 43, 78);
+        doc.rect(0, 0, pageW, 25, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16); doc.setFont("helvetica", "bold");
+        doc.text("LAUDO CEFALOMÉTRICO", pageW / 2, 12, { align: "center" });
+        doc.setFontSize(9); doc.setFont("helvetica", "normal");
+        doc.text(`OdontoVision AI Pro · ${def.name} (${def.year})`, pageW / 2, 19, { align: "center" });
+        doc.setTextColor(0, 0, 0); y = 35;
 
-      // Patient
-      doc.setFontSize(11); doc.setFont("helvetica", "bold");
-      doc.text("Identificação do Paciente", 15, y); y += 6;
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
-      doc.text(`Nome: ${patientName.trim() || "—"}`, 15, y); y += 5;
-      doc.text(`ID: ${patientId.trim()}`, 15, y); y += 5;
-      doc.text(`Data da análise: ${new Date().toLocaleDateString("pt-BR")}`, 15, y); y += 10;
-
-      // Image
-      if (canvasRef.current) {
-        try {
-          const img = canvasRef.current.toDataURL("image/jpeg", 0.85);
-          const imgW = 110; const imgH = (canvasRef.current.height * imgW) / canvasRef.current.width;
-          doc.addImage(img, "JPEG", (pageW - imgW) / 2, y, imgW, imgH);
-          y += imgH + 8;
-        } catch {}
-      }
-
-      // Measurements
-      if (y > 220) { doc.addPage(); y = 15; }
-      doc.setFontSize(11); doc.setFont("helvetica", "bold");
-      doc.text(`Medidas Cefalométricas – ${currentAnalysis.name}`, 15, y); y += 6;
-      doc.setFontSize(9); doc.setFont("helvetica", "bold");
-      doc.text("Medida", 15, y);
-      doc.text("Valor", 80, y);
-      doc.text("Referência", 115, y);
-      doc.text("Status", 165, y);
-      y += 2; doc.line(15, y, pageW - 15, y); y += 5;
-      doc.setFont("helvetica", "normal");
-      currentAnalysis.measures.forEach((m) => {
-        const v = result.measurements[m.key];
-        if (v === undefined || v === null) return;
-        if (y > 275) { doc.addPage(); y = 15; }
-        const s = getStatus(m, v);
-        const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
-        doc.text(m.name, 15, y);
-        doc.text(`${v}${m.unit}`, 80, y);
-        doc.text(formatRange(m), 115, y);
-        if (s === "normal") doc.setTextColor(34, 139, 34);
-        else if (s === "high") doc.setTextColor(200, 0, 0);
-        else doc.setTextColor(200, 130, 0);
-        doc.text(status, 165, y);
-        doc.setTextColor(0, 0, 0);
-        y += 6;
-      });
-      y += 4;
-
-      // Interpretation
-      if (result.interpretation) {
-        if (y > 240) { doc.addPage(); y = 15; }
         doc.setFontSize(11); doc.setFont("helvetica", "bold");
-        doc.text("Interpretação Clínica (IA)", 15, y); y += 6;
-        doc.setFontSize(10); doc.setFont("helvetica", "normal");
-        const lines = doc.splitTextToSize(result.interpretation, pageW - 30);
-        doc.text(lines, 15, y); y += lines.length * 5 + 6;
-      }
+        doc.text("Identificação do Paciente", 15, y); y += 6;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+        doc.text(`Nome: ${patientName.trim() || "—"}`, 15, y); y += 5;
+        doc.text(`ID: ${patientId.trim()}`, 15, y); y += 5;
+        doc.text(`Data da análise: ${new Date().toLocaleDateString("pt-BR")}`, 15, y); y += 8;
 
-      // Disclaimer
-      if (y > 260) { doc.addPage(); y = 15; }
-      doc.setFontSize(8); doc.setTextColor(100, 100, 100);
-      const disc = "Análise gerada por inteligência artificial. Ferramenta de apoio ao raciocínio clínico — o diagnóstico final e o plano de tratamento são de responsabilidade exclusiva do cirurgião-dentista.";
-      const dlines = doc.splitTextToSize(disc, pageW - 30);
-      doc.text(dlines, 15, 285);
+        // image with overlay
+        const canvas = canvasMap.current.get(t);
+        if (canvas) {
+          try {
+            const img = canvas.toDataURL("image/jpeg", 0.85);
+            const imgW = 110;
+            const imgH = (canvas.height * imgW) / canvas.width;
+            doc.addImage(img, "JPEG", (pageW - imgW) / 2, y, imgW, imgH);
+            y += imgH + 8;
+          } catch (e) { console.warn("canvas export failed", e); }
+        }
+
+        if (y > 220) { doc.addPage(); y = 15; }
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.text(`Medidas — ${def.name}`, 15, y); y += 6;
+        doc.setFontSize(9); doc.setFont("helvetica", "bold");
+        doc.text("Medida", 15, y); doc.text("Valor", 80, y);
+        doc.text("Referência", 115, y); doc.text("Status", 165, y);
+        y += 2; doc.line(15, y, pageW - 15, y); y += 5;
+        doc.setFont("helvetica", "normal");
+        def.measures.forEach((m) => {
+          const v = r?.measurements[m.key];
+          if (v === undefined || v === null) return;
+          if (y > 275) { doc.addPage(); y = 15; }
+          const s = getStatus(m, v);
+          const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
+          doc.text(m.name, 15, y);
+          doc.text(`${v}${m.unit}`, 80, y);
+          doc.text(formatRange(m), 115, y);
+          if (s === "normal") doc.setTextColor(34, 139, 34);
+          else if (s === "high") doc.setTextColor(200, 0, 0);
+          else doc.setTextColor(200, 130, 0);
+          doc.text(status, 165, y);
+          doc.setTextColor(0, 0, 0);
+          y += 6;
+        });
+        y += 4;
+
+        if (r?.interpretation) {
+          if (y > 240) { doc.addPage(); y = 15; }
+          doc.setFontSize(11); doc.setFont("helvetica", "bold");
+          doc.text("Interpretação Clínica (IA)", 15, y); y += 6;
+          doc.setFontSize(10); doc.setFont("helvetica", "normal");
+          const lines = doc.splitTextToSize(r.interpretation, pageW - 30);
+          doc.text(lines, 15, y); y += lines.length * 5 + 6;
+        }
+
+        doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+        const disc = "Análise gerada por IA. Ferramenta de apoio ao raciocínio clínico — diagnóstico final é responsabilidade do cirurgião-dentista.";
+        const dlines = doc.splitTextToSize(disc, pageW - 30);
+        doc.text(dlines, 15, 285);
+      });
 
       const fileName = `cefalometria-${(patientName.trim() || patientId.trim()).replace(/\s+/g, "_")}-${Date.now()}.pdf`;
       doc.save(fileName);
@@ -239,63 +312,42 @@ export default function Cephalometry() {
     }
   }
 
-  function drawAnalysisOverlay() {
-    if (!canvasRef.current || !imagePreview || !result) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, 580 / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      const lmMap = new Map(result.landmarks.map((l) => [l.name, l]));
-
-      // Draw analysis lines first (behind landmark points)
-      currentAnalysis.lines.forEach((line) => {
-        const p1 = lmMap.get(line.point1);
-        const p2 = lmMap.get(line.point2);
-        if (!p1 || !p2) return;
-        const x1 = p1.x * scale, y1 = p1.y * scale;
-        const x2 = p2.x * scale, y2 = p2.y * scale;
-        ctx.beginPath();
-        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-        ctx.strokeStyle = line.color;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        // Label at midpoint
-        const mx = (x1 + x2) / 2;
-        const my = (y1 + y2) / 2;
-        const measure = line.measureKey
-          ? currentAnalysis.measures.find((m) => m.key === line.measureKey)
-          : undefined;
-        const value = measure ? result.measurements[measure.key] : undefined;
-        const label = value !== undefined
-          ? `${line.name} ${value}${measure?.unit ?? ""}`
-          : line.name;
-        ctx.font = "bold 11px Arial";
-        const tw = ctx.measureText(label).width;
-        ctx.fillStyle = "rgba(0,0,0,0.75)";
-        ctx.fillRect(mx - tw / 2 - 3, my - 13, tw + 6, 14);
-        ctx.fillStyle = line.color;
-        ctx.textAlign = "center";
-        ctx.fillText(label, mx, my - 2);
+  async function handleReopen(item: HistoryItem) {
+    try {
+      // Build single-analysis result from history (legacy items only stored one)
+      const t = (item.analysis_type ?? "steiner") as AnalysisType;
+      // Get a public URL from storage
+      const { data: urlData } = supabase.storage
+        .from("cephalometric-images").getPublicUrl(item.image_storage_path);
+      const url = urlData.publicUrl;
+      // Recalculate ALL selected types from saved landmarks (only the one stored is guaranteed)
+      const recalc = recalcAll(item.landmarks ?? [], [t]);
+      setSelectedTypes([t]);
+      setPatientId(item.patient_id);
+      setPatientName(item.patient_name ?? "");
+      setImagePreview(url);
+      setResult({
+        analysisId: item.id,
+        landmarks: item.landmarks ?? [],
+        selectedTypes: [t],
+        results: { [t]: { measurements: recalc[t] ?? (item.measurements as Measurements) ?? {}, interpretation: item.interpretation ?? "" } },
       });
+      toast.success("Análise restaurada");
+    } catch (err: any) {
+      toast.error("Erro ao reabrir: " + err.message);
+    }
+  }
 
-      // Draw only landmarks involved in the current analysis
-      const usedNames = new Set<string>();
-      currentAnalysis.lines.forEach((l) => { usedNames.add(l.point1); usedNames.add(l.point2); });
-      result.landmarks.forEach((lm) => {
-        if (!usedNames.has(lm.name)) return;
-        const x = lm.x * scale, y = lm.y * scale;
-        ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
-        ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
-      });
-    };
-    img.src = imagePreview;
+  async function handleDelete(item: HistoryItem) {
+    if (!confirm("Excluir esta análise do histórico?")) return;
+    try {
+      const { error } = await supabase.from("cephalometric_analyses").delete().eq("id", item.id);
+      if (error) throw error;
+      toast.success("Excluída");
+      loadHistory();
+    } catch (err: any) {
+      toast.error("Erro ao excluir: " + err.message);
+    }
   }
 
   return (
@@ -310,7 +362,7 @@ export default function Cephalometry() {
             Análise Cefalométrica
           </h1>
           <p className="text-muted-foreground mt-1">
-            Detecção de 19 landmarks · Steiner · McNamara · Ricketts
+            Steiner · Jarabak · McNamara · Ricketts · Tweed · Downs
           </p>
         </div>
       </div>
@@ -322,30 +374,33 @@ export default function Cephalometry() {
         </TabsList>
 
         <TabsContent value="new" className="mt-6 space-y-6">
-          {/* Analysis selector */}
+          {/* Multi-select analysis */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Brain className="w-4 h-4 text-primary" />
-                1. Selecione o Tipo de Análise
+                1. Selecione uma ou mais análises
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {ALL_ANALYSES.map((a) => {
-                  const active = selectedAnalysis === a.id;
+                  const active = selectedTypes.includes(a.id);
                   return (
                     <button
                       key={a.id}
                       type="button"
-                      onClick={() => setSelectedAnalysis(a.id)}
-                      className={`text-left p-3 rounded-lg border transition-all min-h-[90px] ${
+                      onClick={() => toggleType(a.id)}
+                      className={`text-left p-3 rounded-lg border transition-all min-h-[100px] relative ${
                         active
                           ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
                           : "border-border hover:border-primary/40 hover:bg-muted/40"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="absolute top-2 right-2">
+                        <Checkbox checked={active} onCheckedChange={() => toggleType(a.id)} />
+                      </div>
+                      <div className="flex items-center gap-2 pr-6">
                         <span className="font-bold text-sm">{a.name}</span>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">{a.year}</Badge>
                       </div>
@@ -355,30 +410,21 @@ export default function Cephalometry() {
                   );
                 })}
               </div>
-              <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/60">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="text-sm font-semibold">{currentAnalysis.name} · {currentAnalysis.author} ({currentAnalysis.year})</div>
-                  <Badge variant="secondary" className="text-xs">{currentAnalysis.measures.length} medidas</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1.5">{currentAnalysis.description}</p>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {currentAnalysis.measures.map((m) => (
-                    <Badge key={m.key} variant="outline" className="text-[10px] font-normal">{m.name}</Badge>
-                  ))}
-                </div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                {selectedTypes.length} análise(s) selecionada(s) · Os landmarks são detectados uma vez e reutilizados.
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Upload className="w-4 h-4 text-primary" />
-                  2. Dados do Paciente e Imagem
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Upload className="w-4 h-4 text-primary" />
+                2. Dados do Paciente e Imagem
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="pid">ID do Paciente *</Label>
                   <Input id="pid" value={patientId} onChange={(e) => setPatientId(e.target.value)} placeholder="Ex: PAC-001" />
@@ -387,64 +433,38 @@ export default function Cephalometry() {
                   <Label htmlFor="pname">Nome do Paciente</Label>
                   <Input id="pname" value={patientName} onChange={(e) => setPatientName(e.target.value)} placeholder="Nome completo" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="img">Telerradiografia (máx 10MB) *</Label>
-                  <Input id="img" type="file" accept="image/jpeg,image/jpg,image/png,image/webp"
-                    onChange={handleFileSelect} className="cursor-pointer" />
-                  <p className="text-xs text-muted-foreground">JPEG ou PNG — radiografia cefalométrica lateral</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="img">Telerradiografia (máx 10MB) *</Label>
+                <Input id="img" type="file" accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleFileSelect} className="cursor-pointer" />
+              </div>
+              {imagePreview && !result && (
+                <div className="rounded-lg overflow-hidden border">
+                  <img src={imagePreview} alt="Preview" className="w-full max-h-64 object-contain bg-black" />
                 </div>
-                {imagePreview && !result && (
-                  <div className="rounded-lg overflow-hidden border">
-                    <img src={imagePreview} alt="Preview" className="w-full max-h-48 object-contain bg-black" />
-                  </div>
-                )}
-                <Button className="w-full" onClick={handleAnalyze}
-                  disabled={loading || !selectedFile || !patientId.trim()}>
-                  {loading
-                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analisando landmarks...</>
-                    : <><Brain className="w-4 h-4 mr-2" />Analisar com {currentAnalysis.name}</>}
-                </Button>
-                {loading && (
-                  <div className="text-center space-y-1">
-                    <p className="text-sm text-muted-foreground">Detectando 19 pontos cefalométricos...</p>
-                    <p className="text-xs text-muted-foreground">Calculando medidas de {currentAnalysis.name}…</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              )}
+              <Button className="w-full" onClick={handleAnalyze}
+                disabled={loading || !selectedFile || !patientId.trim() || !selectedTypes.length}>
+                {loading
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Detectando landmarks com IA...</>
+                  : <><Brain className="w-4 h-4 mr-2" />Analisar com {selectedTypes.length} análise(s)</>}
+              </Button>
+              {loading && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Detectando 19 pontos cefalométricos via Lovable AI · Calculando medidas…
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-            {result && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between text-base">
-                    <span className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Análise {ANALYSES_BY_ID[result.analysisType].name}
-                    </span>
-                    {result.usedFallback && <Badge variant="secondary" className="text-xs">Demo</Badge>}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <canvas ref={canvasRef} className="w-full rounded-lg border bg-black" style={{ maxHeight: "350px" }} />
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    {ANALYSES_BY_ID[result.analysisType].lines.map((l) => (
-                      <span key={l.name} className="flex items-center gap-1">
-                        <span className="w-3 h-1 inline-block rounded" style={{ backgroundColor: l.color }} />
-                        {l.name}
-                      </span>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {result && (
+          {result && imagePreview && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between text-base">
+                <CardTitle className="flex items-center justify-between text-base flex-wrap gap-2">
                   <span className="flex items-center gap-2">
-                    <Ruler className="w-4 h-4 text-primary" />Medidas — {ANALYSES_BY_ID[result.analysisType].name}
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Resultados
                   </span>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
@@ -461,56 +481,14 @@ export default function Cephalometry() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 px-3 font-semibold text-muted-foreground">Medida</th>
-                        <th className="text-right py-2 px-3 font-semibold text-muted-foreground">Valor</th>
-                        <th className="text-center py-2 px-3 font-semibold text-muted-foreground">Referência</th>
-                        <th className="text-center py-2 px-3 font-semibold text-muted-foreground">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentAnalysis.measures.map((m) => {
-                        const val = result.measurements[m.key];
-                        if (val === undefined || val === null) return null;
-                        const s = getStatus(m, val);
-                        return (
-                          <tr key={m.key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                            <td className="py-2 px-3 font-medium">
-                              <div>{m.name}</div>
-                              <div className="text-xs text-muted-foreground font-normal">{m.description}</div>
-                            </td>
-                            <td className="py-2 px-3 text-right font-bold">{val}{m.unit}</td>
-                            <td className="py-2 px-3 text-center text-muted-foreground text-xs">{formatRange(m)}</td>
-                            <td className="py-2 px-3 text-center">
-                              {s === "normal" && <Badge className="bg-green-100 text-green-700 text-xs">Normal</Badge>}
-                              {s === "high"   && <Badge className="bg-red-100 text-red-700 text-xs">Aumentado</Badge>}
-                              {s === "low"    && <Badge className="bg-amber-100 text-amber-700 text-xs">Reduzido</Badge>}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {result?.interpretation && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="w-4 h-4 text-primary" />Interpretação Clínica (IA)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed">{result.interpretation}</p>
-                <p className="text-xs text-muted-foreground mt-3 border-t pt-3">
-                  Análise gerada por IA. Ferramenta de apoio ao raciocínio clínico — deve ser validada pelo cirurgião-dentista responsável.
-                </p>
+                <AnalysisResultTabs
+                  imageSrc={imagePreview}
+                  landmarks={result.landmarks}
+                  onLandmarksChange={handleLandmarksChange}
+                  results={result.results}
+                  selectedTypes={result.selectedTypes}
+                  registerCanvas={registerCanvas}
+                />
               </CardContent>
             </Card>
           )}
@@ -531,38 +509,40 @@ export default function Cephalometry() {
               ) : history.length === 0 ? (
                 <p className="text-center text-muted-foreground py-10">Nenhuma análise realizada ainda.</p>
               ) : (
-                <div className="divide-y">
+                <div className="space-y-2">
                   {history.map((a) => {
                     const aType = (a.analysis_type ?? "steiner") as AnalysisType;
                     const def = ANALYSES_BY_ID[aType];
-                    const firstMeasure = def?.measures[0];
-                    const firstValue = firstMeasure ? (a.measurements as Measurements)?.[firstMeasure.key] : undefined;
                     return (
-                      <div key={a.id} className="py-3 flex items-center gap-3 flex-wrap">
-                        <div className="flex-1 min-w-0">
+                      <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/40 hover:bg-muted/30 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => handleReopen(a)}
+                          className="flex-1 min-w-0 text-left"
+                        >
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium text-sm truncate">{a.patient_name || "Paciente"} — {a.patient_id}</p>
+                            <p className="font-medium text-sm truncate">
+                              {a.patient_name || "Paciente"} — {a.patient_id}
+                            </p>
                             <Badge variant="outline" className="text-[10px]">{def?.name ?? aType}</Badge>
+                            <Badge className={
+                              a.status === "completed" ? "bg-green-100 text-green-700 text-[10px]" :
+                              a.status === "failed"    ? "bg-red-100 text-red-700 text-[10px]" :
+                              "bg-amber-100 text-amber-700 text-[10px]"
+                            }>
+                              {a.status === "completed" ? "Concluída" : a.status === "failed" ? "Falhou" : a.status}
+                            </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {new Date(a.created_at).toLocaleDateString("pt-BR", {
                               day: "2-digit", month: "2-digit", year: "numeric",
                               hour: "2-digit", minute: "2-digit",
                             })}
                           </p>
-                        </div>
-                        <Badge className={
-                          a.status === "completed" ? "bg-green-100 text-green-700" :
-                          a.status === "failed"    ? "bg-red-100 text-red-700" :
-                          "bg-amber-100 text-amber-700"
-                        }>
-                          {a.status === "completed" ? "Concluída" : a.status}
-                        </Badge>
-                        {a.status === "completed" && firstMeasure && firstValue !== undefined && (
-                          <div className="text-xs text-right text-muted-foreground hidden sm:block">
-                            <div>{firstMeasure.name} {firstValue}{firstMeasure.unit}</div>
-                          </div>
-                        )}
+                        </button>
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDelete(a); }} title="Excluir">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
                       </div>
                     );
                   })}
