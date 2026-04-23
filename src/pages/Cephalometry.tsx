@@ -322,12 +322,60 @@ export default function Cephalometry() {
         </TabsList>
 
         <TabsContent value="new" className="mt-6 space-y-6">
+          {/* Analysis selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Brain className="w-4 h-4 text-primary" />
+                1. Selecione o Tipo de Análise
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {ALL_ANALYSES.map((a) => {
+                  const active = selectedAnalysis === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setSelectedAnalysis(a.id)}
+                      className={`text-left p-3 rounded-lg border transition-all min-h-[90px] ${
+                        active
+                          ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                          : "border-border hover:border-primary/40 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-sm">{a.name}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{a.year}</Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">{a.author}</div>
+                      <div className="text-xs mt-1.5 leading-snug">{a.shortDescription}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/60">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-sm font-semibold">{currentAnalysis.name} · {currentAnalysis.author} ({currentAnalysis.year})</div>
+                  <Badge variant="secondary" className="text-xs">{currentAnalysis.measures.length} medidas</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">{currentAnalysis.description}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {currentAnalysis.measures.map((m) => (
+                    <Badge key={m.key} variant="outline" className="text-[10px] font-normal">{m.name}</Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Upload className="w-4 h-4 text-primary" />
-                  Dados do Paciente
+                  2. Dados do Paciente e Imagem
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -354,12 +402,12 @@ export default function Cephalometry() {
                   disabled={loading || !selectedFile || !patientId.trim()}>
                   {loading
                     ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analisando landmarks...</>
-                    : <><Brain className="w-4 h-4 mr-2" />Analisar com HRNet</>}
+                    : <><Brain className="w-4 h-4 mr-2" />Analisar com {currentAnalysis.name}</>}
                 </Button>
                 {loading && (
                   <div className="text-center space-y-1">
                     <p className="text-sm text-muted-foreground">Detectando 19 pontos cefalométricos...</p>
-                    <p className="text-xs text-muted-foreground">Calculando Steiner · McNamara · Ricketts</p>
+                    <p className="text-xs text-muted-foreground">Calculando medidas de {currentAnalysis.name}…</p>
                   </div>
                 )}
               </CardContent>
@@ -371,20 +419,20 @@ export default function Cephalometry() {
                   <CardTitle className="flex items-center justify-between text-base">
                     <span className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      Landmarks ({result.landmarks.length})
+                      Análise {ANALYSES_BY_ID[result.analysisType].name}
                     </span>
                     {result.usedFallback && <Badge variant="secondary" className="text-xs">Demo</Badge>}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <canvas ref={canvasRef} className="w-full rounded-lg border bg-black" style={{ maxHeight: "350px" }} />
-                  <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />Alta confiança
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />Média confiança
-                    </span>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {ANALYSES_BY_ID[result.analysisType].lines.map((l) => (
+                      <span key={l.name} className="flex items-center gap-1">
+                        <span className="w-3 h-1 inline-block rounded" style={{ backgroundColor: l.color }} />
+                        {l.name}
+                      </span>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -396,7 +444,7 @@ export default function Cephalometry() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-base">
                   <span className="flex items-center gap-2">
-                    <Ruler className="w-4 h-4 text-primary" />Medidas Cefalométricas
+                    <Ruler className="w-4 h-4 text-primary" />Medidas — {ANALYSES_BY_ID[result.analysisType].name}
                   </span>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
