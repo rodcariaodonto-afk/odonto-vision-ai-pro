@@ -3,6 +3,7 @@ import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
+  Activity,
   Upload,
   MessageSquare,
   FolderOpen,
@@ -24,6 +25,7 @@ const navItems = [
   { icon: Upload, label: "Enviar Exame", path: "/upload" },
   { icon: MessageSquare, label: "Chat IA", path: "/chat" },
   { icon: FolderOpen, label: "Meus Casos", path: "/cases" },
+  { icon: Activity, label: "Cefalometria", path: "/cephalometry" },
   { icon: CreditCard, label: "Planos", path: "/plans" },
   { icon: User, label: "Perfil", path: "/profile" },
 ];

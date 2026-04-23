@@ -28,6 +28,7 @@ import AdminCases from "./pages/admin/AdminCases";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminTesters from "./pages/admin/AdminTesters";
+import Cephalometry from "./pages/Cephalometry";
 import { Card, CardContent } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { Lock, ArrowRight, Loader2 } from "lucide-react";
@@ -159,6 +160,7 @@ function AppRoutes() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/cases" element={<Cases />} />
         <Route path="/compare" element={<Compare />} />
+        <Route path="/cephalometry" element={<Cephalometry />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
 
