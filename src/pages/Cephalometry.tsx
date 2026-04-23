@@ -109,15 +109,14 @@ export default function Cephalometry() {
     if (!result || !user) return;
     setSavingCase(true);
     try {
-      const measurementsList = Object.entries(result.measurements).map(
-        ([k, v]) => {
-          const ref = REFERENCES[k];
-          const s = getStatus(k, v as number);
-          const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
-          return `${k}: ${v}${ref?.unit ?? "°"} (ref: ${ref?.value ?? "-"}) — ${status}`;
-        }
-      );
-      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria`;
+      const measurementsList = currentAnalysis.measures.map((m) => {
+        const v = result.measurements[m.key];
+        if (v === undefined || v === null) return `${m.name}: —`;
+        const s = getStatus(m, v);
+        const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
+        return `${m.name}: ${v}${m.unit} (ref: ${formatRange(m)}) — ${status}`;
+      });
+      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria (${currentAnalysis.name})`;
       const { error } = await supabase.from("cases").insert({
         user_id: user.id,
         name: caseName,
@@ -130,12 +129,13 @@ export default function Cephalometry() {
             nome: patientName.trim() || patientId.trim(),
             data_analise: new Date().toLocaleDateString("pt-BR"),
           },
-          tipo_exame: "Telerradiografia / Cefalometria",
+          tipo_exame: `Telerradiografia / Cefalometria – ${currentAnalysis.name} (${currentAnalysis.year})`,
           achados_radiograficos: measurementsList,
           interpretacao_clinica: result.interpretation,
           recomendacoes_clinicas: [
             "Validação clínica obrigatória pelo cirurgião-dentista responsável.",
           ],
+          analysis_type: result.analysisType,
         },
       });
       if (error) throw error;
