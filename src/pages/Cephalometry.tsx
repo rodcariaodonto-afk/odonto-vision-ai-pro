@@ -40,6 +40,22 @@ interface ResultState {
 
 const DRAFT_KEY = "cephalo_draft_v2";
 
+/** Load image and return its natural dimensions */
+function getImageDimensions(src: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => {
+      const i2 = new Image();
+      i2.onload = () => resolve({ w: i2.naturalWidth, h: i2.naturalHeight });
+      i2.onerror = () => resolve({ w: 1000, h: 1000 });
+      i2.src = src;
+    };
+    img.src = src;
+  });
+}
+
 export default function Cephalometry() {
   const navigate = useNavigate();
   const { user } = useAuth();
