@@ -379,9 +379,18 @@ export default function Cephalometry() {
                   <span className="flex items-center gap-2">
                     <Ruler className="w-4 h-4 text-primary" />Medidas Cefalométricas
                   </span>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("PDF em desenvolvimento")}>
-                    <Download className="w-4 h-4 mr-2" />Exportar PDF
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
+                      {savingCase
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+                        : caseSaved
+                          ? <><CheckCircle className="w-4 h-4 mr-2 text-green-600" />Salvo</>
+                          : <><FileText className="w-4 h-4 mr-2" />Salvar Caso</>}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleExportPDF}>
+                      <Download className="w-4 h-4 mr-2" />Exportar PDF
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
