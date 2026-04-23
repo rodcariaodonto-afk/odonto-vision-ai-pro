@@ -186,7 +186,8 @@ serve(async (req) => {
   if (req.method==="OPTIONS") return new Response(null,{headers:corsHeaders});
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   try {
-    const {imageUrl,userId,patientId,patientName,imageStoragePath} = await req.json();
+    const {imageUrl,userId,patientId,patientName,imageStoragePath,analysisType} = await req.json();
+    const aType: AnalysisType = (analysisType ?? "steiner") as AnalysisType;
     if (!imageUrl||!userId||!patientId)
       return new Response(JSON.stringify({error:"imageUrl, userId e patientId obrigatorios"}),
         {status:400,headers:{...corsHeaders,"Content-Type":"application/json"}});
@@ -194,7 +195,7 @@ serve(async (req) => {
     const {data:record,error:ie} = await supabase.from("cephalometric_analyses").insert({
       user_id:userId, patient_id:patientId, patient_name:patientName??null,
       image_url:imageUrl, image_storage_path:imageStoragePath??imageUrl,
-      landmarks:[], measurements:{}, status:"processing",
+      landmarks:[], measurements:{}, status:"processing", analysis_type: aType,
     }).select().single();
     if (ie) throw new Error(ie.message);
 
@@ -202,8 +203,8 @@ serve(async (req) => {
     try { landmarks=await detectLandmarksHF(imageUrl); }
     catch(e) { console.warn("HF fallback:",(e as Error).message); landmarks=generateDemoLandmarks(Date.now()%100); usedFallback=true; }
 
-    const measurements=calculateMeasurements(landmarks);
-    const interpretation=await generateInterpretation(measurements,patientName??"");
+    const measurements=calculateMeasurementsByAnalysis(landmarks, aType);
+    const interpretation=await generateInterpretation(measurements, aType, patientName??"");
 
     await supabase.from("cephalometric_analyses").update({
       landmarks, measurements, interpretation, status:"completed",
@@ -216,7 +217,7 @@ serve(async (req) => {
       created_by:userId,
     });
 
-    return new Response(JSON.stringify({success:true,analysisId:record.id,landmarks,measurements,interpretation,usedFallback}),
+    return new Response(JSON.stringify({success:true,analysisId:record.id,landmarks,measurements,interpretation,usedFallback,analysisType:aType}),
       {status:200,headers:{...corsHeaders,"Content-Type":"application/json"}});
   } catch(err:any) {
     console.error("analyze-cephalometry:",err);
