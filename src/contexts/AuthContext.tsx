@@ -90,7 +90,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, newSession) => {
         if (!mounted) return;
 
+        // Ignore events fired purely because the tab was hidden/restored.
+        // Supabase re-emits SIGNED_IN on visibility change which would otherwise
+        // re-trigger checkSubscription() and cause page state to reset.
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          return;
+        }
+
         if (event === 'SIGNED_IN') {
+          // If this is just a session rehydration for the SAME user, ignore it
+          // to prevent unnecessary re-renders / subscription rechecks.
+          const sameUser = newSession?.user?.id && newSession.user.id === user?.id;
+          if (sameUser) {
+            setSession(newSession);
+            return;
+          }
           setSession(newSession);
           setUser(newSession?.user ?? null);
           setLoading(false);
