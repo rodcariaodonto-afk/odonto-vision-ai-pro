@@ -21,19 +21,10 @@ async function detectLandmarksGemini(imageUrl: string): Promise<Landmark[]> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
 
-  // Download image and convert to base64 data URL (Gemini through gateway)
-  const imgResp = await fetch(imageUrl);
-  if (!imgResp.ok) throw new Error(`Falha ao baixar imagem: ${imgResp.status}`);
-  const contentType = imgResp.headers.get("content-type") || "image/jpeg";
-  const buf = new Uint8Array(await imgResp.arrayBuffer());
-  let bin = ""; for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-  const b64 = btoa(bin);
-  const dataUrl = `data:${contentType};base64,${b64}`;
-
-  // Get image dimensions via createImageBitmap
-  const bitmap = await createImageBitmap(new Blob([buf], { type: contentType }));
-  const W = bitmap.width, H = bitmap.height;
-  bitmap.close?.();
+  // Pass the public image URL directly to Gemini (no need to inline base64).
+  // We return NORMALIZED coordinates (0-1) and let the client scale them
+  // against the rendered image dimensions. This avoids needing
+  // createImageBitmap (not available in the Deno edge runtime).
 
   const tool = {
     type: "function",
@@ -66,7 +57,7 @@ async function detectLandmarksGemini(imageUrl: string): Promise<Landmark[]> {
   };
 
   const body = {
-    model: "google/gemini-2.5-pro",
+    model: "google/gemini-2.5-flash",
     messages: [
       {
         role: "system",
@@ -76,7 +67,7 @@ async function detectLandmarksGemini(imageUrl: string): Promise<Landmark[]> {
         role: "user",
         content: [
           { type: "text", text: "Detecte e retorne os 19 landmarks cefalométricos desta telerradiografia lateral usando a função report_landmarks. Seja preciso anatomicamente." },
-          { type: "image_url", image_url: { url: dataUrl } },
+          { type: "image_url", image_url: { url: imageUrl } },
         ],
       },
     ],
@@ -99,18 +90,22 @@ async function detectLandmarksGemini(imageUrl: string): Promise<Landmark[]> {
   }
   const data = await r.json();
   const call = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (!call) throw new Error("Sem tool_call retornado");
+  if (!call) {
+    console.error("Gemini no tool_call", JSON.stringify(data).slice(0, 500));
+    throw new Error("Sem tool_call retornado");
+  }
   let args: any;
   try { args = JSON.parse(call.function.arguments); }
   catch { throw new Error("Argumentos do tool_call inválidos"); }
   const raw: Array<{ name: string; x: number; y: number; confidence: number }> = args.landmarks ?? [];
   if (!raw.length) throw new Error("Nenhum landmark retornado");
 
-  // Convert normalized → pixel
+  // Keep landmarks in NORMALIZED [0,1] space — frontend scales to <img> size.
+  // Math functions only use ratios/angles so units don't matter for measurements.
   return raw.map((l) => ({
     name: l.name,
-    x: Math.max(0, Math.min(1, l.x)) * W,
-    y: Math.max(0, Math.min(1, l.y)) * H,
+    x: Math.max(0, Math.min(1, l.x)),
+    y: Math.max(0, Math.min(1, l.y)),
     confidence: typeof l.confidence === "number" ? l.confidence : 0.85,
   }));
 }

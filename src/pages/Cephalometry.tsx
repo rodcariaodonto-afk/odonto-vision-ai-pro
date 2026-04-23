@@ -40,6 +40,22 @@ interface ResultState {
 
 const DRAFT_KEY = "cephalo_draft_v2";
 
+/** Load image and return its natural dimensions */
+function getImageDimensions(src: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => {
+      const i2 = new Image();
+      i2.onload = () => resolve({ w: i2.naturalWidth, h: i2.naturalHeight });
+      i2.onerror = () => resolve({ w: 1000, h: 1000 });
+      i2.src = src;
+    };
+    img.src = src;
+  });
+}
+
 export default function Cephalometry() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -141,9 +157,18 @@ export default function Cephalometry() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      // Backend returns NORMALIZED landmarks (0-1). Scale them to pixels of the
+      // uploaded image so the viewer (which assumes image-space coords) draws
+      // them correctly.
+      const dims = await getImageDimensions(imagePreview);
+      const scaledLandmarks: Landmark[] = (data.landmarks ?? []).map((l: Landmark) => ({
+        ...l,
+        x: l.x <= 1.0001 ? l.x * dims.w : l.x,
+        y: l.y <= 1.0001 ? l.y * dims.h : l.y,
+      }));
       setResult({
         analysisId: data.analysisId,
-        landmarks: data.landmarks,
+        landmarks: scaledLandmarks,
         selectedTypes: (data.analysisTypes ?? selectedTypes) as AnalysisType[],
         results: data.results ?? {},
       });
