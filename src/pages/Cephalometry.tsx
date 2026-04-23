@@ -532,32 +532,40 @@ export default function Cephalometry() {
                 <p className="text-center text-muted-foreground py-10">Nenhuma análise realizada ainda.</p>
               ) : (
                 <div className="divide-y">
-                  {history.map((a) => (
-                    <div key={a.id} className="py-3 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{a.patient_name || "Paciente"} — {a.patient_id}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(a.created_at).toLocaleDateString("pt-BR", {
-                            day: "2-digit", month: "2-digit", year: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                      <Badge className={
-                        a.status === "completed" ? "bg-green-100 text-green-700" :
-                        a.status === "failed"    ? "bg-red-100 text-red-700" :
-                        "bg-amber-100 text-amber-700"
-                      }>
-                        {a.status === "completed" ? "Concluída" : a.status}
-                      </Badge>
-                      {a.status === "completed" && (
-                        <div className="text-xs text-right text-muted-foreground hidden sm:block">
-                          <div>SNA {(a.measurements as any)?.SNA}°</div>
-                          <div>ANB {(a.measurements as any)?.ANB}°</div>
+                  {history.map((a) => {
+                    const aType = (a.analysis_type ?? "steiner") as AnalysisType;
+                    const def = ANALYSES_BY_ID[aType];
+                    const firstMeasure = def?.measures[0];
+                    const firstValue = firstMeasure ? (a.measurements as Measurements)?.[firstMeasure.key] : undefined;
+                    return (
+                      <div key={a.id} className="py-3 flex items-center gap-3 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-sm truncate">{a.patient_name || "Paciente"} — {a.patient_id}</p>
+                            <Badge variant="outline" className="text-[10px]">{def?.name ?? aType}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(a.created_at).toLocaleDateString("pt-BR", {
+                              day: "2-digit", month: "2-digit", year: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        <Badge className={
+                          a.status === "completed" ? "bg-green-100 text-green-700" :
+                          a.status === "failed"    ? "bg-red-100 text-red-700" :
+                          "bg-amber-100 text-amber-700"
+                        }>
+                          {a.status === "completed" ? "Concluída" : a.status}
+                        </Badge>
+                        {a.status === "completed" && firstMeasure && firstValue !== undefined && (
+                          <div className="text-xs text-right text-muted-foreground hidden sm:block">
+                            <div>{firstMeasure.name} {firstValue}{firstMeasure.unit}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
