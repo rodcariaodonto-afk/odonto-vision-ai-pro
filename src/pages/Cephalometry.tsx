@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText, Activity, Ruler, Download, History } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 interface Landmark { x: number; y: number; name: string; confidence: number; }
 interface Measurements {
