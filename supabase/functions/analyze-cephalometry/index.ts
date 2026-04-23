@@ -165,11 +165,12 @@ function calculateMeasurementsByAnalysis(landmarks: Landmark[], analysisType: An
   }
 }
 
-async function generateInterpretation(m: Measurements, name: string): Promise<string> {
+async function generateInterpretation(m: Measurements, analysisType: AnalysisType, name: string): Promise<string> {
   const key = Deno.env.get("OPENAI_API_KEY");
+  const measureLines = Object.entries(m).map(([k, v]) => `${k}: ${v}`).join(" | ");
   if (key) {
     try {
-      const prompt = `Você é especialista em cefalometria. Analise as medidas do paciente ${name||"paciente"} e gere interpretação clínica em 3-4 frases em português:\nSNA:${m.SNA}° SNB:${m.SNB}° ANB:${m.ANB}° SN-GoGn:${m["SN-GoGn"]}° FMA:${m.FMA}° IMPA:${m.IMPA}° U1-NA:${m["U1-NA"]}° L1-NB:${m["L1-NB"]}° Overjet:${m.Overjet}mm Overbite:${m.Overbite}mm\nSeja técnico e objetivo.`;
+      const prompt = `Você é especialista em cefalometria. Análise: ${analysisType.toUpperCase()}. Paciente: ${name || "paciente"}. Gere interpretação clínica em 3-4 frases em português, baseada nas medidas:\n${measureLines}\nSeja técnico, objetivo e cite a análise utilizada.`;
       const r = await fetch("https://api.openai.com/v1/chat/completions", {
         method:"POST",
         headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
@@ -178,18 +179,7 @@ async function generateInterpretation(m: Measurements, name: string): Promise<st
       if (r.ok) { const d=await r.json(); return d.choices?.[0]?.message?.content??""; }
     } catch {}
   }
-  const p:string[]=[];
-  if (m.SNA>85) p.push("Maxila protraída (SNA "+m.SNA+"°)");
-  else if (m.SNA<79) p.push("Maxila retruída (SNA "+m.SNA+"°)");
-  else p.push("Posição maxilar normal (SNA "+m.SNA+"°)");
-  if (m.SNB>83) p.push("mandíbula protraída (SNB "+m.SNB+"°)");
-  else if (m.SNB<77) p.push("mandíbula retruída (SNB "+m.SNB+"°)");
-  if (m.ANB>5) p.push("relação Classe II (ANB "+m.ANB+"°)");
-  else if (m.ANB<0) p.push("relação Classe III (ANB "+m.ANB+"°)");
-  else p.push("relação maxilomandibular equilibrada (ANB "+m.ANB+"°)");
-  if (m["SN-GoGn"]>38) p.push("padrão vertical aumentado");
-  else if (m["SN-GoGn"]<26) p.push("padrão horizontal");
-  return p.map((s,i)=>i===0?s.charAt(0).toUpperCase()+s.slice(1):s).join("; ")+".";
+  return `Análise ${analysisType.toUpperCase()} concluída. Medidas calculadas: ${measureLines}. Recomenda-se validação clínica e correlação com exame físico.`;
 }
 
 serve(async (req) => {
