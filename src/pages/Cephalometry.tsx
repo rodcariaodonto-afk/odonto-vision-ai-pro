@@ -239,7 +239,7 @@ export default function Cephalometry() {
     }
   }
 
-  function drawLandmarks() {
+  function drawAnalysisOverlay() {
     if (!canvasRef.current || !imagePreview || !result) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -250,17 +250,49 @@ export default function Cephalometry() {
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      result.landmarks.forEach((lm, idx) => {
+
+      const lmMap = new Map(result.landmarks.map((l) => [l.name, l]));
+
+      // Draw analysis lines first (behind landmark points)
+      currentAnalysis.lines.forEach((line) => {
+        const p1 = lmMap.get(line.point1);
+        const p2 = lmMap.get(line.point2);
+        if (!p1 || !p2) return;
+        const x1 = p1.x * scale, y1 = p1.y * scale;
+        const x2 = p2.x * scale, y2 = p2.y * scale;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = line.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Label at midpoint
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        const measure = line.measureKey
+          ? currentAnalysis.measures.find((m) => m.key === line.measureKey)
+          : undefined;
+        const value = measure ? result.measurements[measure.key] : undefined;
+        const label = value !== undefined
+          ? `${line.name} ${value}${measure?.unit ?? ""}`
+          : line.name;
+        ctx.font = "bold 11px Arial";
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        ctx.fillRect(mx - tw / 2 - 3, my - 13, tw + 6, 14);
+        ctx.fillStyle = line.color;
+        ctx.textAlign = "center";
+        ctx.fillText(label, mx, my - 2);
+      });
+
+      // Draw only landmarks involved in the current analysis
+      const usedNames = new Set<string>();
+      currentAnalysis.lines.forEach((l) => { usedNames.add(l.point1); usedNames.add(l.point2); });
+      result.landmarks.forEach((lm) => {
+        if (!usedNames.has(lm.name)) return;
         const x = lm.x * scale, y = lm.y * scale;
-        ctx.beginPath(); ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
         ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 9px Arial"; ctx.textAlign = "center";
-        ctx.fillText((idx + 1).toString(), x, y + 3);
-        if (["Sella turcica","Nasion","Subspinale (Point A)","Supramentale (Point B)","Gonion"].includes(lm.name)) {
-          ctx.fillStyle = "rgba(0,0,0,0.75)"; ctx.font = "8px Arial"; ctx.textAlign = "left";
-          ctx.fillText(lm.name.split(" ")[0], x + 8, y - 2);
-        }
       });
     };
     img.src = imagePreview;
