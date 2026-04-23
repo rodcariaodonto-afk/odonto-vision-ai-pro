@@ -69,7 +69,7 @@ export default function Cephalometry() {
       const { data } = await supabase
         .from("cephalometric_analyses").select("*")
         .eq("user_id", user?.id).order("created_at", { ascending: false }).limit(20);
-      if (data) setHistory(data as Analysis[]);
+      if (data) setHistory(data as unknown as Analysis[]);
     } catch {} finally { setLoadingHistory(false); }
   }
 
