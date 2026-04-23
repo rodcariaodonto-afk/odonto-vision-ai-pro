@@ -230,6 +230,7 @@ export type Database = {
       }
       cephalometric_analyses: {
         Row: {
+          analysis_type: string
           created_at: string
           error_message: string | null
           id: string
@@ -246,6 +247,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          analysis_type?: string
           created_at?: string
           error_message?: string | null
           id?: string
@@ -262,6 +264,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          analysis_type?: string
           created_at?: string
           error_message?: string | null
           id?: string

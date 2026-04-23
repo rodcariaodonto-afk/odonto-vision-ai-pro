@@ -1,0 +1,1 @@
+ALTER TABLE public.cephalometric_analyses ADD COLUMN IF NOT EXISTS analysis_type TEXT NOT NULL DEFAULT 'steiner';

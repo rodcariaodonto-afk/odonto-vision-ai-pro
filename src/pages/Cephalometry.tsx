@@ -11,43 +11,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText, Activity, Ruler, Download, History } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import {
+  ALL_ANALYSES, ANALYSES_BY_ID, AnalysisType,
+  CephalometricAnalysisDefinition, getStatus, formatRange,
+} from "@/types/cephalometric-analyses";
 
 interface Landmark { x: number; y: number; name: string; confidence: number; }
-interface Measurements {
-  SNA: number; SNB: number; ANB: number; "SN-GoGn": number;
-  FMA: number; IMPA: number; "U1-NA": number; "L1-NB": number;
-  Overjet: number; Overbite: number;
-}
+type Measurements = Record<string, number>;
 interface Analysis {
   id: string; patient_name: string; patient_id: string;
   landmarks: Landmark[]; measurements: Measurements;
   interpretation: string; status: string; created_at: string;
-}
-
-const REFERENCES: Record<string, { value: string; min: number; max: number; unit: string }> = {
-  SNA:       { value: "82°",   min: 79, max: 85, unit: "°" },
-  SNB:       { value: "80°",   min: 77, max: 83, unit: "°" },
-  ANB:       { value: "2°",    min: 0,  max: 5,  unit: "°" },
-  "SN-GoGn": { value: "32°",   min: 26, max: 38, unit: "°" },
-  FMA:       { value: "25°",   min: 20, max: 30, unit: "°" },
-  IMPA:      { value: "90°",   min: 85, max: 95, unit: "°" },
-  "U1-NA":   { value: "22°",   min: 18, max: 26, unit: "°" },
-  "L1-NB":   { value: "25°",   min: 21, max: 29, unit: "°" },
-  Overjet:   { value: "2-3mm", min: 1,  max: 4,  unit: "mm" },
-  Overbite:  { value: "2-3mm", min: 1,  max: 4,  unit: "mm" },
-};
-
-function getStatus(key: string, value: number): "normal" | "high" | "low" {
-  const r = REFERENCES[key];
-  if (!r) return "normal";
-  if (value > r.max) return "high";
-  if (value < r.min) return "low";
-  return "normal";
+  analysis_type?: AnalysisType;
 }
 
 export default function Cephalometry() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisType>("steiner");
   const [patientId, setPatientId] = useState("");
   const [patientName, setPatientName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -57,14 +38,17 @@ export default function Cephalometry() {
   const [result, setResult] = useState<{
     landmarks: Landmark[]; measurements: Measurements;
     interpretation: string; analysisId: string; usedFallback?: boolean;
+    analysisType: AnalysisType;
   } | null>(null);
   const [history, setHistory] = useState<Analysis[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const currentAnalysis: CephalometricAnalysisDefinition = ANALYSES_BY_ID[selectedAnalysis];
+
   useEffect(() => { loadHistory(); }, []);
-  useEffect(() => { if (result && imagePreview) drawLandmarks(); }, [result, imagePreview]);
+  useEffect(() => { if (result && imagePreview) drawAnalysisOverlay(); }, [result, imagePreview]);
 
   async function loadHistory() {
     setLoadingHistory(true);
@@ -104,6 +88,7 @@ export default function Cephalometry() {
           imageUrl: urlData.publicUrl, imageStoragePath: fileName,
           userId: user!.id, patientId: patientId.trim(),
           patientName: patientName.trim() || undefined,
+          analysisType: selectedAnalysis,
         },
       });
       if (error) throw error;
@@ -111,8 +96,9 @@ export default function Cephalometry() {
         landmarks: data.landmarks, measurements: data.measurements,
         interpretation: data.interpretation, analysisId: data.analysisId,
         usedFallback: data.usedFallback,
+        analysisType: (data.analysisType ?? selectedAnalysis) as AnalysisType,
       });
-      toast.success("Análise cefalométrica concluída!");
+      toast.success(`Análise ${currentAnalysis.name} concluída!`);
       loadHistory();
     } catch (err: any) {
       toast.error("Erro: " + err.message);
@@ -123,15 +109,14 @@ export default function Cephalometry() {
     if (!result || !user) return;
     setSavingCase(true);
     try {
-      const measurementsList = Object.entries(result.measurements).map(
-        ([k, v]) => {
-          const ref = REFERENCES[k];
-          const s = getStatus(k, v as number);
-          const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
-          return `${k}: ${v}${ref?.unit ?? "°"} (ref: ${ref?.value ?? "-"}) — ${status}`;
-        }
-      );
-      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria`;
+      const measurementsList = currentAnalysis.measures.map((m) => {
+        const v = result.measurements[m.key];
+        if (v === undefined || v === null) return `${m.name}: —`;
+        const s = getStatus(m, v);
+        const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
+        return `${m.name}: ${v}${m.unit} (ref: ${formatRange(m)}) — ${status}`;
+      });
+      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria (${currentAnalysis.name})`;
       const { error } = await supabase.from("cases").insert({
         user_id: user.id,
         name: caseName,
@@ -144,12 +129,13 @@ export default function Cephalometry() {
             nome: patientName.trim() || patientId.trim(),
             data_analise: new Date().toLocaleDateString("pt-BR"),
           },
-          tipo_exame: "Telerradiografia / Cefalometria",
+          tipo_exame: `Telerradiografia / Cefalometria – ${currentAnalysis.name} (${currentAnalysis.year})`,
           achados_radiograficos: measurementsList,
           interpretacao_clinica: result.interpretation,
           recomendacoes_clinicas: [
             "Validação clínica obrigatória pelo cirurgião-dentista responsável.",
           ],
+          analysis_type: result.analysisType,
         },
       });
       if (error) throw error;
@@ -176,7 +162,7 @@ export default function Cephalometry() {
       doc.setFontSize(16); doc.setFont("helvetica", "bold");
       doc.text("LAUDO CEFALOMÉTRICO", pageW / 2, 12, { align: "center" });
       doc.setFontSize(9); doc.setFont("helvetica", "normal");
-      doc.text("OdontoVision AI Pro · Steiner · McNamara · Ricketts", pageW / 2, 19, { align: "center" });
+      doc.text(`OdontoVision AI Pro · Análise de ${currentAnalysis.name} (${currentAnalysis.year})`, pageW / 2, 19, { align: "center" });
 
       doc.setTextColor(0, 0, 0);
       y = 35;
@@ -202,7 +188,7 @@ export default function Cephalometry() {
       // Measurements
       if (y > 220) { doc.addPage(); y = 15; }
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
-      doc.text("Medidas Cefalométricas", 15, y); y += 6;
+      doc.text(`Medidas Cefalométricas – ${currentAnalysis.name}`, 15, y); y += 6;
       doc.setFontSize(9); doc.setFont("helvetica", "bold");
       doc.text("Medida", 15, y);
       doc.text("Valor", 80, y);
@@ -210,14 +196,15 @@ export default function Cephalometry() {
       doc.text("Status", 165, y);
       y += 2; doc.line(15, y, pageW - 15, y); y += 5;
       doc.setFont("helvetica", "normal");
-      Object.entries(result.measurements).forEach(([k, v]) => {
+      currentAnalysis.measures.forEach((m) => {
+        const v = result.measurements[m.key];
+        if (v === undefined || v === null) return;
         if (y > 275) { doc.addPage(); y = 15; }
-        const ref = REFERENCES[k];
-        const s = getStatus(k, v as number);
+        const s = getStatus(m, v);
         const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
-        doc.text(k, 15, y);
-        doc.text(`${v}${ref?.unit ?? "°"}`, 80, y);
-        doc.text(ref?.value ?? "-", 115, y);
+        doc.text(m.name, 15, y);
+        doc.text(`${v}${m.unit}`, 80, y);
+        doc.text(formatRange(m), 115, y);
         if (s === "normal") doc.setTextColor(34, 139, 34);
         else if (s === "high") doc.setTextColor(200, 0, 0);
         else doc.setTextColor(200, 130, 0);
@@ -252,7 +239,7 @@ export default function Cephalometry() {
     }
   }
 
-  function drawLandmarks() {
+  function drawAnalysisOverlay() {
     if (!canvasRef.current || !imagePreview || !result) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -263,17 +250,49 @@ export default function Cephalometry() {
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      result.landmarks.forEach((lm, idx) => {
+
+      const lmMap = new Map(result.landmarks.map((l) => [l.name, l]));
+
+      // Draw analysis lines first (behind landmark points)
+      currentAnalysis.lines.forEach((line) => {
+        const p1 = lmMap.get(line.point1);
+        const p2 = lmMap.get(line.point2);
+        if (!p1 || !p2) return;
+        const x1 = p1.x * scale, y1 = p1.y * scale;
+        const x2 = p2.x * scale, y2 = p2.y * scale;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = line.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Label at midpoint
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        const measure = line.measureKey
+          ? currentAnalysis.measures.find((m) => m.key === line.measureKey)
+          : undefined;
+        const value = measure ? result.measurements[measure.key] : undefined;
+        const label = value !== undefined
+          ? `${line.name} ${value}${measure?.unit ?? ""}`
+          : line.name;
+        ctx.font = "bold 11px Arial";
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        ctx.fillRect(mx - tw / 2 - 3, my - 13, tw + 6, 14);
+        ctx.fillStyle = line.color;
+        ctx.textAlign = "center";
+        ctx.fillText(label, mx, my - 2);
+      });
+
+      // Draw only landmarks involved in the current analysis
+      const usedNames = new Set<string>();
+      currentAnalysis.lines.forEach((l) => { usedNames.add(l.point1); usedNames.add(l.point2); });
+      result.landmarks.forEach((lm) => {
+        if (!usedNames.has(lm.name)) return;
         const x = lm.x * scale, y = lm.y * scale;
-        ctx.beginPath(); ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
         ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 9px Arial"; ctx.textAlign = "center";
-        ctx.fillText((idx + 1).toString(), x, y + 3);
-        if (["Sella turcica","Nasion","Subspinale (Point A)","Supramentale (Point B)","Gonion"].includes(lm.name)) {
-          ctx.fillStyle = "rgba(0,0,0,0.75)"; ctx.font = "8px Arial"; ctx.textAlign = "left";
-          ctx.fillText(lm.name.split(" ")[0], x + 8, y - 2);
-        }
       });
     };
     img.src = imagePreview;
@@ -303,12 +322,60 @@ export default function Cephalometry() {
         </TabsList>
 
         <TabsContent value="new" className="mt-6 space-y-6">
+          {/* Analysis selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Brain className="w-4 h-4 text-primary" />
+                1. Selecione o Tipo de Análise
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {ALL_ANALYSES.map((a) => {
+                  const active = selectedAnalysis === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setSelectedAnalysis(a.id)}
+                      className={`text-left p-3 rounded-lg border transition-all min-h-[90px] ${
+                        active
+                          ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-md"
+                          : "border-border hover:border-primary/40 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-sm">{a.name}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{a.year}</Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">{a.author}</div>
+                      <div className="text-xs mt-1.5 leading-snug">{a.shortDescription}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/60">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-sm font-semibold">{currentAnalysis.name} · {currentAnalysis.author} ({currentAnalysis.year})</div>
+                  <Badge variant="secondary" className="text-xs">{currentAnalysis.measures.length} medidas</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">{currentAnalysis.description}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {currentAnalysis.measures.map((m) => (
+                    <Badge key={m.key} variant="outline" className="text-[10px] font-normal">{m.name}</Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Upload className="w-4 h-4 text-primary" />
-                  Dados do Paciente
+                  2. Dados do Paciente e Imagem
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -335,12 +402,12 @@ export default function Cephalometry() {
                   disabled={loading || !selectedFile || !patientId.trim()}>
                   {loading
                     ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analisando landmarks...</>
-                    : <><Brain className="w-4 h-4 mr-2" />Analisar com HRNet</>}
+                    : <><Brain className="w-4 h-4 mr-2" />Analisar com {currentAnalysis.name}</>}
                 </Button>
                 {loading && (
                   <div className="text-center space-y-1">
                     <p className="text-sm text-muted-foreground">Detectando 19 pontos cefalométricos...</p>
-                    <p className="text-xs text-muted-foreground">Calculando Steiner · McNamara · Ricketts</p>
+                    <p className="text-xs text-muted-foreground">Calculando medidas de {currentAnalysis.name}…</p>
                   </div>
                 )}
               </CardContent>
@@ -352,20 +419,20 @@ export default function Cephalometry() {
                   <CardTitle className="flex items-center justify-between text-base">
                     <span className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      Landmarks ({result.landmarks.length})
+                      Análise {ANALYSES_BY_ID[result.analysisType].name}
                     </span>
                     {result.usedFallback && <Badge variant="secondary" className="text-xs">Demo</Badge>}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <canvas ref={canvasRef} className="w-full rounded-lg border bg-black" style={{ maxHeight: "350px" }} />
-                  <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />Alta confiança
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />Média confiança
-                    </span>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {ANALYSES_BY_ID[result.analysisType].lines.map((l) => (
+                      <span key={l.name} className="flex items-center gap-1">
+                        <span className="w-3 h-1 inline-block rounded" style={{ backgroundColor: l.color }} />
+                        {l.name}
+                      </span>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -377,7 +444,7 @@ export default function Cephalometry() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-base">
                   <span className="flex items-center gap-2">
-                    <Ruler className="w-4 h-4 text-primary" />Medidas Cefalométricas
+                    <Ruler className="w-4 h-4 text-primary" />Medidas — {ANALYSES_BY_ID[result.analysisType].name}
                   </span>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
@@ -405,14 +472,18 @@ export default function Cephalometry() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(result.measurements).map(([key, val]) => {
-                        const ref = REFERENCES[key];
-                        const s = getStatus(key, val as number);
+                      {currentAnalysis.measures.map((m) => {
+                        const val = result.measurements[m.key];
+                        if (val === undefined || val === null) return null;
+                        const s = getStatus(m, val);
                         return (
-                          <tr key={key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                            <td className="py-2 px-3 font-medium">{key}</td>
-                            <td className="py-2 px-3 text-right font-bold">{val}{ref?.unit ?? "°"}</td>
-                            <td className="py-2 px-3 text-center text-muted-foreground text-xs">{ref?.value ?? "-"}</td>
+                          <tr key={m.key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                            <td className="py-2 px-3 font-medium">
+                              <div>{m.name}</div>
+                              <div className="text-xs text-muted-foreground font-normal">{m.description}</div>
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold">{val}{m.unit}</td>
+                            <td className="py-2 px-3 text-center text-muted-foreground text-xs">{formatRange(m)}</td>
                             <td className="py-2 px-3 text-center">
                               {s === "normal" && <Badge className="bg-green-100 text-green-700 text-xs">Normal</Badge>}
                               {s === "high"   && <Badge className="bg-red-100 text-red-700 text-xs">Aumentado</Badge>}
@@ -461,32 +532,40 @@ export default function Cephalometry() {
                 <p className="text-center text-muted-foreground py-10">Nenhuma análise realizada ainda.</p>
               ) : (
                 <div className="divide-y">
-                  {history.map((a) => (
-                    <div key={a.id} className="py-3 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{a.patient_name || "Paciente"} — {a.patient_id}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(a.created_at).toLocaleDateString("pt-BR", {
-                            day: "2-digit", month: "2-digit", year: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                      <Badge className={
-                        a.status === "completed" ? "bg-green-100 text-green-700" :
-                        a.status === "failed"    ? "bg-red-100 text-red-700" :
-                        "bg-amber-100 text-amber-700"
-                      }>
-                        {a.status === "completed" ? "Concluída" : a.status}
-                      </Badge>
-                      {a.status === "completed" && (
-                        <div className="text-xs text-right text-muted-foreground hidden sm:block">
-                          <div>SNA {(a.measurements as any)?.SNA}°</div>
-                          <div>ANB {(a.measurements as any)?.ANB}°</div>
+                  {history.map((a) => {
+                    const aType = (a.analysis_type ?? "steiner") as AnalysisType;
+                    const def = ANALYSES_BY_ID[aType];
+                    const firstMeasure = def?.measures[0];
+                    const firstValue = firstMeasure ? (a.measurements as Measurements)?.[firstMeasure.key] : undefined;
+                    return (
+                      <div key={a.id} className="py-3 flex items-center gap-3 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-sm truncate">{a.patient_name || "Paciente"} — {a.patient_id}</p>
+                            <Badge variant="outline" className="text-[10px]">{def?.name ?? aType}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(a.created_at).toLocaleDateString("pt-BR", {
+                              day: "2-digit", month: "2-digit", year: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        <Badge className={
+                          a.status === "completed" ? "bg-green-100 text-green-700" :
+                          a.status === "failed"    ? "bg-red-100 text-red-700" :
+                          "bg-amber-100 text-amber-700"
+                        }>
+                          {a.status === "completed" ? "Concluída" : a.status}
+                        </Badge>
+                        {a.status === "completed" && firstMeasure && firstValue !== undefined && (
+                          <div className="text-xs text-right text-muted-foreground hidden sm:block">
+                            <div>{firstMeasure.name} {firstValue}{firstMeasure.unit}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
