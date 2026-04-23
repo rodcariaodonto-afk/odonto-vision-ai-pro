@@ -127,16 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Periodically check subscription (every 5 minutes - less frequent to avoid refresh issues)
-  useEffect(() => {
-    if (!session) return;
-
-    const interval = setInterval(() => {
-      checkSubscription();
-    }, 300000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [session]);
+  // NOTE: Periodic subscription polling was removed to prevent unwanted page
+  // refreshes (e.g., when the user switches browser tabs and returns).
+  // Subscription is checked on initial load, on SIGNED_IN, and manually via
+  // checkSubscription() after relevant actions (checkout, analysis, etc.).
 
   const signUp = async (email: string, password: string, name?: string) => {
     const redirectUrl = `${window.location.origin}/`;
