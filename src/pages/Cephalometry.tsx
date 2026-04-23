@@ -88,6 +88,7 @@ export default function Cephalometry() {
           imageUrl: urlData.publicUrl, imageStoragePath: fileName,
           userId: user!.id, patientId: patientId.trim(),
           patientName: patientName.trim() || undefined,
+          analysisType: selectedAnalysis,
         },
       });
       if (error) throw error;
@@ -95,8 +96,9 @@ export default function Cephalometry() {
         landmarks: data.landmarks, measurements: data.measurements,
         interpretation: data.interpretation, analysisId: data.analysisId,
         usedFallback: data.usedFallback,
+        analysisType: (data.analysisType ?? selectedAnalysis) as AnalysisType,
       });
-      toast.success("Análise cefalométrica concluída!");
+      toast.success(`Análise ${currentAnalysis.name} concluída!`);
       loadHistory();
     } catch (err: any) {
       toast.error("Erro: " + err.message);
