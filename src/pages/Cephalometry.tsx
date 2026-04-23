@@ -141,9 +141,18 @@ export default function Cephalometry() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      // Backend returns NORMALIZED landmarks (0-1). Scale them to pixels of the
+      // uploaded image so the viewer (which assumes image-space coords) draws
+      // them correctly.
+      const dims = await getImageDimensions(imagePreview);
+      const scaledLandmarks: Landmark[] = (data.landmarks ?? []).map((l: Landmark) => ({
+        ...l,
+        x: l.x <= 1.0001 ? l.x * dims.w : l.x,
+        y: l.y <= 1.0001 ? l.y * dims.h : l.y,
+      }));
       setResult({
         analysisId: data.analysisId,
-        landmarks: data.landmarks,
+        landmarks: scaledLandmarks,
         selectedTypes: (data.analysisTypes ?? selectedTypes) as AnalysisType[],
         results: data.results ?? {},
       });
