@@ -424,14 +424,18 @@ export default function Cephalometry() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(result.measurements).map(([key, val]) => {
-                        const ref = REFERENCES[key];
-                        const s = getStatus(key, val as number);
+                      {currentAnalysis.measures.map((m) => {
+                        const val = result.measurements[m.key];
+                        if (val === undefined || val === null) return null;
+                        const s = getStatus(m, val);
                         return (
-                          <tr key={key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                            <td className="py-2 px-3 font-medium">{key}</td>
-                            <td className="py-2 px-3 text-right font-bold">{val}{ref?.unit ?? "°"}</td>
-                            <td className="py-2 px-3 text-center text-muted-foreground text-xs">{ref?.value ?? "-"}</td>
+                          <tr key={m.key} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                            <td className="py-2 px-3 font-medium">
+                              <div>{m.name}</div>
+                              <div className="text-xs text-muted-foreground font-normal">{m.description}</div>
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold">{val}{m.unit}</td>
+                            <td className="py-2 px-3 text-center text-muted-foreground text-xs">{formatRange(m)}</td>
                             <td className="py-2 px-3 text-center">
                               {s === "normal" && <Badge className="bg-green-100 text-green-700 text-xs">Normal</Badge>}
                               {s === "high"   && <Badge className="bg-red-100 text-red-700 text-xs">Aumentado</Badge>}
