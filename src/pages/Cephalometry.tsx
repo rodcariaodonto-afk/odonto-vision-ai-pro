@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText, Activity, Ruler, Download, History } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 interface Landmark { x: number; y: number; name: string; confidence: number; }
 interface Measurements {
@@ -58,6 +59,8 @@ export default function Cephalometry() {
     interpretation: string; analysisId: string; usedFallback?: boolean;
   } | null>(null);
   const [history, setHistory] = useState<Analysis[]>([]);
+  const [savingCase, setSavingCase] = useState(false);
+  const [caseSaved, setCaseSaved] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => { loadHistory(); }, []);
@@ -88,7 +91,7 @@ export default function Cephalometry() {
       toast.error("Selecione uma imagem e informe o ID do paciente");
       return;
     }
-    setLoading(true); setResult(null);
+    setLoading(true); setResult(null); setCaseSaved(false);
     try {
       const fileName = `${user!.id}/${Date.now()}-${selectedFile.name}`;
       const { error: uploadErr } = await supabase.storage
@@ -114,6 +117,139 @@ export default function Cephalometry() {
     } catch (err: any) {
       toast.error("Erro: " + err.message);
     } finally { setLoading(false); }
+  }
+
+  async function handleSaveToCases() {
+    if (!result || !user) return;
+    setSavingCase(true);
+    try {
+      const measurementsList = Object.entries(result.measurements).map(
+        ([k, v]) => {
+          const ref = REFERENCES[k];
+          const s = getStatus(k, v as number);
+          const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
+          return `${k}: ${v}${ref?.unit ?? "°"} (ref: ${ref?.value ?? "-"}) — ${status}`;
+        }
+      );
+      const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria`;
+      const { error } = await supabase.from("cases").insert({
+        user_id: user.id,
+        name: caseName,
+        exam_type: "cefalometria",
+        file_name: selectedFile?.name ?? null,
+        file_type: selectedFile?.type ?? "image/jpeg",
+        status: "completed",
+        analysis: {
+          identificacao_paciente: {
+            nome: patientName.trim() || patientId.trim(),
+            data_analise: new Date().toLocaleDateString("pt-BR"),
+          },
+          tipo_exame: "Telerradiografia / Cefalometria",
+          achados_radiograficos: measurementsList,
+          interpretacao_clinica: result.interpretation,
+          recomendacoes_clinicas: [
+            "Validação clínica obrigatória pelo cirurgião-dentista responsável.",
+          ],
+        },
+      });
+      if (error) throw error;
+      setCaseSaved(true);
+      toast.success("Caso salvo em Meus Casos!");
+    } catch (err: any) {
+      toast.error("Erro ao salvar caso: " + err.message);
+    } finally {
+      setSavingCase(false);
+    }
+  }
+
+  function handleExportPDF() {
+    if (!result) return;
+    try {
+      const doc = new jsPDF();
+      const pageW = doc.internal.pageSize.getWidth();
+      let y = 15;
+
+      // Header
+      doc.setFillColor(13, 43, 78);
+      doc.rect(0, 0, pageW, 25, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16); doc.setFont("helvetica", "bold");
+      doc.text("LAUDO CEFALOMÉTRICO", pageW / 2, 12, { align: "center" });
+      doc.setFontSize(9); doc.setFont("helvetica", "normal");
+      doc.text("OdontoVision AI Pro · Steiner · McNamara · Ricketts", pageW / 2, 19, { align: "center" });
+
+      doc.setTextColor(0, 0, 0);
+      y = 35;
+
+      // Patient
+      doc.setFontSize(11); doc.setFont("helvetica", "bold");
+      doc.text("Identificação do Paciente", 15, y); y += 6;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+      doc.text(`Nome: ${patientName.trim() || "—"}`, 15, y); y += 5;
+      doc.text(`ID: ${patientId.trim()}`, 15, y); y += 5;
+      doc.text(`Data da análise: ${new Date().toLocaleDateString("pt-BR")}`, 15, y); y += 10;
+
+      // Image
+      if (canvasRef.current) {
+        try {
+          const img = canvasRef.current.toDataURL("image/jpeg", 0.85);
+          const imgW = 110; const imgH = (canvasRef.current.height * imgW) / canvasRef.current.width;
+          doc.addImage(img, "JPEG", (pageW - imgW) / 2, y, imgW, imgH);
+          y += imgH + 8;
+        } catch {}
+      }
+
+      // Measurements
+      if (y > 220) { doc.addPage(); y = 15; }
+      doc.setFontSize(11); doc.setFont("helvetica", "bold");
+      doc.text("Medidas Cefalométricas", 15, y); y += 6;
+      doc.setFontSize(9); doc.setFont("helvetica", "bold");
+      doc.text("Medida", 15, y);
+      doc.text("Valor", 80, y);
+      doc.text("Referência", 115, y);
+      doc.text("Status", 165, y);
+      y += 2; doc.line(15, y, pageW - 15, y); y += 5;
+      doc.setFont("helvetica", "normal");
+      Object.entries(result.measurements).forEach(([k, v]) => {
+        if (y > 275) { doc.addPage(); y = 15; }
+        const ref = REFERENCES[k];
+        const s = getStatus(k, v as number);
+        const status = s === "normal" ? "Normal" : s === "high" ? "Aumentado" : "Reduzido";
+        doc.text(k, 15, y);
+        doc.text(`${v}${ref?.unit ?? "°"}`, 80, y);
+        doc.text(ref?.value ?? "-", 115, y);
+        if (s === "normal") doc.setTextColor(34, 139, 34);
+        else if (s === "high") doc.setTextColor(200, 0, 0);
+        else doc.setTextColor(200, 130, 0);
+        doc.text(status, 165, y);
+        doc.setTextColor(0, 0, 0);
+        y += 6;
+      });
+      y += 4;
+
+      // Interpretation
+      if (result.interpretation) {
+        if (y > 240) { doc.addPage(); y = 15; }
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.text("Interpretação Clínica (IA)", 15, y); y += 6;
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        const lines = doc.splitTextToSize(result.interpretation, pageW - 30);
+        doc.text(lines, 15, y); y += lines.length * 5 + 6;
+      }
+
+      // Disclaimer
+      if (y > 260) { doc.addPage(); y = 15; }
+      doc.setFontSize(8); doc.setTextColor(100, 100, 100);
+      const disc = "Análise gerada por inteligência artificial. Ferramenta de apoio ao raciocínio clínico — o diagnóstico final e o plano de tratamento são de responsabilidade exclusiva do cirurgião-dentista.";
+      const dlines = doc.splitTextToSize(disc, pageW - 30);
+      doc.text(dlines, 15, 285);
+
+      const fileName = `cefalometria-${(patientName.trim() || patientId.trim()).replace(/\s+/g, "_")}-${Date.now()}.pdf`;
+      doc.save(fileName);
+      toast.success("PDF exportado!");
+    } catch (err: any) {
+      toast.error("Erro ao gerar PDF: " + err.message);
+    }
   }
 
   function drawLandmarks() {
@@ -243,9 +379,18 @@ export default function Cephalometry() {
                   <span className="flex items-center gap-2">
                     <Ruler className="w-4 h-4 text-primary" />Medidas Cefalométricas
                   </span>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("PDF em desenvolvimento")}>
-                    <Download className="w-4 h-4 mr-2" />Exportar PDF
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
+                      {savingCase
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+                        : caseSaved
+                          ? <><CheckCircle className="w-4 h-4 mr-2 text-green-600" />Salvo</>
+                          : <><FileText className="w-4 h-4 mr-2" />Salvar Caso</>}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleExportPDF}>
+                      <Download className="w-4 h-4 mr-2" />Exportar PDF
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
