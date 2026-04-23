@@ -1,61 +1,88 @@
 
 
-# Sistema de Análises Cefalométricas com Seletor
+# Correções da Cefalometria — 6 problemas
 
-Vou expandir a página de Cefalometria atual para suportar **6 tipos de análises** (Steiner, Jarabak, McNamara, Ricketts, Tweed, Downs), com seleção prévia ao upload, cálculo de medidas específicas por análise, linhas desenhadas na imagem, tabela de status (Normal/Aumentado/Reduzido) e PDF dinâmico.
+## 1. Detecção real de landmarks (fim do "Demo")
 
-## O que será entregue
+A causa real do "Demo" e das linhas tortas: a API HuggingFace `hrnet-cephalometric-landmark-detection` está retornando erro/instável, então a função cai no `generateDemoLandmarks()` (coordenadas fixas que não batem com a imagem). Vamos:
 
-1. **Seletor de tipo de análise** — cards visuais com nome, autor, ano e descrição das 6 análises antes do upload.
-2. **Medidas dinâmicas** — cada análise calcula apenas suas próprias medidas (ex: Steiner = SNA/SNB/ANB/SN-GoGn/FMA/U1-NA/L1-NB/IMPA; Jarabak = LAFH/TAFH/proporção; McNamara = Co-A/Co-Gn/A-Nperp/Pog-Nperp; etc.).
-3. **Visualizador com linhas** — canvas desenha automaticamente as linhas de referência da análise escolhida (SN, NA, NB, FH, GoGn, N-Pog, etc.) sobre a radiografia, com rótulos coloridos e valores.
-4. **Tabela de resultados** — cada medida mostra valor encontrado, faixa de referência, e badge de status (Normal/Aumentado/Reduzido) com cores.
-5. **PDF dinâmico** — laudo com cabeçalho, dados do paciente, imagem com linhas desenhadas, tabela completa da análise específica, interpretação clínica e disclaimer.
-6. **Salvar Caso** e **Histórico** continuam funcionando, agora gravando o `analysis_type` usado.
+- Substituir HuggingFace por **Lovable AI Gateway com `google/gemini-2.5-pro` (vision)** na edge function `analyze-cephalometry`. Gemini Pro recebe a imagem e devolve, via **tool calling estruturado**, as 19 coordenadas de landmarks proporcionais (0–1 do tamanho da imagem) já com nomes em pt-BR.
+- A função multiplica pelas dimensões reais da imagem (lemos com `createImageBitmap`) antes de calcular medidas.
+- Remover totalmente o `generateDemoLandmarks` e o badge `Demo`. Se o Gemini falhar, retornamos erro com toast claro ("Não foi possível detectar landmarks — tente uma imagem mais nítida") em vez de mostrar dados fake.
+- Tratar 429/402 do gateway com mensagem amigável.
 
-## Arquitetura técnica
+## 2. Múltiplas análises na mesma radiografia
 
-### Novo arquivo: `src/types/cephalometric-analyses.ts`
-Define `AnalysisType` (`steiner | jarabak | mcnamara | ricketts | tweed | downs`), `CephalometricMeasure` (key, name, unit, min, normal, max, description), `CephalometricLine` (point1, point2, color, type) e exporta as 6 constantes `STEINER_ANALYSIS`, `JARABAK_ANALYSIS`, `MCNAMARA_ANALYSIS`, `RICKETTS_ANALYSIS`, `TWEED_ANALYSIS`, `DOWNS_ANALYSIS` mais um mapa `ANALYSES_BY_ID`.
+- Trocar o seletor de **single** para **multi-select** (checkboxes nos cards). State vira `selectedAnalyses: AnalysisType[]` (mínimo 1).
+- Edge function aceita `analysisTypes: AnalysisType[]` e retorna `results: { [type]: { measurements, interpretation } }` — landmarks são detectados **uma vez só** e reaproveitados (eficiente em tokens).
+- UI de resultado vira **Tabs internas** (uma aba por análise selecionada), cada uma com seu próprio canvas (linhas/cores próprias), tabela e interpretação.
+- Botão fica `Analisar com {N} análise(s)`.
+- PDF exportado contém **uma seção por análise** (cabeçalho + canvas + tabela + interpretação) com quebra de página entre elas.
+- "Salvar Caso" grava todas as análises num único caso (campo `analysis.analyses[]`).
 
-### Edge Function: `supabase/functions/analyze-cephalometry/index.ts`
-- Aceita novo parâmetro `analysisType` no body.
-- Função `calculateMeasurementsByAnalysis(landmarks, analysisType)` substitui o `calculateMeasurements` atual e retorna apenas as medidas pertinentes àquela análise (mantendo os helpers `angle()`/`distance()`).
-- Adiciona suporte a landmark **Condílio** (Co) para McNamara/Ricketts.
-- `generateInterpretation(measurements, analysisType, patientName)` ajustada para interpretar medidas específicas.
-- Persiste `analysis_type` na tabela.
+## 3. Visualizador interativo com zoom + ferramenta de desenho
 
-### Migração DB
-Adicionar coluna `analysis_type TEXT NOT NULL DEFAULT 'steiner'` em `cephalometric_analyses` para armazenar qual análise foi feita.
+Criar componente `<CephalometricViewer>` reutilizável:
 
-### Página `src/pages/Cephalometry.tsx` (refatorada)
-- Novo state `selectedAnalysis: AnalysisType` (default `steiner`).
-- Bloco "Selecione o tipo de análise" com 6 cards clicáveis acima do formulário do paciente.
-- Card de info da análise selecionada (nome, autor, ano, descrição, lista de medidas).
-- Botão de análise muda dinamicamente: `Analisar com {nomeDaAnálise}`.
-- `drawLandmarks()` substituído por `drawAnalysisOverlay()` que percorre `currentAnalysis.lines`, encontra os landmarks por nome, traça a linha colorida com `ctx.stroke()` e escreve o nome+valor.
-- Tabela de resultados itera sobre `currentAnalysis.measures` e mostra: medida, valor, normal, status (badge verde/amber/red).
-- `handleSaveToCases` inclui `analysis_type` nos dados gravados.
-- `handleExportPDF` usa `currentAnalysis.measures` para montar a tabela do PDF com status colorido por linha; título do PDF inclui o nome da análise.
+- **Zoom**: botões `+ / − / Reset` + scroll-wheel (escala 0.5×–4×) + pan por arrastar quando zoom > 1.
+- **Toolbar de desenho** sobre a imagem:
+  - Caneta livre (cor selecionável: azul/vermelho/verde/amarelo)
+  - Régua/linha reta
+  - Borracha
+  - Limpar tudo
+- Camadas separadas: imagem base → linhas da análise (com landmarks) → camada de anotação manual (preservada quando o usuário troca de análise).
+- Anotações salvas no canvas final e incluídas no PDF.
+- Mover landmarks: arrastar um ponto reposiciona o landmark e **recalcula** as medidas no client (recálculo local com as funções `angle/distance` portadas do edge para `src/lib/cephalometric-math.ts`).
 
-### Histórico
-- Lista mostra também o tipo de análise (badge ao lado do nome do paciente).
-- Ao reabrir um item, restaura `selectedAnalysis` salvo.
+## 4. Histórico clicável — reabrir análise completa
 
-## Fluxo do usuário
+- Cada item do histórico vira **card clicável**.
+- Ao clicar: restaura `selectedAnalyses`, `patientId`, `patientName`, `imagePreview` (carregando imagem do Storage via `image_storage_path`), `result.landmarks` e `result.measurements`, redesenha overlay e rola para o resultado.
+- Adicionar botões de **Excluir** (ícone lixeira) e **Exportar PDF** direto no item.
+
+## 5. Página atualizando ao trocar de aba
+
+A causa: o `<Layout>` consome `subscription` do `AuthContext` e o evento `SIGNED_IN` é re-disparado pelo Supabase quando a aba volta ao foco (rehidratação de sessão), o que chama `checkSubscription()` → re-render que reseta o `useState` da página.
+
+Correções em `AuthContext.tsx`:
+- No listener `onAuthStateChange`, ignorar `SIGNED_IN` quando `newSession?.user?.id === user?.id` (sessão idêntica = apenas rehidratação, não login real).
+- Adicionar `if (document.visibilityState === 'hidden') return;` para evitar disparo durante mudança de aba.
+- Mover persistência do form da Cefalometria para `sessionStorage` (`cephalo_draft`) — patientId, patientName, selectedAnalyses, result e imagePreview — para que mesmo um re-render acidental não perca o trabalho.
+
+## 6. PDF "não funcionava"
+
+Já está implementado em `handleExportPDF`, mas falhava porque o canvas tinha `crossOrigin` ausente quando a imagem vinha do Storage público, gerando "tainted canvas" no `toDataURL()`. Correção:
+- Adicionar `img.crossOrigin = "anonymous"` no `drawAnalysisOverlay` antes de `img.src = imagePreview`.
+- Quando `imagePreview` for `data:` URL (preview local), funciona direto.
+- Quando vier do Storage (reabertura de histórico), o bucket `cephalometric-images` precisa ter CORS habilitado — adicionar via migração SQL no `storage.buckets`.
+
+## Arquivos afetados
+
+| Arquivo | Mudança |
+|---|---|
+| `supabase/functions/analyze-cephalometry/index.ts` | Trocar HF por Lovable AI (Gemini 2.5 Pro vision + tool calling); aceitar `analysisTypes[]`; remover demo |
+| `src/types/cephalometric-analyses.ts` | Sem mudança estrutural |
+| `src/lib/cephalometric-math.ts` | **Novo** — `angle()`, `distance()`, `calculateMeasurementsByAnalysis()` (mesma lógica do edge, no client) |
+| `src/components/cephalometry/CephalometricViewer.tsx` | **Novo** — canvas com zoom/pan/desenho/landmarks arrastáveis |
+| `src/components/cephalometry/AnalysisResultTabs.tsx` | **Novo** — tabs com tabela+interpretação por análise |
+| `src/pages/Cephalometry.tsx` | Multi-select; histórico clicável; sessionStorage; usar Viewer e Tabs; PDF multi-análise |
+| `src/contexts/AuthContext.tsx` | Ignorar `SIGNED_IN` redundante e `visibilityState === 'hidden'` |
+| Migração SQL | Habilitar CORS no bucket `cephalometric-images`; coluna `analysis_types text[]` (mantém `analysis_type` legado) |
+
+## Fluxo final
 
 ```text
-1. Seleciona tipo de análise (Steiner/Jarabak/McNamara/Ricketts/Tweed/Downs)
-2. Preenche dados do paciente
-3. Faz upload da telerradiografia
-4. Clica "Analisar com {Análise}"
-5. Edge function detecta 19 landmarks (HRNet) → calcula medidas específicas
-6. Canvas desenha linhas + valores sobre a imagem
-7. Tabela mostra cada medida com status colorido
-8. Usuário pode: Salvar Caso / Exportar PDF dinâmico
+1. Marca 1+ análises (Steiner ☑ Jarabak ☑ McNamara ☐ ...)
+2. Preenche paciente + upload da telerradiografia
+3. Gemini detecta landmarks reais → calcula todas as análises marcadas
+4. Viewer mostra a imagem com:
+   • zoom/pan
+   • linhas+landmarks da análise ativa (tab)
+   • toolbar de desenho manual (caneta/régua/borracha)
+   • landmarks arrastáveis (recalcula medidas ao soltar)
+5. Tabs alternam entre análises sem reanalisar
+6. Salvar Caso (todas) / Exportar PDF (todas, multi-página)
+7. Histórico: clicar reabre tudo, com imagem, landmarks e medidas
+8. Trocar de aba do navegador NÃO refaz nada
 ```
-
-## Compatibilidade
-- Análises antigas (sem `analysis_type`) caem no default `steiner` via DEFAULT da coluna.
-- Plano `plano_20` continua sem acesso a Tomografia; cefalometria permanece habilitada para todos os planos pagos como hoje.
 
