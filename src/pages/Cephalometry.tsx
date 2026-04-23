@@ -11,43 +11,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText, Activity, Ruler, Download, History } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import {
+  ALL_ANALYSES, ANALYSES_BY_ID, AnalysisType,
+  CephalometricAnalysisDefinition, getStatus, formatRange,
+} from "@/types/cephalometric-analyses";
 
 interface Landmark { x: number; y: number; name: string; confidence: number; }
-interface Measurements {
-  SNA: number; SNB: number; ANB: number; "SN-GoGn": number;
-  FMA: number; IMPA: number; "U1-NA": number; "L1-NB": number;
-  Overjet: number; Overbite: number;
-}
+type Measurements = Record<string, number>;
 interface Analysis {
   id: string; patient_name: string; patient_id: string;
   landmarks: Landmark[]; measurements: Measurements;
   interpretation: string; status: string; created_at: string;
-}
-
-const REFERENCES: Record<string, { value: string; min: number; max: number; unit: string }> = {
-  SNA:       { value: "82°",   min: 79, max: 85, unit: "°" },
-  SNB:       { value: "80°",   min: 77, max: 83, unit: "°" },
-  ANB:       { value: "2°",    min: 0,  max: 5,  unit: "°" },
-  "SN-GoGn": { value: "32°",   min: 26, max: 38, unit: "°" },
-  FMA:       { value: "25°",   min: 20, max: 30, unit: "°" },
-  IMPA:      { value: "90°",   min: 85, max: 95, unit: "°" },
-  "U1-NA":   { value: "22°",   min: 18, max: 26, unit: "°" },
-  "L1-NB":   { value: "25°",   min: 21, max: 29, unit: "°" },
-  Overjet:   { value: "2-3mm", min: 1,  max: 4,  unit: "mm" },
-  Overbite:  { value: "2-3mm", min: 1,  max: 4,  unit: "mm" },
-};
-
-function getStatus(key: string, value: number): "normal" | "high" | "low" {
-  const r = REFERENCES[key];
-  if (!r) return "normal";
-  if (value > r.max) return "high";
-  if (value < r.min) return "low";
-  return "normal";
+  analysis_type?: AnalysisType;
 }
 
 export default function Cephalometry() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisType>("steiner");
   const [patientId, setPatientId] = useState("");
   const [patientName, setPatientName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -57,14 +38,17 @@ export default function Cephalometry() {
   const [result, setResult] = useState<{
     landmarks: Landmark[]; measurements: Measurements;
     interpretation: string; analysisId: string; usedFallback?: boolean;
+    analysisType: AnalysisType;
   } | null>(null);
   const [history, setHistory] = useState<Analysis[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const currentAnalysis: CephalometricAnalysisDefinition = ANALYSES_BY_ID[selectedAnalysis];
+
   useEffect(() => { loadHistory(); }, []);
-  useEffect(() => { if (result && imagePreview) drawLandmarks(); }, [result, imagePreview]);
+  useEffect(() => { if (result && imagePreview) drawAnalysisOverlay(); }, [result, imagePreview]);
 
   async function loadHistory() {
     setLoadingHistory(true);
