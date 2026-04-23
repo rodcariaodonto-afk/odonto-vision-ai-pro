@@ -7,11 +7,8 @@ const corsHeaders = {
 };
 
 interface Landmark { x: number; y: number; name: string; confidence: number; }
-interface Measurements {
-  SNA: number; SNB: number; ANB: number; "SN-GoGn": number;
-  FMA: number; IMPA: number; "U1-NA": number; "L1-NB": number;
-  Overjet: number; Overbite: number;
-}
+type Measurements = Record<string, number>;
+type AnalysisType = "steiner" | "jarabak" | "mcnamara" | "ricketts" | "tweed" | "downs";
 
 const LANDMARK_NAMES = [
   "Sella turcica","Nasion","Orbitale","Porion",
