@@ -6,7 +6,7 @@ import { Landmark, Measurements } from "@/lib/cephalometric-math";
 import { Button } from "@/components/ui/button";
 import {
   ZoomIn, ZoomOut, RotateCcw, Pencil, Eraser, Minus,
-  Move, Trash2,
+  Move, Trash2, Undo2,
 } from "lucide-react";
 
 type Tool = "none" | "pen" | "line" | "eraser";
@@ -72,7 +72,8 @@ export default function CephalometricViewer({
 
     try {
     const maxW = wrap.clientWidth;
-    const baseScale = Math.min(1, maxW / img.width);
+    const maxH = wrap.clientHeight || 600;
+    const baseScale = Math.min(1, maxW / img.width, maxH / img.height);
     baseScaleRef.current = baseScale;
     canvas.width = img.width * baseScale;
     canvas.height = img.height * baseScale;
@@ -103,7 +104,9 @@ export default function CephalometricViewer({
 
     // manual strokes (image-space coords scaled by baseScale)
     strokes.forEach((s) => drawStroke(ctx, s, baseScale));
-    if (draftStroke.current) drawStroke(ctx, draftStroke.current, baseScale);
+    if (draftStroke.current && draftStroke.current.tool !== "eraser") {
+      drawStroke(ctx, draftStroke.current, baseScale);
+    }
 
     ctx.restore();
     } catch (err) {
@@ -116,9 +119,8 @@ export default function CephalometricViewer({
     ctx.save();
     try {
     ctx.strokeStyle = s.color;
-    ctx.lineWidth = (s.tool === "eraser" ? 14 : 2) / zoom;
+    ctx.lineWidth = 2 / zoom;
     ctx.lineCap = "round"; ctx.lineJoin = "round";
-    if (s.tool === "eraser") ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
     if (s.tool === "line") {
       if (s.points.length < 2) { ctx.restore(); return; }
@@ -203,6 +205,14 @@ export default function CephalometricViewer({
     }
     if (draftStroke.current) {
       draftStroke.current.points.push(ip);
+      if (draftStroke.current.tool === "eraser") {
+        // delete any stroke close to the eraser path
+        const r = 12;
+        setStrokes((prev) => prev.filter((s) => {
+          if (s.tool === "eraser") return true;
+          return !s.points.some((pt) => Math.hypot(pt.x - ip.x, pt.y - ip.y) < r);
+        }));
+      }
       redraw();
     }
   }
@@ -212,8 +222,8 @@ export default function CephalometricViewer({
     panning.current = null;
     if (draftStroke.current) {
       const ds = draftStroke.current;
-      // Descarta cliques sem arrasto (linha/caneta precisam de >=2 pontos)
-      if (ds.points.length >= 2) {
+      // Eraser nao precisa ser salvo; demais precisam de >=2 pontos
+      if (ds.tool !== "eraser" && ds.points.length >= 2) {
         setStrokes((s) => [...s, ds]);
       }
       draftStroke.current = null;
@@ -253,6 +263,9 @@ export default function CephalometricViewer({
         <Button size="sm" variant="outline" onClick={() => setStrokes([])} title="Limpar anotações">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
+        <Button size="sm" variant="outline" onClick={() => setStrokes((s) => s.slice(0, -1))} title="Desfazer último traço" disabled={strokes.length === 0}>
+          <Undo2 className="w-3.5 h-3.5" />
+        </Button>
 
         <div className="ml-auto flex items-center gap-1">
           <Button size="sm" variant="outline" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}>
@@ -268,11 +281,11 @@ export default function CephalometricViewer({
         </div>
       </div>
 
-      <div ref={wrapRef} className="relative w-full overflow-hidden rounded-lg border bg-black"
-        style={{ touchAction: "none" }}>
+      <div ref={wrapRef} className="relative w-full overflow-auto rounded-lg border bg-black flex items-center justify-center"
+        style={{ touchAction: "none", maxHeight: "min(70vh, 600px)" }}>
         <canvas
           ref={canvasRef}
-          className="w-full block"
+          className="block max-w-full max-h-full"
           style={{ cursor: tool === "none" ? (zoom > 1 ? "grab" : "default") : "crosshair" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
