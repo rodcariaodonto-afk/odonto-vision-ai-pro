@@ -72,7 +72,8 @@ export default function CephalometricViewer({
 
     try {
     const maxW = wrap.clientWidth;
-    const baseScale = Math.min(1, maxW / img.width);
+    const maxH = wrap.clientHeight || 600;
+    const baseScale = Math.min(1, maxW / img.width, maxH / img.height);
     baseScaleRef.current = baseScale;
     canvas.width = img.width * baseScale;
     canvas.height = img.height * baseScale;
