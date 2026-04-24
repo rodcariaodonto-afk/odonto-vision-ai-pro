@@ -103,7 +103,9 @@ export default function CephalometricViewer({
 
     // manual strokes (image-space coords scaled by baseScale)
     strokes.forEach((s) => drawStroke(ctx, s, baseScale));
-    if (draftStroke.current) drawStroke(ctx, draftStroke.current, baseScale);
+    if (draftStroke.current && draftStroke.current.tool !== "eraser") {
+      drawStroke(ctx, draftStroke.current, baseScale);
+    }
 
     ctx.restore();
     } catch (err) {
@@ -116,9 +118,8 @@ export default function CephalometricViewer({
     ctx.save();
     try {
     ctx.strokeStyle = s.color;
-    ctx.lineWidth = (s.tool === "eraser" ? 14 : 2) / zoom;
+    ctx.lineWidth = 2 / zoom;
     ctx.lineCap = "round"; ctx.lineJoin = "round";
-    if (s.tool === "eraser") ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
     if (s.tool === "line") {
       if (s.points.length < 2) { ctx.restore(); return; }
