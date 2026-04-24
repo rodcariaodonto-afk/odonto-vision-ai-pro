@@ -19,25 +19,26 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-// 🔗 Cole aqui os links de checkout do Mercado Pago quando estiverem prontos
-const CHECKOUT_LINKS = {
-  starter: { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8" },
-  pro:     { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb" },
-  clinica: { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147" },
+// 🔗 Links de checkout do Mercado Pago — 5 planos
+const CHECKOUT_LINKS: Record<string, string> = {
+  exames_20:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8",
+  exames_50:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb",
+  exames_100: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147",
+  exames_200: "",
+  clinica:    "",
 };
 
 export default function Welcome() {
   const navigate = useNavigate();
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
   const scrollTo = (id: string) => {
     setMobileMenu(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleCheckout = (plan: keyof typeof CHECKOUT_LINKS) => {
-    const link = CHECKOUT_LINKS[plan][billingCycle];
+  const handleCheckout = (plan: string) => {
+    const link = CHECKOUT_LINKS[plan];
     if (link) {
       window.open(link, "_blank");
     } else {
@@ -252,49 +253,52 @@ export default function Welcome() {
             <h2 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--landing-navy))] mb-3">
               Planos & Preços
             </h2>
-            <p className="text-gray-500 mb-6">Escolha o plano ideal para o seu consultório ou clínica.</p>
-
-            {/* Toggle */}
-            <div className="inline-flex items-center gap-3 bg-white rounded-full p-1 border border-gray-200 shadow-sm">
-              <button
-                onClick={() => setBillingCycle("monthly")}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${billingCycle === "monthly" ? "bg-[hsl(var(--landing-navy))] text-white" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                Mensal
-              </button>
-              <button
-                onClick={() => setBillingCycle("annual")}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${billingCycle === "annual" ? "bg-[hsl(var(--landing-navy))] text-white" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                Anual <span className="text-[hsl(var(--landing-teal))] font-bold">-20%</span>
-              </button>
-            </div>
+            <p className="text-gray-500 mb-3">Escolha o plano ideal para o seu consultório ou clínica.</p>
+            <p className="text-sm font-medium text-[hsl(var(--landing-teal))]">
+              Tomografia disponível a partir do plano de 50 exames.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 max-w-7xl mx-auto items-stretch">
             <PricingCard
-              name="Starter"
-              price={billingCycle === "monthly" ? "147" : "117"}
+              name="20 Exames"
+              price="99,00"
               period="/mês"
-              description="Para dentistas iniciando com IA"
-              features={["Até 30 exames/mês", "Raio-X panorâmico", "1 usuário", "Laudo PDF", "Suporte por email"]}
-              onAction={() => handleCheckout("starter")}
+              description="Ideal para uso inicial"
+              features={["20 exames por mês", "Radiografias com IA", "Laudo em PDF", "Chat com IA", "Sem Tomografia"]}
+              onAction={() => handleCheckout("exames_20")}
             />
             <PricingCard
-              name="PRO"
-              price={billingCycle === "monthly" ? "297" : "237"}
+              name="50 Exames"
+              price="230,00"
               period="/mês"
-              description="O mais popular para clínicas"
-              features={["Até 100 exames/mês", "Rx + Tomografia", "1 usuário", "Laudo Médico-Legal", "Suporte prioritário", "Chat IA ilimitado"]}
+              description="RX + Tomografia a partir deste plano"
+              features={["50 exames por mês", "RX + Tomografia", "Laudo em PDF", "Chat com IA", "Histórico completo"]}
+              onAction={() => handleCheckout("exames_50")}
+            />
+            <PricingCard
+              name="100 Exames"
+              price="350,00"
+              period="/mês"
+              description="Plano principal para rotina clínica"
+              features={["100 exames por mês", "RX + Tomografia", "Laudo Médico-Legal", "Chat com IA", "Suporte por e-mail"]}
               highlighted
-              onAction={() => handleCheckout("pro")}
+              onAction={() => handleCheckout("exames_100")}
+            />
+            <PricingCard
+              name="200 Exames"
+              price="430,00"
+              period="/mês"
+              description="Para alto volume individual"
+              features={["200 exames por mês", "RX + Tomografia", "Laudos em PDF", "Chat com IA", "Prioridade de suporte"]}
+              onAction={() => handleCheckout("exames_200")}
             />
             <PricingCard
               name="Clínica"
-              price={billingCycle === "monthly" ? "897" : "717"}
+              price="897,00"
               period="/mês"
-              description="Para clínicas com múltiplos dentistas"
-              features={["Exames ilimitados", "Rx + TC + Clínico", "Até 10 dentistas", "Laudo com logo da clínica", "Gerente de conta dedicado", "Treinamento personalizado"]}
+              description="Para clínicas e equipes"
+              features={["Plano para clínicas", "RX + Tomografia", "Equipes e múltiplos fluxos", "Dashboard gerencial", "Treinamento da equipe"]}
               onAction={() => handleCheckout("clinica")}
             />
           </div>
