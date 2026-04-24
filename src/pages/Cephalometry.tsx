@@ -276,18 +276,6 @@ export default function Cephalometry() {
         doc.text(`ID: ${patientId.trim()}`, 15, y); y += 5;
         doc.text(`Data da análise: ${new Date().toLocaleDateString("pt-BR")}`, 15, y); y += 8;
 
-        // image with overlay
-        const canvas = canvasMap.current.get(t);
-        if (canvas) {
-          try {
-            const img = canvas.toDataURL("image/jpeg", 0.85);
-            const imgW = 110;
-            const imgH = (canvas.height * imgW) / canvas.width;
-            doc.addImage(img, "JPEG", (pageW - imgW) / 2, y, imgW, imgH);
-            y += imgH + 8;
-          } catch (e) { console.warn("canvas export failed", e); }
-        }
-
         if (y > 220) { doc.addPage(); y = 15; }
         doc.setFontSize(11); doc.setFont("helvetica", "bold");
         doc.text(`Medidas — ${def.name}`, 15, y); y += 6;
