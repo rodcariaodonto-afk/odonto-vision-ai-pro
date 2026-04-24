@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Upload, Brain, Loader2, CheckCircle, FileText,
-  Activity, Download, History, Trash2,
+  Activity, Download, History, Trash2, Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -71,6 +71,40 @@ export default function Cephalometry() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
+
+  // ── Gate de assinatura: Cefalometria exige plano de 50 exames ou superior ──
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
+  const ADMIN_EMAILS = ["rodcaria.odonto@gmail.com", "servmaisdigital@gmail.com"];
+
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) return;
+      // Admins têm acesso irrestrito
+      if (user.email && ADMIN_EMAILS.includes(user.email)) {
+        setHasAccess(true);
+        setAccessChecked(true);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from("user_subscriptions")
+          .select("analyses_limit, status")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const limit = data?.analyses_limit ?? 0;
+        setHasAccess(limit >= 50);
+      } catch {
+        setHasAccess(false);
+      } finally {
+        setAccessChecked(true);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Per-analysis canvases for PDF export
   const canvasMap = useRef<Map<AnalysisType, HTMLCanvasElement>>(new Map());
