@@ -207,12 +207,6 @@ export default function Plans() {
                   {plan.period && (
                     <span className="text-muted-foreground">{plan.period}</span>
                   )}
-                  {plan.installments && (
-                    <p className="text-sm text-primary mt-1 font-medium">
-                      <CreditCard className="w-3 h-3 inline mr-1" />
-                      {plan.installments}
-                    </p>
-                  )}
                 </div>
 
                 <ul className="space-y-3 flex-1">
@@ -229,16 +223,8 @@ export default function Plans() {
                   size="lg"
                   className="w-full mt-6"
                   onClick={() => handlePlanClick(plan)}
-                  disabled={loadingPlan === plan.id}
                 >
-                  {loadingPlan === plan.id ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    plan.buttonText
-                  )}
+                  {plan.buttonText}
                 </Button>
               </CardContent>
             </Card>
