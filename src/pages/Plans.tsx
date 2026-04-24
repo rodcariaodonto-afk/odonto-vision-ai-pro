@@ -4,22 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Building2, Zap, Star, Users, Loader2, CreditCard, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Building2, Zap, Star, Users, Loader2, ArrowLeft, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 
 interface Plan {
   id: string;
-  stripeId: string;
+  checkoutUrl: string;
   name: string;
   subtitle: string;
   price: string;
   period?: string;
-  installments?: string;
   features: string[];
   highlighted?: boolean;
   badge?: string;
@@ -30,58 +27,99 @@ interface Plan {
 
 const plans: Plan[] = [
   {
-    id: "por_caso",
-    stripeId: "price_1ScTIi0eNFT13oWK1LSDWRDi",
-    name: "Por Caso",
-    subtitle: "Pague por análise",
-    price: "R$ 15",
-    period: "por exame",
+    id: "exames_20",
+    checkoutUrl: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=440af965aa70426c927b5acc09778c0a",
+    name: "20 Exames",
+    subtitle: "Ideal para uso inicial",
+    price: "R$ 99",
+    period: "/mês",
     features: [
-      "Análise completa de 1 exame",
-      "Relatório detalhado",
-      "Ideal para testes",
-      "Sem compromisso",
+      "20 exames por mês",
+      "Radiografias com IA",
+      "Laudo em PDF",
+      "Chat com IA",
+      "Sem Tomografia",
     ],
     icon: <Zap className="w-6 h-6" />,
-    buttonText: "Usar Agora",
+    buttonText: "Assinar Agora",
     buttonVariant: "outline",
   },
   {
-    id: "mensal",
-    stripeId: "price_1ScTKL0eNFT13oWKYevlGEsp",
-    name: "Mensal",
-    subtitle: "Profissional Autônomo",
+    id: "exames_50",
+    checkoutUrl: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=42bb7d2c558f415fbb5a7308e63acf9c",
+    name: "50 Exames",
+    subtitle: "RX + Tomografia + Cefalometria",
+    price: "R$ 230",
+    period: "/mês",
+    features: [
+      "50 exames por mês",
+      "RX + Tomografia",
+      "Cefalometria liberada",
+      "Laudo em PDF",
+      "Chat com IA",
+      "Histórico completo",
+    ],
+    icon: <Activity className="w-6 h-6" />,
+    buttonText: "Assinar Agora",
+    buttonVariant: "default",
+  },
+  {
+    id: "exames_100",
+    checkoutUrl: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=38bb7f5006d84603b0fbefdba169f0e2",
+    name: "100 Exames",
+    subtitle: "Plano principal para rotina clínica",
     price: "R$ 350",
     period: "/mês",
     features: [
-      "Até 100 análises por mês",
-      "Chat ilimitado com IA",
-      "Histórico completo",
-      "Relatórios em PDF",
+      "100 exames por mês",
+      "RX + Tomografia",
+      "Cefalometria liberada",
+      "Laudo Médico-Legal",
+      "Chat com IA",
       "Suporte por e-mail",
     ],
     highlighted: true,
-    badge: "Mais escolhido",
+    badge: "Mais Popular",
     icon: <Star className="w-6 h-6" />,
-    buttonText: "Assinar Mensal",
+    buttonText: "Assinar Agora",
     buttonVariant: "hero",
   },
   {
-    id: "enterprise",
-    stripeId: "",
-    name: "Enterprise",
-    subtitle: "Para Clínicas",
-    price: "Personalizado",
+    id: "exames_200",
+    checkoutUrl: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=8040502c12bd4f0291c32b683c1fa6a5",
+    name: "200 Exames",
+    subtitle: "Para alto volume individual",
+    price: "R$ 430",
+    period: "/mês",
     features: [
-      "Licenças múltiplas",
-      "Volume alto de exames",
-      "Suporte preferencial",
-      "Customização de protocolos",
+      "200 exames por mês",
+      "RX + Tomografia",
+      "Cefalometria liberada",
+      "Laudos em PDF",
+      "Chat com IA",
+      "Prioridade de suporte",
+    ],
+    icon: <Users className="w-6 h-6" />,
+    buttonText: "Assinar Agora",
+    buttonVariant: "default",
+  },
+  {
+    id: "clinica",
+    checkoutUrl: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=d9d4c76b91674c3085d150f0eafdf1f1",
+    name: "Clínica",
+    subtitle: "Para clínicas e equipes",
+    price: "R$ 897",
+    period: "/mês",
+    features: [
+      "Plano para clínicas",
+      "RX + Tomografia",
+      "Cefalometria liberada",
+      "Equipes e múltiplos fluxos",
       "Dashboard gerencial",
       "Treinamento da equipe",
     ],
     icon: <Building2 className="w-6 h-6" />,
-    buttonText: "Falar com Consultor",
+    buttonText: "Assinar Agora",
     buttonVariant: "secondary",
   },
 ];
@@ -89,8 +127,6 @@ const plans: Plan[] = [
 export default function Plans() {
   const [showEnterprise, setShowEnterprise] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     clinicName: "",
@@ -100,46 +136,9 @@ export default function Plans() {
     email: "",
   });
 
-  const KIWIFY_LINKS: Record<string, string> = {
-    mensal: "https://pay.kiwify.com.br/ZlH4Jb0",
-  };
-
-  const handlePlanClick = async (plan: Plan) => {
-    if (plan.id === "enterprise") {
-      setShowEnterprise(true);
-      return;
-    }
-
-    // Use Kiwify link if available
-    if (KIWIFY_LINKS[plan.id]) {
-      window.open(KIWIFY_LINKS[plan.id], "_blank");
-      toast.success("Abrindo página de pagamento...");
-      return;
-    }
-
-    setLoadingPlan(plan.id);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planId: plan.id, isAuthenticated: !!user },
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data?.url) {
-        window.open(data.url, "_blank");
-        toast.success("Abrindo página de pagamento...");
-      } else {
-        throw new Error("URL de checkout não retornada");
-      }
-    } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("Erro ao iniciar checkout. Tente novamente.");
-    } finally {
-      setLoadingPlan(null);
-    }
+  const handlePlanClick = (plan: Plan) => {
+    window.open(plan.checkoutUrl, "_blank");
+    toast.success("Abrindo página de assinatura...");
   };
 
   const handleEnterpriseSubmit = async (e: React.FormEvent) => {
@@ -172,8 +171,13 @@ export default function Plans() {
           </p>
         </div>
 
+        {/* Aviso Cefalometria */}
+        <p className="text-center text-sm font-medium text-primary">
+          Cefalometria disponível a partir do plano de 50 exames.
+        </p>
+
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 items-stretch">
           {plans.map((plan) => (
             <Card
               key={plan.id}
@@ -208,12 +212,6 @@ export default function Plans() {
                   {plan.period && (
                     <span className="text-muted-foreground">{plan.period}</span>
                   )}
-                  {plan.installments && (
-                    <p className="text-sm text-primary mt-1 font-medium">
-                      <CreditCard className="w-3 h-3 inline mr-1" />
-                      {plan.installments}
-                    </p>
-                  )}
                 </div>
 
                 <ul className="space-y-3 flex-1">
@@ -230,16 +228,8 @@ export default function Plans() {
                   size="lg"
                   className="w-full mt-6"
                   onClick={() => handlePlanClick(plan)}
-                  disabled={loadingPlan === plan.id}
                 >
-                  {loadingPlan === plan.id ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    plan.buttonText
-                  )}
+                  {plan.buttonText}
                 </Button>
               </CardContent>
             </Card>
