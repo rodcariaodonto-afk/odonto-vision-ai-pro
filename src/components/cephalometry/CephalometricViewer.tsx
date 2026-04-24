@@ -84,38 +84,28 @@ export default function CephalometricViewer({
     ctx.scale(zoom, zoom);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    // draw lines
+    // landmarks usados nesta análise (apenas pontos — sem linhas automáticas)
     const lmMap = new Map(landmarks.map((l) => [l.name, l]));
-    def.lines.forEach((line) => {
-      const p1 = lmMap.get(line.point1);
-      const p2 = lmMap.get(line.point2);
-      if (!p1 || !p2) return;
-      const x1 = p1.x * baseScale, y1 = p1.y * baseScale;
-      const x2 = p2.x * baseScale, y2 = p2.y * baseScale;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-      ctx.strokeStyle = line.color; ctx.lineWidth = 2 / zoom; ctx.stroke();
-      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-      const measure = line.measureKey ? def.measures.find((m) => m.key === line.measureKey) : undefined;
-      const value = measure ? measurements[measure.key] : undefined;
-      const label = value !== undefined ? `${line.name} ${value}${measure?.unit ?? ""}` : line.name;
-      ctx.font = `bold ${11 / zoom}px Arial`;
-      const tw = ctx.measureText(label).width;
-      ctx.fillStyle = "rgba(0,0,0,0.75)";
-      ctx.fillRect(mx - tw / 2 - 3, my - 13 / zoom, tw + 6, 14 / zoom);
-      ctx.fillStyle = line.color; ctx.textAlign = "center";
-      ctx.fillText(label, mx, my - 2 / zoom);
-    });
-
-    // landmarks (only those used in current analysis)
     const used = new Set<string>();
     def.lines.forEach((l) => { used.add(l.point1); used.add(l.point2); });
     landmarks.forEach((lm) => {
       if (!used.has(lm.name)) return;
       const x = lm.x * baseScale, y = lm.y * baseScale;
+      // ponto
       ctx.beginPath(); ctx.arc(x, y, 5 / zoom, 0, 2 * Math.PI);
       ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
       ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 / zoom; ctx.stroke();
+      // rótulo curto ao lado do ponto
+      const label = lm.name;
+      ctx.font = `bold ${10 / zoom}px Arial`;
+      const tw = ctx.measureText(label).width;
+      const lx = x + 8 / zoom;
+      const ly = y - 8 / zoom;
+      ctx.fillStyle = "rgba(0,0,0,0.7)";
+      ctx.fillRect(lx - 2, ly - 10 / zoom, tw + 4, 12 / zoom);
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "left";
+      ctx.fillText(label, lx, ly);
     });
 
     // manual strokes (image-space coords scaled by baseScale)
