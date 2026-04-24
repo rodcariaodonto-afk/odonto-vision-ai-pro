@@ -91,21 +91,13 @@ export default function CephalometricViewer({
     landmarks.forEach((lm) => {
       if (!used.has(lm.name)) return;
       const x = lm.x * baseScale, y = lm.y * baseScale;
-      // ponto
-      ctx.beginPath(); ctx.arc(x, y, 5 / zoom, 0, 2 * Math.PI);
+      // ponto pequeno
+      ctx.beginPath(); ctx.arc(x, y, 3 / zoom, 0, 2 * Math.PI);
       ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
-      ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 / zoom; ctx.stroke();
-      // rótulo curto ao lado do ponto
-      const label = lm.name;
-      ctx.font = `bold ${10 / zoom}px Arial`;
-      const tw = ctx.measureText(label).width;
-      const lx = x + 8 / zoom;
-      const ly = y - 8 / zoom;
-      ctx.fillStyle = "rgba(0,0,0,0.7)";
-      ctx.fillRect(lx - 2, ly - 10 / zoom, tw + 4, 12 / zoom);
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "left";
-      ctx.fillText(label, lx, ly);
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1 / zoom;
+      ctx.stroke();
     });
 
     // manual strokes (image-space coords scaled by baseScale)
