@@ -211,8 +211,13 @@ export default function CephalometricViewer({
     draggingLm.current = null;
     panning.current = null;
     if (draftStroke.current) {
-      setStrokes((s) => [...s, draftStroke.current!]);
+      const ds = draftStroke.current;
+      // Descarta cliques sem arrasto (linha/caneta precisam de >=2 pontos)
+      if (ds.points.length >= 2) {
+        setStrokes((s) => [...s, ds]);
+      }
       draftStroke.current = null;
+      redraw();
     }
   }
 
