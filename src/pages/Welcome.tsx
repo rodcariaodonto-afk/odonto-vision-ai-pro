@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-// 🔗 Links de checkout do Mercado Pago — 5 planos
+// 🔗 Links de assinatura recorrente do Mercado Pago — 5 planos
 const CHECKOUT_LINKS: Record<string, string> = {
-  exames_20:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8",
-  exames_50:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb",
-  exames_100: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147",
-  exames_200: "",
-  clinica:    "",
+  exames_20:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=440af965aa70426c927b5acc09778c0a",
+  exames_50:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=42bb7d2c558f415fbb5a7308e63acf9c",
+  exames_100: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=38bb7f5006d84603b0fbefdba169f0e2",
+  exames_200: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=8040502c12bd4f0291c32b683c1fa6a5",
+  clinica:    "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=d9d4c76b91674c3085d150f0eafdf1f1",
 };
 
 export default function Welcome() {
