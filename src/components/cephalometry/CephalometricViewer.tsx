@@ -275,15 +275,12 @@ export default function CephalometricViewer({
         />
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-        {def.lines.map((l) => (
-          <span key={l.name} className="flex items-center gap-1">
-            <span className="w-3 h-1 inline-block rounded" style={{ backgroundColor: l.color }} />
-            {l.name}
-          </span>
-        ))}
-      </div>
+      {/* Dica */}
+      <p className="text-xs text-muted-foreground">
+        Apenas os pontos cefalométricos são marcados automaticamente. Use a ferramenta de
+        <span className="mx-1 font-medium">linha reta</span>
+        para conectar os pontos manualmente, ou arraste um ponto para reposicioná-lo.
+      </p>
     </div>
   );
 }
