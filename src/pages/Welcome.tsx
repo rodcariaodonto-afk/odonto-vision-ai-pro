@@ -272,8 +272,8 @@ export default function Welcome() {
               name="50 Exames"
               price="230,00"
               period="/mês"
-              description="RX + Tomografia a partir deste plano"
-              features={["50 exames por mês", "RX + Tomografia", "Laudo em PDF", "Chat com IA", "Histórico completo"]}
+              description="RX + Tomografia + Cefalometria"
+              features={["50 exames por mês", "RX + Tomografia", "Cefalometria liberada", "Laudo em PDF", "Chat com IA", "Histórico completo"]}
               onAction={() => handleCheckout("exames_50")}
             />
             <PricingCard
@@ -281,7 +281,7 @@ export default function Welcome() {
               price="350,00"
               period="/mês"
               description="Plano principal para rotina clínica"
-              features={["100 exames por mês", "RX + Tomografia", "Laudo Médico-Legal", "Chat com IA", "Suporte por e-mail"]}
+              features={["100 exames por mês", "RX + Tomografia", "Cefalometria liberada", "Laudo Médico-Legal", "Chat com IA", "Suporte por e-mail"]}
               highlighted
               onAction={() => handleCheckout("exames_100")}
             />
@@ -290,7 +290,7 @@ export default function Welcome() {
               price="430,00"
               period="/mês"
               description="Para alto volume individual"
-              features={["200 exames por mês", "RX + Tomografia", "Laudos em PDF", "Chat com IA", "Prioridade de suporte"]}
+              features={["200 exames por mês", "RX + Tomografia", "Cefalometria liberada", "Laudos em PDF", "Chat com IA", "Prioridade de suporte"]}
               onAction={() => handleCheckout("exames_200")}
             />
             <PricingCard
@@ -298,7 +298,7 @@ export default function Welcome() {
               price="897,00"
               period="/mês"
               description="Para clínicas e equipes"
-              features={["Plano para clínicas", "RX + Tomografia", "Equipes e múltiplos fluxos", "Dashboard gerencial", "Treinamento da equipe"]}
+              features={["Plano para clínicas", "RX + Tomografia", "Cefalometria liberada", "Equipes e múltiplos fluxos", "Dashboard gerencial", "Treinamento da equipe"]}
               onAction={() => handleCheckout("clinica")}
             />
           </div>
