@@ -70,6 +70,7 @@ export default function CephalometricViewer({
     if (!canvas || !img) return;
     const wrap = wrapRef.current; if (!wrap) return;
 
+    try {
     const maxW = wrap.clientWidth;
     const baseScale = Math.min(1, maxW / img.width);
     baseScaleRef.current = baseScale;
@@ -105,27 +106,36 @@ export default function CephalometricViewer({
     if (draftStroke.current) drawStroke(ctx, draftStroke.current, baseScale);
 
     ctx.restore();
+    } catch (err) {
+      console.error("[CephalometricViewer] redraw error:", err);
+    }
   }, [landmarks, def, measurements, strokes, pan, zoom]);
 
   function drawStroke(ctx: CanvasRenderingContext2D, s: DrawStroke, baseScale: number) {
-    if (s.points.length < 2) return;
+    if (!s.points || s.points.length < 1) return;
     ctx.save();
+    try {
     ctx.strokeStyle = s.color;
     ctx.lineWidth = (s.tool === "eraser" ? 14 : 2) / zoom;
     ctx.lineCap = "round"; ctx.lineJoin = "round";
     if (s.tool === "eraser") ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
     if (s.tool === "line") {
+      if (s.points.length < 2) { ctx.restore(); return; }
       const a = s.points[0], b = s.points[s.points.length - 1];
       ctx.moveTo(a.x * baseScale, a.y * baseScale);
       ctx.lineTo(b.x * baseScale, b.y * baseScale);
     } else {
+      if (s.points.length < 2) { ctx.restore(); return; }
       ctx.moveTo(s.points[0].x * baseScale, s.points[0].y * baseScale);
       for (let i = 1; i < s.points.length; i++) {
         ctx.lineTo(s.points[i].x * baseScale, s.points[i].y * baseScale);
       }
     }
     ctx.stroke();
+    } catch (err) {
+      console.error("[CephalometricViewer] drawStroke error:", err);
+    }
     ctx.restore();
   }
 
@@ -201,8 +211,13 @@ export default function CephalometricViewer({
     draggingLm.current = null;
     panning.current = null;
     if (draftStroke.current) {
-      setStrokes((s) => [...s, draftStroke.current!]);
+      const ds = draftStroke.current;
+      // Descarta cliques sem arrasto (linha/caneta precisam de >=2 pontos)
+      if (ds.points.length >= 2) {
+        setStrokes((s) => [...s, ds]);
+      }
       draftStroke.current = null;
+      redraw();
     }
   }
 
