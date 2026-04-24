@@ -19,25 +19,26 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-// 🔗 Cole aqui os links de checkout do Mercado Pago quando estiverem prontos
-const CHECKOUT_LINKS = {
-  starter: { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8" },
-  pro:     { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb" },
-  clinica: { monthly: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147", annual: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147" },
+// 🔗 Links de checkout do Mercado Pago — 5 planos
+const CHECKOUT_LINKS: Record<string, string> = {
+  exames_20:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=5d19f5f7091643bda243eb27a75c7fe8",
+  exames_50:  "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=f8370c98a597452e9d56042701076dfb",
+  exames_100: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2f220063afa948feafb0b13c53b12147",
+  exames_200: "",
+  clinica:    "",
 };
 
 export default function Welcome() {
   const navigate = useNavigate();
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
   const scrollTo = (id: string) => {
     setMobileMenu(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleCheckout = (plan: keyof typeof CHECKOUT_LINKS) => {
-    const link = CHECKOUT_LINKS[plan][billingCycle];
+  const handleCheckout = (plan: string) => {
+    const link = CHECKOUT_LINKS[plan];
     if (link) {
       window.open(link, "_blank");
     } else {
