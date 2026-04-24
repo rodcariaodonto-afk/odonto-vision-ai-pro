@@ -204,6 +204,14 @@ export default function CephalometricViewer({
     }
     if (draftStroke.current) {
       draftStroke.current.points.push(ip);
+      if (draftStroke.current.tool === "eraser") {
+        // delete any stroke close to the eraser path
+        const r = 12;
+        setStrokes((prev) => prev.filter((s) => {
+          if (s.tool === "eraser") return true;
+          return !s.points.some((pt) => Math.hypot(pt.x - ip.x, pt.y - ip.y) < r);
+        }));
+      }
       redraw();
     }
   }
@@ -213,8 +221,8 @@ export default function CephalometricViewer({
     panning.current = null;
     if (draftStroke.current) {
       const ds = draftStroke.current;
-      // Descarta cliques sem arrasto (linha/caneta precisam de >=2 pontos)
-      if (ds.points.length >= 2) {
+      // Eraser nao precisa ser salvo; demais precisam de >=2 pontos
+      if (ds.tool !== "eraser" && ds.points.length >= 2) {
         setStrokes((s) => [...s, ds]);
       }
       draftStroke.current = null;
