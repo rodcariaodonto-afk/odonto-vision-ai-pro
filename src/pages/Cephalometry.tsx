@@ -397,6 +397,57 @@ export default function Cephalometry() {
     }
   }
 
+  // ── Bloqueio: requer plano de 50 exames ou superior ────────────────
+  if (accessChecked && !hasAccess) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Activity className="w-7 h-7 text-primary" />
+            Análise Cefalométrica
+          </h1>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Lock className="w-5 h-5 text-primary" />
+              Recurso exclusivo para planos a partir de 50 exames
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              A <strong>Análise Cefalométrica</strong> está disponível apenas para assinantes
+              dos planos <strong>50 Exames</strong>, <strong>100 Exames</strong>,{" "}
+              <strong>200 Exames</strong> ou <strong>Clínica</strong>.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Faça upgrade do seu plano para liberar Steiner, Jarabak, McNamara, Ricketts, Tweed e Downs.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => navigate("/plans")} className="flex-1">
+                Ver Planos
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/dashboard")} className="flex-1">
+                Voltar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!accessChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
