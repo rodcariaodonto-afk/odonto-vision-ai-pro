@@ -262,6 +262,9 @@ export default function CephalometricViewer({
         <Button size="sm" variant="outline" onClick={() => setStrokes([])} title="Limpar anotações">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
+        <Button size="sm" variant="outline" onClick={() => setStrokes((s) => s.slice(0, -1))} title="Desfazer último traço" disabled={strokes.length === 0}>
+          <Undo2 className="w-3.5 h-3.5" />
+        </Button>
 
         <div className="ml-auto flex items-center gap-1">
           <Button size="sm" variant="outline" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}>
@@ -277,11 +280,11 @@ export default function CephalometricViewer({
         </div>
       </div>
 
-      <div ref={wrapRef} className="relative w-full overflow-hidden rounded-lg border bg-black"
-        style={{ touchAction: "none" }}>
+      <div ref={wrapRef} className="relative w-full overflow-auto rounded-lg border bg-black flex items-center justify-center"
+        style={{ touchAction: "none", maxHeight: "min(70vh, 600px)" }}>
         <canvas
           ref={canvasRef}
-          className="w-full block"
+          className="block max-w-full max-h-full"
           style={{ cursor: tool === "none" ? (zoom > 1 ? "grab" : "default") : "crosshair" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
