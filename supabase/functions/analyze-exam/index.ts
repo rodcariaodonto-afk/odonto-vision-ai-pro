@@ -1158,6 +1158,8 @@ Forneça a análise no formato JSON especificado.`
           model: "gpt-4o",
           messages,
           max_tokens: 16000,
+          temperature: 0,
+          seed: 42,
           ...(isLaboratorial && {
             tools: [{ type: "web_search_preview" }],
             tool_choice: "auto",
@@ -1235,7 +1237,7 @@ Forneça a análise no formato JSON especificado.`
         const retryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "gpt-4o", messages: retryMessages, max_tokens: 16000 }),
+          body: JSON.stringify({ model: "gpt-4o", messages: retryMessages, max_tokens: 16000, temperature: 0, seed: 42 }),
         });
         if (retryResponse.ok) {
           const retryData = await retryResponse.json();

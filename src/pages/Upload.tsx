@@ -982,7 +982,8 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     type: "correction" | "addition" | "removal",
     notes?: string
   ) => {
-    if (!user || !correctedValue.trim()) return;
+    if (!user) return;
+    if (type !== "removal" && !correctedValue.trim()) return;
     setSavingFeedback(true);
     try {
       const primaryCategory = examCategories[0] || null;
@@ -991,13 +992,38 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         user_id: user.id,
         field_name: fieldName,
         original_value: originalValue,
-        corrected_value: correctedValue.trim(),
+        corrected_value: type === "removal" ? `[REMOVIDO] ${originalValue}` : correctedValue.trim(),
         feedback_type: type,
         exam_category: primaryCategory,
         notes: notes || null,
       }]);
       if (error) throw error;
-      toast.success("Correção salva! Obrigado — isso treina o sistema.");
+
+      // Atualizar estado local imediatamente para refletir na tela
+      if (result && fieldName in result) {
+        const currentItems = (result as any)[fieldName] as string[];
+        let updatedItems: string[];
+
+        if (type === "removal") {
+          // Remover o item da lista
+          updatedItems = currentItems.filter(item => item !== originalValue);
+        } else if (type === "addition") {
+          // Adicionar novo item
+          updatedItems = [...currentItems, correctedValue.trim()];
+        } else {
+          // Substituir item corrigido
+          updatedItems = currentItems.map(item =>
+            item === originalValue ? correctedValue.trim() : item
+          );
+        }
+
+        setResult(prev => prev ? { ...prev, [fieldName]: updatedItems } : prev);
+      }
+
+      const msg = type === "removal" ? "Item removido do laudo." :
+                  type === "addition" ? "Achado adicionado ao laudo." :
+                  "Correção salva no laudo.";
+      toast.success(msg + " Obrigado — isso treina o sistema.");
       setFeedbackField(null);
       setFeedbackValue("");
     } catch (err) {
