@@ -315,43 +315,80 @@ async function callGeminiVision(prompt: string, imageBase64: string, imageType: 
     ? imageBase64.split("base64,")[1] 
     : imageBase64;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
-      messages: [
-        { role: "system", content: prompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Analise esta radiografia odontológica seguindo as instruções do sistema. Retorne apenas JSON válido." },
-            { 
-              type: "image_url", 
-              image_url: { 
-                url: `data:${imageType || "image/jpeg"};base64,${base64Data}` 
-              } 
+  // Retry with exponential backoff for transient errors (timeouts, 5xx, rate limits)
+  const maxAttempts = 3;
+  let lastError: any = null;
+  let response: Response | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90_000); // 90s timeout
+
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: "google/gemini-2.5-pro",
+          messages: [
+            { role: "system", content: prompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Analise esta radiografia odontológica seguindo as instruções do sistema. Retorne apenas JSON válido." },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${imageType || "image/jpeg"};base64,${base64Data}`
+                  }
+                },
+              ],
             },
           ],
-        },
-      ],
-    }),
-  });
+        }),
+      });
+      clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Gemini API error:", response.status, errorText);
-    
-    if (response.status === 429) {
-      throw new Error("Rate limit excedido. Tente novamente em alguns segundos.");
+      if (response.ok) break;
+
+      // Don't retry permanent errors
+      if (response.status === 402) {
+        throw new Error("Créditos de IA esgotados. Entre em contato com o suporte.");
+      }
+      if (response.status === 400 || response.status === 401 || response.status === 403) {
+        const errText = await response.text();
+        console.error("Gemini permanent error:", response.status, errText);
+        throw new Error(`Falha ao processar imagem (${response.status}). Tente uma imagem menor ou em outro formato.`);
+      }
+
+      // Retryable: 429, 5xx
+      const errText = await response.text();
+      console.warn(`Tentativa ${attempt}/${maxAttempts} falhou: ${response.status} ${errText.slice(0, 200)}`);
+      lastError = new Error(response.status === 429
+        ? "Servidor de IA ocupado. Tentando novamente..."
+        : `Erro temporário do servidor de IA (${response.status})`);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        lastError = new Error("A análise demorou muito. Tente uma imagem menor.");
+      } else {
+        lastError = e;
+      }
+      console.warn(`Tentativa ${attempt}/${maxAttempts} exceção:`, e?.message);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
     }
-    if (response.status === 402) {
-      throw new Error("Créditos insuficientes no Lovable AI.");
-    }
-    throw new Error(`Erro na API Gemini: ${response.status}`);
+  }
+
+  if (!response || !response.ok) {
+    throw lastError || new Error("Falha ao contactar o servidor de IA");
   }
 
   const data = await response.json();
