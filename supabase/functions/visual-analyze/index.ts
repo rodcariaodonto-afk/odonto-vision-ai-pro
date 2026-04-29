@@ -553,14 +553,37 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
 // ============================================================================
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { imageBase64, imageType, examCategory, clinicalContext } = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: "Requisição inválida (JSON malformado)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const { imageBase64, imageType, examCategory, clinicalContext } = body;
 
-    if (!imageBase64) {
-      throw new Error("Nenhuma imagem fornecida");
+    if (!imageBase64 || typeof imageBase64 !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Nenhuma imagem fornecida" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Reject oversized payloads early (base64 ~33% larger than binary).
+    // Limit ~12MB base64 ≈ 9MB binary.
+    if (imageBase64.length > 12_000_000) {
+      return new Response(
+        JSON.stringify({
+          error: "Imagem muito grande. Reduza para no máximo ~8MB e tente novamente."
+        }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const clinicalContextNote = (clinicalContext?.queixa || clinicalContext?.regiao)
@@ -603,12 +626,18 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("❌ Erro na análise visual:", error);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    // Map known errors to appropriate HTTP status codes
+    let status = 500;
+    if (/cr[ée]ditos/i.test(msg)) status = 402;
+    else if (/muito grande|formato/i.test(msg)) status = 413;
+    else if (/ocupado|temporári|demorou/i.test(msg)) status = 503;
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Erro desconhecido",
-        details: "Falha na análise visual conservadora"
+      JSON.stringify({
+        error: msg,
+        details: "Falha na análise visual"
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
