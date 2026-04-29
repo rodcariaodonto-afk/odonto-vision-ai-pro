@@ -12,6 +12,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { compressImageForAnalysis } from "@/lib/image-compression";
 
 type ExamCategory = "radiografia" | "tomografia" | "foto" | "laboratorial";
 
