@@ -3,7 +3,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 // Interface simplificada - apenas estruturas anatômicas com coordenadas
@@ -313,43 +315,80 @@ async function callGeminiVision(prompt: string, imageBase64: string, imageType: 
     ? imageBase64.split("base64,")[1] 
     : imageBase64;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
-      messages: [
-        { role: "system", content: prompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Analise esta radiografia odontológica seguindo as instruções do sistema. Retorne apenas JSON válido." },
-            { 
-              type: "image_url", 
-              image_url: { 
-                url: `data:${imageType || "image/jpeg"};base64,${base64Data}` 
-              } 
+  // Retry with exponential backoff for transient errors (timeouts, 5xx, rate limits)
+  const maxAttempts = 3;
+  let lastError: any = null;
+  let response: Response | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90_000); // 90s timeout
+
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: "google/gemini-2.5-pro",
+          messages: [
+            { role: "system", content: prompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Analise esta radiografia odontológica seguindo as instruções do sistema. Retorne apenas JSON válido." },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${imageType || "image/jpeg"};base64,${base64Data}`
+                  }
+                },
+              ],
             },
           ],
-        },
-      ],
-    }),
-  });
+        }),
+      });
+      clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Gemini API error:", response.status, errorText);
-    
-    if (response.status === 429) {
-      throw new Error("Rate limit excedido. Tente novamente em alguns segundos.");
+      if (response.ok) break;
+
+      // Don't retry permanent errors
+      if (response.status === 402) {
+        throw new Error("Créditos de IA esgotados. Entre em contato com o suporte.");
+      }
+      if (response.status === 400 || response.status === 401 || response.status === 403) {
+        const errText = await response.text();
+        console.error("Gemini permanent error:", response.status, errText);
+        throw new Error(`Falha ao processar imagem (${response.status}). Tente uma imagem menor ou em outro formato.`);
+      }
+
+      // Retryable: 429, 5xx
+      const errText = await response.text();
+      console.warn(`Tentativa ${attempt}/${maxAttempts} falhou: ${response.status} ${errText.slice(0, 200)}`);
+      lastError = new Error(response.status === 429
+        ? "Servidor de IA ocupado. Tentando novamente..."
+        : `Erro temporário do servidor de IA (${response.status})`);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        lastError = new Error("A análise demorou muito. Tente uma imagem menor.");
+      } else {
+        lastError = e;
+      }
+      console.warn(`Tentativa ${attempt}/${maxAttempts} exceção:`, e?.message);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
     }
-    if (response.status === 402) {
-      throw new Error("Créditos insuficientes no Lovable AI.");
-    }
-    throw new Error(`Erro na API Gemini: ${response.status}`);
+  }
+
+  if (!response || !response.ok) {
+    throw lastError || new Error("Falha ao contactar o servidor de IA");
   }
 
   const data = await response.json();
@@ -514,14 +553,37 @@ function validateAndCorrectCoordinates(analysis: any): AnaliseVisualSimplificada
 // ============================================================================
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { imageBase64, imageType, examCategory, clinicalContext } = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: "Requisição inválida (JSON malformado)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const { imageBase64, imageType, examCategory, clinicalContext } = body;
 
-    if (!imageBase64) {
-      throw new Error("Nenhuma imagem fornecida");
+    if (!imageBase64 || typeof imageBase64 !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Nenhuma imagem fornecida" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Reject oversized payloads early (base64 ~33% larger than binary).
+    // Limit ~12MB base64 ≈ 9MB binary.
+    if (imageBase64.length > 12_000_000) {
+      return new Response(
+        JSON.stringify({
+          error: "Imagem muito grande. Reduza para no máximo ~8MB e tente novamente."
+        }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const clinicalContextNote = (clinicalContext?.queixa || clinicalContext?.regiao)
@@ -564,12 +626,18 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("❌ Erro na análise visual:", error);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    // Map known errors to appropriate HTTP status codes
+    let status = 500;
+    if (/cr[ée]ditos/i.test(msg)) status = 402;
+    else if (/muito grande|formato/i.test(msg)) status = 413;
+    else if (/ocupado|temporári|demorou/i.test(msg)) status = 503;
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Erro desconhecido",
-        details: "Falha na análise visual conservadora"
+      JSON.stringify({
+        error: msg,
+        details: "Falha na análise visual"
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

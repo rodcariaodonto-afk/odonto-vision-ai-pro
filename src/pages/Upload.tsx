@@ -12,6 +12,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { compressImageForAnalysis } from "@/lib/image-compression";
 
 type ExamCategory = "radiografia" | "tomografia" | "foto" | "laboratorial";
 
@@ -1061,42 +1062,58 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       toast.error("Análise visual disponível apenas para imagens");
       return;
     }
-    
+
     // Try to find image from files first, then from previewUrls
     let imageBase64 = "";
     let imageType = "image/jpeg";
-    
-    const imageFile = selectedFiles.find(f => f.type.startsWith("image/"));
-    if (imageFile) {
-      // Use file directly
-      const reader = new FileReader();
-      imageBase64 = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(imageFile);
-      });
-      imageType = imageFile.type;
-    } else {
-      // Use previewUrl if available (restored from session)
-      const imagePreview = previewUrls.find(p => p !== "pdf" && p.startsWith("data:image"));
-      if (imagePreview) {
-        imageBase64 = imagePreview;
-        // Extract type from data URL
-        const match = imagePreview.match(/^data:([^;]+);/);
-        if (match) imageType = match[1];
-      }
-    }
-    
-    if (!imageBase64) {
-      toast.error("Nenhuma imagem encontrada para análise visual");
-      return;
-    }
-    
+
     setIsAnalyzingVisual(true);
-    toast.info("Iniciando análise visual...");
+    toast.info("Preparando imagem para análise...");
+
     try {
-      const { data, error } = await supabase.functions.invoke("visual-analyze", {
-        body: {
+      const imageFile = selectedFiles.find(f => f.type.startsWith("image/"));
+      if (imageFile) {
+        const compressed = await compressImageForAnalysis(imageFile);
+        imageBase64 = compressed.base64;
+        imageType = compressed.mimeType;
+      } else {
+        const imagePreview = previewUrls.find(p => p !== "pdf" && p.startsWith("data:image"));
+        if (imagePreview) {
+          const compressed = await compressImageForAnalysis(imagePreview);
+          imageBase64 = compressed.base64;
+          imageType = compressed.mimeType;
+        }
+      }
+
+      if (!imageBase64) {
+        toast.error("Nenhuma imagem encontrada para análise visual");
+        setIsAnalyzingVisual(false);
+        return;
+      }
+
+      // Ensure we have a valid auth session before calling the edge function.
+      // Safari/iOS occasionally drops the session between tabs — refresh first.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        setIsAnalyzingVisual(false);
+        return;
+      }
+
+      toast.info("Analisando radiografia... (pode levar até 1 min)");
+
+      // Call edge function and read the actual error body when it fails.
+      // supabase.functions.invoke surfaces non-2xx as a generic message and
+      // hides the JSON body, so we use fetch directly to get the real reason.
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/visual-analyze`;
+      const resp = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionData.session.access_token}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
           imageBase64,
           imageType,
           examCategory: examCategories[0] || "radiografia",
@@ -1104,10 +1121,19 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
             queixa: clinicalContext.queixa || undefined,
             regiao: clinicalContext.regiao || undefined,
           },
-        },
+        }),
       });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
+
+      let data: any;
+      const text = await resp.text();
+      try { data = text ? JSON.parse(text) : {}; }
+      catch { data = { error: text || "Resposta inválida do servidor" }; }
+
+      if (!resp.ok) {
+        const reason = data?.error || `Erro ${resp.status} no servidor`;
+        throw new Error(reason);
+      }
+      if (data?.error) throw new Error(data.error);
       
       // Preservar estrutura simplificada com achados_clinicos
       const normalizedResult: VisualAnalysisResult = {
@@ -1141,7 +1167,14 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       toast.success(`${normalizedResult.marcacoes.length} estruturas identificadas!`);
     } catch (error) {
       console.error("Erro na análise visual:", error);
-      toast.error(error instanceof Error ? error.message : "Erro na análise visual");
+      const msg = error instanceof Error ? error.message : "Erro na análise visual";
+      // Friendlier copy for common cases
+      let friendly = msg;
+      if (/non-2xx/i.test(msg)) friendly = "Servidor de análise indisponível no momento. Tente novamente em alguns segundos.";
+      else if (/ocupado|temporári/i.test(msg)) friendly = "Servidor de IA ocupado. Aguarde alguns segundos e tente novamente.";
+      else if (/muito grande/i.test(msg)) friendly = "Imagem muito grande. Tente uma versão menor (até ~8MB).";
+      else if (/cr[ée]ditos/i.test(msg)) friendly = "Créditos de IA esgotados. Contate o suporte.";
+      toast.error(friendly);
     } finally {
       setIsAnalyzingVisual(false);
     }
