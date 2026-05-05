@@ -1310,8 +1310,9 @@ Forneça a análise no formato JSON especificado.`
         // Monta o prompt do revisor com o laudo gerado e as imagens originais
         const reviewerSystemPrompt = `Você é um **Radiologista Odontológico Senior** revisando o laudo gerado por outro modelo de IA.
 
-Sua função é CRÍTICA e INDEPENDENTE: você NÃO deve concordar com o laudo só porque foi gerado.
-Você deve questionar, verificar e identificar erros, omissões e imprecisões.
+Seu papel é COMPLEMENTAR e COLABORATIVO: você apoia o laudo principal, confirma achados corretos e adiciona apenas o que foi claramente omitido.
+
+REGRA FUNDAMENTAL: Você só deve questionar um achado se tiver CERTEZA VISUAL de que ele está errado. Em caso de dúvida, confirme o laudo original.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SEU PROTOCOLO DE REVISÃO:
