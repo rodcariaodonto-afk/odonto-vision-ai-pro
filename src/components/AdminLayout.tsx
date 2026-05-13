@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ArrowLeft,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const adminNavItems = [
   { icon: Users, label: "Usuários", path: "/admin/users" },
   { icon: FileText, label: "Casos", path: "/admin/cases" },
   { icon: MessageSquare, label: "Suporte", path: "/admin/support" },
+  { icon: Shield, label: "Governança", path: "/admin/governance" },
   { icon: Settings, label: "Configurações", path: "/admin/settings" },
 ];
 
