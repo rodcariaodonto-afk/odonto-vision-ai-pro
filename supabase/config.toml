@@ -17,3 +17,18 @@ verify_jwt = true
 
 [functions.manage-user]
 verify_jwt = false
+
+[functions.governance-export]
+verify_jwt = true
+
+[functions.governance-audit-log]
+verify_jwt = true
+
+[functions.governance-delete]
+verify_jwt = true
+
+[functions.governance-compliance-report]
+verify_jwt = true
+
+[functions.governance-retention-cron]
+verify_jwt = false
