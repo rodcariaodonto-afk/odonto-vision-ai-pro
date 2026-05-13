@@ -1,88 +1,86 @@
+## Governança de Dados — Odontovision Pro
 
+Pacote completo de Data Governance para dados clínicos odontológicos (exames, imagens, IA, cefalometria, casos, suporte, assinaturas), espelhando o padrão IRIS com rigor adicional para LGPD/HIPAA-like clínico.
 
-# Correções da Cefalometria — 6 problemas
+---
 
-## 1. Detecção real de landmarks (fim do "Demo")
+### 1. Modelo de dados (novas tabelas, todas com RLS)
 
-A causa real do "Demo" e das linhas tortas: a API HuggingFace `hrnet-cephalometric-landmark-detection` está retornando erro/instável, então a função cai no `generateDemoLandmarks()` (coordenadas fixas que não batem com a imagem). Vamos:
+- `data_exports` — `user_id`, `account_id` (nullable), `case_id` (nullable), `requested_by`, `scope` (user|account|case), `status` (pending|processing|completed|failed|expired), `format` (json), `file_url`, `expires_at` (default +7 dias), `completed_at`, `error_message`, `metadata jsonb`, timestamps.
+- `audit_logs` — `actor_id`, `actor_role`, `event_type` (enum amplo: exam_upload, ai_analysis, case_view, case_compare, cephalo_run, export_download, case_delete, profile_update, subscription_change, admin_access, support_message, support_close, role_change, policy_change, consent_change, dsr_action), `resource_type`, `resource_id`, `severity` (info|warn|critical), `ip_address`, `user_agent`, `metadata jsonb` (sem conteúdo clínico bruto), `created_at`.
+- `data_subject_requests` — `user_id`, `subject_email`, `request_type` (access|rectification|portability|deletion|anonymization|restriction|consent_revocation), `linked_resource_type` (user|case|exam|image|analysis|support), `linked_resource_id`, `status` (open|in_progress|completed|rejected), `priority`, `due_date` (default +15 dias), `assigned_to`, `resolution_notes`, `resolved_at`, timestamps.
+- `consents` — `user_id`, `consent_type` (image_upload|ai_processing|clinical_storage|support|product_improvement|communications), `consent_status` (granted|revoked|pending), `consent_source` (signup|profile|banner|api), `consent_given_at`, `consent_revoked_at`, `legal_basis` (consent|contract|legal_obligation|legitimate_interest), `ai_processing_allowed bool`, `clinical_data_processing_allowed bool`, `data_origin` (patient|professional|imported), `privacy_notes`, timestamps.
+- `retention_policies` — singleton config (id fixo): `case_retention_days` (default 30 pós-cancelamento), `image_retention_days`, `export_expiration_days` (7), `clinical_access_logging bool`, `export_allowed_roles`, `deletion_allowed_roles`, `ai_clinical_use_allowed bool`, `support_retention_days`, `anonymization_strategy`, `updated_by`, `updated_at`.
+- `deletion_queue` — `resource_type`, `resource_id`, `user_id`, `scheduled_for`, `confirmed_by`, `confirmed_at`, `executed_at`, `status` (pending|confirmed|executed|cancelled), `reason`.
 
-- Substituir HuggingFace por **Lovable AI Gateway com `google/gemini-2.5-pro` (vision)** na edge function `analyze-cephalometry`. Gemini Pro recebe a imagem e devolve, via **tool calling estruturado**, as 19 coordenadas de landmarks proporcionais (0–1 do tamanho da imagem) já com nomes em pt-BR.
-- A função multiplica pelas dimensões reais da imagem (lemos com `createImageBitmap`) antes de calcular medidas.
-- Remover totalmente o `generateDemoLandmarks` e o badge `Demo`. Se o Gemini falhar, retornamos erro com toast claro ("Não foi possível detectar landmarks — tente uma imagem mais nítida") em vez de mostrar dados fake.
-- Tratar 429/402 do gateway com mensagem amigável.
+RLS: todas com `has_role(auth.uid(),'admin')` para gestão; `data_exports`, `consents`, `data_subject_requests` com leitura própria por `user_id = auth.uid()`. `audit_logs` somente admin (insert via Edge Function service-role).
 
-## 2. Múltiplas análises na mesma radiografia
+### 2. Edge Functions (novas, com `verify_jwt=true` + validação de role)
 
-- Trocar o seletor de **single** para **multi-select** (checkboxes nos cards). State vira `selectedAnalyses: AnalysisType[]` (mínimo 1).
-- Edge function aceita `analysisTypes: AnalysisType[]` e retorna `results: { [type]: { measurements, interpretation } }` — landmarks são detectados **uma vez só** e reaproveitados (eficiente em tokens).
-- UI de resultado vira **Tabs internas** (uma aba por análise selecionada), cada uma com seu próprio canvas (linhas/cores próprias), tabela e interpretação.
-- Botão fica `Analisar com {N} análise(s)`.
-- PDF exportado contém **uma seção por análise** (cabeçalho + canvas + tabela + interpretação) com quebra de página entre elas.
-- "Salvar Caso" grava todas as análises num único caso (campo `analysis.analyses[]`).
+- `governance-export` — gera JSON com profile, subscription, cases (sem binários), cephalometric_analyses, exam_comparisons, case_feedback, chat_conversations, support_chats/messages, consents, audit_logs do titular. Imagens: apenas referências (`storage_path`, `file_name`, `file_type`, `created_at`). Upload do JSON num bucket privado `governance-exports`, signed URL com `expires_at`.
+- `governance-audit-log` — endpoint interno chamado pelas demais funções e por hooks do front para registrar eventos.
+- `governance-delete` — exclusão/anonimização de caso individual ou conta inteira; remove arquivos do `cephalometric-images` e quaisquer storages clínicos; exige confirmação dupla; registra em `audit_logs`.
+- `governance-dsr` — cria/atualiza pedidos de titular, dispara workflow.
+- `governance-retention-cron` — diário (pg_cron + pg_net): processa `deletion_queue`, expira exports, anonimiza casos pós-retenção.
+- `governance-compliance-report` — agrega métricas e devolve JSON do relatório.
 
-## 3. Visualizador interativo com zoom + ferramenta de desenho
+Todas validam sessão, papel admin quando aplicável, e relação `user_id = auth.uid()` para escopos próprios.
 
-Criar componente `<CephalometricViewer>` reutilizável:
+### 3. Hooks de auditoria nas funções existentes
 
-- **Zoom**: botões `+ / − / Reset` + scroll-wheel (escala 0.5×–4×) + pan por arrastar quando zoom > 1.
-- **Toolbar de desenho** sobre a imagem:
-  - Caneta livre (cor selecionável: azul/vermelho/verde/amarelo)
-  - Régua/linha reta
-  - Borracha
-  - Limpar tudo
-- Camadas separadas: imagem base → linhas da análise (com landmarks) → camada de anotação manual (preservada quando o usuário troca de análise).
-- Anotações salvas no canvas final e incluídas no PDF.
-- Mover landmarks: arrastar um ponto reposiciona o landmark e **recalcula** as medidas no client (recálculo local com as funções `angle/distance` portadas do edge para `src/lib/cephalometric-math.ts`).
+Instrumentar `analyze-exam`, `analyze-cephalometry`, `compare-exams`, `visual-analyze`, `odonto-chat`, `manage-user`, `create-checkout`, `customer-portal`, `verify-session` para chamar `governance-audit-log` (event_type apropriado, sem payload clínico).
 
-## 4. Histórico clicável — reabrir análise completa
+### 4. Frontend — nova área `/admin/governance`
 
-- Cada item do histórico vira **card clicável**.
-- Ao clicar: restaura `selectedAnalyses`, `patientId`, `patientName`, `imagePreview` (carregando imagem do Storage via `image_storage_path`), `result.landmarks` e `result.measurements`, redesenha overlay e rola para o resultado.
-- Adicionar botões de **Excluir** (ícone lixeira) e **Exportar PDF** direto no item.
+Rota protegida por `useAdminRole`. Layout com `Tabs` no padrão existente (shadcn). Abas:
 
-## 5. Página atualizando ao trocar de aba
+1. **Visão geral** — cards reais via queries: última export (`data_exports`), DSRs abertos, exclusões pendentes (`deletion_queue`), eventos críticos 30d (`audit_logs` severity=critical), política atual, assinatura ativa do admin, contagens (`cases`, `cephalometric_analyses`, `chat_conversations`, `support_chats`, admins via `user_roles`), score de risco calculado.
+2. **Exportações** — formulário com escopo (user/account/case), seletor de usuário/caso, botão "Exportar JSON", lista histórica com download (signed URL), status, expiração.
+3. **Auditoria** — tabela paginada filtrável por event_type, ator, severity, período; export CSV/JSON.
+4. **Retenção & Exclusão** — visualizar policy, agendar exclusão de caso/conta, fila com dupla confirmação (modal `AlertDialog`), aviso explícito sobre imagens.
+5. **Conformidade** — geração on-demand do relatório (RLS coverage, exports recentes, retenção, casos, imagens, IA, suporte, admins, eventos críticos, riscos), botão export JSON.
+6. **Pedidos dos titulares** — CRUD de DSRs, atribuição, prazo, status, vínculo a recurso.
+7. **Consentimentos** — visualização agregada e por usuário; toggles para revogar/registrar; histórico.
+8. **Políticas** — formulário do `retention_policies` singleton (admin only), com auditoria de alterações.
 
-A causa: o `<Layout>` consome `subscription` do `AuthContext` e o evento `SIGNED_IN` é re-disparado pelo Supabase quando a aba volta ao foco (rehidratação de sessão), o que chama `checkSubscription()` → re-render que reseta o `useState` da página.
+Componentes reutilizando `Card`, `Tabs`, `Table`, `Dialog`, `Form`, `Input`, `Badge`. Sem dados fictícios — somente queries reais; estados vazios explícitos.
 
-Correções em `AuthContext.tsx`:
-- No listener `onAuthStateChange`, ignorar `SIGNED_IN` quando `newSession?.user?.id === user?.id` (sessão idêntica = apenas rehidratação, não login real).
-- Adicionar `if (document.visibilityState === 'hidden') return;` para evitar disparo durante mudança de aba.
-- Mover persistência do form da Cefalometria para `sessionStorage` (`cephalo_draft`) — patientId, patientName, selectedAnalyses, result e imagePreview — para que mesmo um re-render acidental não perca o trabalho.
+Adicionar item "Governança" no `AdminLayout` nav (ícone `Shield`).
 
-## 6. PDF "não funcionava"
+### 5. Storage
 
-Já está implementado em `handleExportPDF`, mas falhava porque o canvas tinha `crossOrigin` ausente quando a imagem vinha do Storage público, gerando "tainted canvas" no `toDataURL()`. Correção:
-- Adicionar `img.crossOrigin = "anonymous"` no `drawAnalysisOverlay` antes de `img.src = imagePreview`.
-- Quando `imagePreview` for `data:` URL (preview local), funciona direto.
-- Quando vier do Storage (reabertura de histórico), o bucket `cephalometric-images` precisa ter CORS habilitado — adicionar via migração SQL no `storage.buckets`.
+Criar bucket privado `governance-exports` com RLS: leitura via signed URL apenas; escrita só pela service role das Edge Functions.
 
-## Arquivos afetados
+### 6. Cron
 
-| Arquivo | Mudança |
-|---|---|
-| `supabase/functions/analyze-cephalometry/index.ts` | Trocar HF por Lovable AI (Gemini 2.5 Pro vision + tool calling); aceitar `analysisTypes[]`; remover demo |
-| `src/types/cephalometric-analyses.ts` | Sem mudança estrutural |
-| `src/lib/cephalometric-math.ts` | **Novo** — `angle()`, `distance()`, `calculateMeasurementsByAnalysis()` (mesma lógica do edge, no client) |
-| `src/components/cephalometry/CephalometricViewer.tsx` | **Novo** — canvas com zoom/pan/desenho/landmarks arrastáveis |
-| `src/components/cephalometry/AnalysisResultTabs.tsx` | **Novo** — tabs com tabela+interpretação por análise |
-| `src/pages/Cephalometry.tsx` | Multi-select; histórico clicável; sessionStorage; usar Viewer e Tabs; PDF multi-análise |
-| `src/contexts/AuthContext.tsx` | Ignorar `SIGNED_IN` redundante e `visibilityState === 'hidden'` |
-| Migração SQL | Habilitar CORS no bucket `cephalometric-images`; coluna `analysis_types text[]` (mantém `analysis_type` legado) |
+Job `governance-retention-daily` via `pg_cron` + `pg_net` chamando `governance-retention-cron` (diário 03:00 UTC).
 
-## Fluxo final
+### 7. Consentimento no fluxo do usuário
 
-```text
-1. Marca 1+ análises (Steiner ☑ Jarabak ☑ McNamara ☐ ...)
-2. Preenche paciente + upload da telerradiografia
-3. Gemini detecta landmarks reais → calcula todas as análises marcadas
-4. Viewer mostra a imagem com:
-   • zoom/pan
-   • linhas+landmarks da análise ativa (tab)
-   • toolbar de desenho manual (caneta/régua/borracha)
-   • landmarks arrastáveis (recalcula medidas ao soltar)
-5. Tabs alternam entre análises sem reanalisar
-6. Salvar Caso (todas) / Exportar PDF (todas, multi-página)
-7. Histórico: clicar reabre tudo, com imagem, landmarks e medidas
-8. Trocar de aba do navegador NÃO refaz nada
-```
+Adicionar checkbox de consentimento clínico no `Register.tsx` e ao primeiro upload em `Upload.tsx` (grava em `consents`). Banner no `Profile.tsx` para gerenciar.
 
+### 8. Relatório técnico final
+
+Documento entregue na aba Conformidade + markdown em `docs/GOVERNANCE.md` listando: tabelas, RLS, Edge Functions, rotas, permissões, eventos auditados, fluxos (export, exclusão, DSR, retenção), riscos remanescentes (ex.: imagens em PDFs gerados, cache de IA externa, logs de provedor).
+
+---
+
+### Detalhes técnicos
+
+- Linguagem PT-BR em toda UI, design tokens existentes (Navy/Teal/Gold).
+- Validação Zod em todos os endpoints.
+- `audit_logs.metadata` nunca contém texto clínico — apenas IDs, tipos, contagens.
+- Exports: JSON gzipped, máx 50MB; se exceder, particionar.
+- Anonimização: substitui nome/CPF/email do paciente por hash, mantém estrutura para estatística.
+- Exclusão de imagens: 2-step (schedule → confirm) com janela de 24h.
+- Tudo respeita `has_role` para evitar privilege escalation; nenhuma role em `profiles`.
+
+### Ordem de execução
+
+1. Migração SQL (tabelas, RLS, bucket, policy singleton seed).
+2. Edge Functions + config.toml.
+3. Cron job (via insert tool, não migration).
+4. Frontend admin/governance + nav.
+5. Hooks de auditoria nas funções existentes.
+6. Consentimento no signup/upload.
+7. `docs/GOVERNANCE.md` + verificação.
