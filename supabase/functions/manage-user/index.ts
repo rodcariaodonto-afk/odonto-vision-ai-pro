@@ -126,6 +126,19 @@ Deno.serve(async (req) => {
         await supabaseAdmin.from("test_users").delete().eq("email", email.toLowerCase());
       }
 
+      await supabaseAdmin.from("audit_logs").insert({
+        actor_id: currentUser.id,
+        actor_email: currentUser.email,
+        actor_role: "admin",
+        event_type: "admin_user_deleted",
+        resource_type: "user_account",
+        resource_id: user_id,
+        severity: "critical",
+        ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        user_agent: req.headers.get("user-agent"),
+        metadata: { email: email ?? null },
+      });
+
       return new Response(JSON.stringify({ success: true, message: "Usuário excluído com sucesso" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
