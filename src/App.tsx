@@ -29,6 +29,7 @@ import AdminCases from "./pages/admin/AdminCases";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminTesters from "./pages/admin/AdminTesters";
+import AdminGovernance from "./pages/admin/AdminGovernance";
 import Cephalometry from "./pages/Cephalometry";
 import { Card, CardContent } from "./components/ui/card";
 import { Button } from "./components/ui/button";
@@ -174,6 +175,7 @@ function AppRoutes() {
         <Route path="/admin/support" element={<AdminSupport />} />
         <Route path="/admin/testers" element={<AdminTesters />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin/governance" element={<AdminGovernance />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
