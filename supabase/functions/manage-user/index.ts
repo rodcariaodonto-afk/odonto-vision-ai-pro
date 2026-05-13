@@ -101,6 +101,19 @@ Deno.serve(async (req) => {
         name: name?.trim() || null,
       });
 
+      await supabaseAdmin.from("audit_logs").insert({
+        actor_id: currentUser.id,
+        actor_email: currentUser.email,
+        actor_role: "admin",
+        event_type: "admin_user_created",
+        resource_type: "user_account",
+        resource_id: authData.user.id,
+        severity: "warn",
+        ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        user_agent: req.headers.get("user-agent"),
+        metadata: { email: normalizedEmail },
+      });
+
       return new Response(JSON.stringify({ success: true, message: "Usuário criado com sucesso" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
