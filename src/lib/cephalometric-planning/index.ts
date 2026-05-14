@@ -9,3 +9,4 @@ export * from './versions';
 export * from './constants';
 export * from './score';
 export * from './classifiers';
+export * from './engine';
