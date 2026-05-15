@@ -23,6 +23,7 @@ import {
   Landmark, Measurements, recalcAll,
 } from "@/lib/cephalometric-math";
 import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
+import { CephalometricPlanningPanel } from "@/components/cephalometric-planning";
 
 interface HistoryItem {
   id: string; patient_name: string | null; patient_id: string;
@@ -589,6 +590,14 @@ export default function Cephalometry() {
                 />
               </CardContent>
             </Card>
+          )}
+
+          {/* Sugestão de Planeamento Clínico (apoio à decisão) */}
+          {result?.analysisId && (
+            <CephalometricPlanningPanel
+              cephalometricAnalysisId={result.analysisId}
+              measurements={(result.results.steiner?.measurements ?? {}) as Record<string, number | undefined>}
+            />
           )}
         </TabsContent>
 
