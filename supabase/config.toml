@@ -32,3 +32,6 @@ verify_jwt = true
 
 [functions.governance-retention-cron]
 verify_jwt = false
+
+[functions.generate-ceph-planning]
+verify_jwt = true
