@@ -102,13 +102,18 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
     setState({ ...state, kind: "editing" });
   };
 
-  const handleSaveEdit = async (newText: string) => {
+  const handleSaveEdit = async (payload: import("./SuggestionEditor").EditedSuggestionPayload) => {
     if (state.kind !== "editing" || !user?.id) return;
 
     const res = await updateText({
       planningSuggestionId: state.persistedId,
-      newText,
       userId: user.id,
+      summary: payload.summary,
+      prioritizedProblems: payload.prioritizedProblems,
+      therapeuticObjectives: payload.therapeuticObjectives,
+      treatmentAlternatives: payload.treatmentAlternatives,
+      alertsAndLimitations: payload.alertsAndLimitations,
+      patientFriendlyExplanation: payload.patientFriendlyExplanation,
     });
 
     if (!res.success) {
@@ -116,10 +121,18 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
       return;
     }
 
-    // Atualiza estado local com o texto novo
+    // Atualiza estado local com os campos editados (merge em cima da sugestao original)
     setState({
       kind: "generated",
-      suggestion: { ...state.suggestion, aiOriginalText: newText, clinicianEditedText: newText },
+      suggestion: {
+        ...state.suggestion,
+        summary: payload.summary,
+        prioritizedProblems: payload.prioritizedProblems,
+        therapeuticObjectives: payload.therapeuticObjectives,
+        treatmentAlternatives: payload.treatmentAlternatives,
+        alertsAndLimitations: payload.alertsAndLimitations,
+        patientFriendlyExplanation: payload.patientFriendlyExplanation,
+      },
       persistedId: state.persistedId,
     });
     toast.success("Edicao salva");
@@ -264,12 +277,10 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
           </>
         )}
 
-        {/* EDITING: editor */}
+        {/* EDITING: editor estruturado por secao */}
         {state.kind === "editing" && (
           <SuggestionEditor
-            initialText={
-              state.suggestion.clinicianEditedText ?? state.suggestion.aiOriginalText
-            }
+            initial={state.suggestion}
             onSave={handleSaveEdit}
             onCancel={() => setState({ ...state, kind: "generated" })}
             isSaving={isUpdating}

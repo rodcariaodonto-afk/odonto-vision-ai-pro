@@ -43,8 +43,13 @@ export interface PlanningGenerationResult {
 
 interface UpdateOptions {
   planningSuggestionId: string;
-  newText: string;
   userId: string;
+  summary: string;
+  prioritizedProblems: string[];
+  therapeuticObjectives: string[];
+  treatmentAlternatives: string[];
+  alertsAndLimitations: string[];
+  patientFriendlyExplanation: string;
 }
 
 // ============================================================================
@@ -143,8 +148,17 @@ export function useCephalometricPlanning() {
     async (opts: UpdateOptions): Promise<{ success: boolean; error?: string }> => {
       setIsUpdating(true);
       try {
-        // Re-valida texto antes de gravar
-        const safety = validateAndSanitizeSuggestionText(opts.newText);
+        // Valida cada campo com o filtro de seguranca (concatenado)
+        const allText = [
+          opts.summary,
+          ...opts.prioritizedProblems,
+          ...opts.therapeuticObjectives,
+          ...opts.treatmentAlternatives,
+          ...opts.alertsAndLimitations,
+          opts.patientFriendlyExplanation,
+        ].join('\n');
+
+        const safety = validateAndSanitizeSuggestionText(allText);
         if (!safety.isSafe) {
           return {
             success: false,
@@ -152,10 +166,44 @@ export function useCephalometricPlanning() {
           };
         }
 
+        // Recompoe o texto consolidado (clinician_edited_text)
+        const consolidatedText = [
+          '=== RESUMO ===',
+          opts.summary,
+          '',
+          '=== ACHADOS PRIORIZADOS ===',
+          ...opts.prioritizedProblems.map((p, i) => `${i + 1}. ${p}`),
+          '',
+          '=== OBJETIVOS TERAPEUTICOS A CONSIDERAR ===',
+          ...opts.therapeuticObjectives.map((o, i) => `${i + 1}. ${o}`),
+          '',
+          '=== ALTERNATIVAS A DISCUTIR ===',
+          ...opts.treatmentAlternatives.map((a, i) => `${i + 1}. ${a}`),
+          '',
+          '=== ALERTAS E LIMITACOES ===',
+          ...opts.alertsAndLimitations.map((a, i) => `${i + 1}. ${a}`),
+          '',
+          '=== EXPLICACAO AMIGAVEL AO PACIENTE ===',
+          opts.patientFriendlyExplanation,
+        ].join('\n');
+
+        // Busca o cephalometric_analysis_id para o audit_log
+        const { data: existing } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .select('cephalometric_analysis_id')
+          .eq('id', opts.planningSuggestionId)
+          .maybeSingle();
+
         const { error } = await supabase
           .from('cephalometric_planning_suggestions')
           .update({
-            clinician_edited_text: opts.newText,
+            summary: opts.summary,
+            prioritized_problems: opts.prioritizedProblems,
+            therapeutic_objectives: opts.therapeuticObjectives,
+            treatment_alternatives: opts.treatmentAlternatives,
+            alerts_and_limitations: opts.alertsAndLimitations,
+            patient_friendly_explanation: opts.patientFriendlyExplanation,
+            clinician_edited_text: consolidatedText,
             status: 'clinician_edited',
             edited_at: new Date().toISOString(),
           })
@@ -166,13 +214,15 @@ export function useCephalometricPlanning() {
         }
 
         // Registra evento de auditoria (best-effort)
-        await supabase.from('cephalometric_planning_audit_log').insert({
-          planning_suggestion_id: opts.planningSuggestionId,
-          cephalometric_analysis_id: '',
-          user_id: opts.userId,
-          event_type: 'edited',
-          content_after: opts.newText,
-        });
+        if (existing?.cephalometric_analysis_id) {
+          await supabase.from('cephalometric_planning_audit_log').insert({
+            planning_suggestion_id: opts.planningSuggestionId,
+            cephalometric_analysis_id: existing.cephalometric_analysis_id,
+            user_id: opts.userId,
+            event_type: 'edited',
+            content_after: consolidatedText,
+          });
+        }
 
         return { success: true };
       } catch (err) {
