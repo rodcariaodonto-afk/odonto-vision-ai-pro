@@ -12,3 +12,4 @@ export * from './classifiers';
 export * from './engine';
 export * from './safety-filter';
 export * from './ui-adapter';
+export * from './pdf-export';

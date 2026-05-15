@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Brain, Loader2, AlertTriangle, ShieldCheck, FileWarning } from "lucide-react";
+import { Brain, Loader2, AlertTriangle, ShieldCheck, FileWarning, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import {
   buildEngineInput,
   calculateCephalometricPlanningDataSufficiency,
   hasMinimumMeasurementsForPlanning,
+  downloadPlanningSuggestionPDF,
   type UiClinicalContext,
   type CephalometricPlanningSuggestion,
   type RawMeasurements,
@@ -289,29 +290,57 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
 
         {/* FINALIZED: estado terminal */}
         {state.kind === "finalized" && (
-          <Alert
-            className={
-              state.status === "approved"
-                ? "border-emerald-500/40 bg-emerald-500/10"
-                : "border-red-500/40 bg-red-500/10"
-            }
-          >
-            <ShieldCheck
-              className={`h-4 w-4 ${
-                state.status === "approved" ? "text-emerald-600" : "text-red-600"
-              }`}
-            />
-            <AlertTitle>
-              {state.status === "approved"
-                ? "Sugestao aprovada"
-                : "Sugestao rejeitada"}
-            </AlertTitle>
-            <AlertDescription className="text-sm">
-              {state.status === "approved"
-                ? "Esta sugestao foi aprovada e registrada no log de auditoria."
-                : "Esta sugestao foi rejeitada. O motivo esta no log de auditoria."}
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <Alert
+              className={
+                state.status === "approved"
+                  ? "border-emerald-500/40 bg-emerald-500/10"
+                  : "border-red-500/40 bg-red-500/10"
+              }
+            >
+              <ShieldCheck
+                className={`h-4 w-4 ${
+                  state.status === "approved" ? "text-emerald-600" : "text-red-600"
+                }`}
+              />
+              <AlertTitle>
+                {state.status === "approved"
+                  ? "Sugestao aprovada"
+                  : "Sugestao rejeitada"}
+              </AlertTitle>
+              <AlertDescription className="text-sm">
+                {state.status === "approved"
+                  ? "Esta sugestao foi aprovada e registrada no log de auditoria."
+                  : "Esta sugestao foi rejeitada. O motivo esta no log de auditoria."}
+              </AlertDescription>
+            </Alert>
+
+            {state.status === "approved" && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    try {
+                      downloadPlanningSuggestionPDF(state.suggestion, {
+                        clinicianEmail: user?.email ?? undefined,
+                        approvedAt: state.suggestion.approvedAt,
+                      });
+                      toast.success("PDF gerado com sucesso");
+                    } catch (err) {
+                      toast.error(
+                        err instanceof Error
+                          ? `Falha ao gerar PDF: ${err.message}`
+                          : "Falha ao gerar PDF",
+                      );
+                    }
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Exportar PDF
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
