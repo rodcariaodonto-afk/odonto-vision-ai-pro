@@ -11,3 +11,4 @@ export * from './score';
 export * from './classifiers';
 export * from './engine';
 export * from './safety-filter';
+export * from './ui-adapter';

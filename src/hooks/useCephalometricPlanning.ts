@@ -1,0 +1,289 @@
+/**
+ * useCephalometricPlanning — Hook React
+ *
+ * Orquestra a geracao de uma sugestao de planeamento cefalometrico:
+ * 1. Roda o engine deterministico no client
+ * 2. Re-valida com filtro de seguranca local
+ * 3. Envia para a Edge Function generate-ceph-planning (re-validacao server-side)
+ * 4. Recebe a sugestao persistida com id do banco
+ *
+ * Tambem expoe operacoes de UPDATE (editar / aprovar / rejeitar) sobre sugestoes
+ * ja persistidas. As gravacoes vao via supabase-js direto (RLS protege).
+ */
+
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  generateCephalometricPlanningSuggestion,
+  validateAndSanitizeSuggestionText,
+  buildEngineInput,
+  type UiClinicalContext,
+  type RawMeasurements,
+  type CephalometricPlanningSuggestion,
+} from '@/lib/cephalometric-planning';
+
+// ============================================================================
+// TIPOS
+// ============================================================================
+
+export interface PlanningGenerationParams {
+  cephalometricAnalysisId: string;
+  userId: string;
+  measurements: RawMeasurements;
+  clinicalContext: UiClinicalContext;
+}
+
+export interface PlanningGenerationResult {
+  success: boolean;
+  suggestion?: CephalometricPlanningSuggestion;
+  persistedRow?: Record<string, unknown>;
+  error?: string;
+  blockedTerms?: string[];
+}
+
+interface UpdateOptions {
+  planningSuggestionId: string;
+  newText: string;
+  userId: string;
+}
+
+// ============================================================================
+// HOOK
+// ============================================================================
+
+export function useCephalometricPlanning() {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [lastSuggestion, setLastSuggestion] = useState<CephalometricPlanningSuggestion | null>(null);
+
+  // -------------------------------------------------------------------------
+  // GERAR
+  // -------------------------------------------------------------------------
+  const generate = useCallback(
+    async (params: PlanningGenerationParams): Promise<PlanningGenerationResult> => {
+      setIsGenerating(true);
+      try {
+        // 1. Monta input do engine
+        const input = buildEngineInput(params.measurements, params.clinicalContext);
+
+        // 2. Roda engine deterministico
+        const suggestion = generateCephalometricPlanningSuggestion({
+          input,
+          cephalometricAnalysisId: params.cephalometricAnalysisId,
+          userId: params.userId,
+        });
+
+        // 3. Re-valida filtro de seguranca local (espelha o server)
+        const safety = validateAndSanitizeSuggestionText(suggestion.aiOriginalText);
+        if (!safety.isSafe) {
+          return {
+            success: false,
+            error: 'O texto gerado foi bloqueado pelo filtro de seguranca local.',
+            blockedTerms: safety.blockedTerms,
+          };
+        }
+
+        // 4. Envia para a Edge Function (que re-valida e persiste)
+        const { data, error } = await supabase.functions.invoke(
+          'generate-ceph-planning',
+          {
+            body: {
+              cephalometric_analysis_id: params.cephalometricAnalysisId,
+              suggestion,
+            },
+          },
+        );
+
+        if (error) {
+          return {
+            success: false,
+            error: `Erro na Edge Function: ${error.message}`,
+          };
+        }
+
+        const response = data as {
+          success?: boolean;
+          planning_suggestion_id?: string;
+          suggestion?: Record<string, unknown>;
+          error?: string;
+          blockedTerms?: string[];
+        };
+
+        if (!response.success) {
+          return {
+            success: false,
+            error: response.error ?? 'Falha desconhecida na geracao',
+            blockedTerms: response.blockedTerms,
+          };
+        }
+
+        // 5. Sucesso
+        setLastSuggestion(suggestion);
+        return {
+          success: true,
+          suggestion,
+          persistedRow: response.suggestion,
+        };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Erro desconhecido',
+        };
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // EDITAR
+  // -------------------------------------------------------------------------
+  const updateText = useCallback(
+    async (opts: UpdateOptions): Promise<{ success: boolean; error?: string }> => {
+      setIsUpdating(true);
+      try {
+        // Re-valida texto antes de gravar
+        const safety = validateAndSanitizeSuggestionText(opts.newText);
+        if (!safety.isSafe) {
+          return {
+            success: false,
+            error: `Texto bloqueado: ${safety.blockedTerms.join(', ')}`,
+          };
+        }
+
+        const { error } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .update({
+            clinician_edited_text: opts.newText,
+            status: 'clinician_edited',
+            edited_at: new Date().toISOString(),
+          })
+          .eq('id', opts.planningSuggestionId);
+
+        if (error) {
+          return { success: false, error: error.message };
+        }
+
+        // Registra evento de auditoria (best-effort)
+        await supabase.from('cephalometric_planning_audit_log').insert({
+          planning_suggestion_id: opts.planningSuggestionId,
+          cephalometric_analysis_id: '',
+          user_id: opts.userId,
+          event_type: 'edited',
+          content_after: opts.newText,
+        });
+
+        return { success: true };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Erro desconhecido',
+        };
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // APROVAR
+  // -------------------------------------------------------------------------
+  const approve = useCallback(
+    async (planningSuggestionId: string, userId: string, finalText: string) => {
+      setIsUpdating(true);
+      try {
+        const safety = validateAndSanitizeSuggestionText(finalText);
+        if (!safety.isSafe) {
+          return {
+            success: false,
+            error: `Texto bloqueado: ${safety.blockedTerms.join(', ')}`,
+          };
+        }
+
+        const now = new Date().toISOString();
+        const { error } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .update({
+            approved_final_text: finalText,
+            status: 'clinician_approved',
+            approved_at: now,
+            clinician_user_id: userId,
+          })
+          .eq('id', planningSuggestionId);
+
+        if (error) return { success: false, error: error.message };
+
+        await supabase.from('cephalometric_planning_audit_log').insert({
+          planning_suggestion_id: planningSuggestionId,
+          cephalometric_analysis_id: '',
+          user_id: userId,
+          event_type: 'approved',
+          content_after: finalText,
+        });
+
+        return { success: true };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Erro desconhecido',
+        };
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // REJEITAR
+  // -------------------------------------------------------------------------
+  const reject = useCallback(
+    async (planningSuggestionId: string, userId: string, reason: string) => {
+      setIsUpdating(true);
+      try {
+        const now = new Date().toISOString();
+        const { error } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .update({
+            status: 'rejected',
+            rejection_reason: reason,
+            rejected_at: now,
+            clinician_user_id: userId,
+          })
+          .eq('id', planningSuggestionId);
+
+        if (error) return { success: false, error: error.message };
+
+        await supabase.from('cephalometric_planning_audit_log').insert({
+          planning_suggestion_id: planningSuggestionId,
+          cephalometric_analysis_id: '',
+          user_id: userId,
+          event_type: 'rejected',
+          reason,
+        });
+
+        return { success: true };
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Erro desconhecido',
+        };
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [],
+  );
+
+  return {
+    isGenerating,
+    isUpdating,
+    lastSuggestion,
+    generate,
+    updateText,
+    approve,
+    reject,
+  };
+}
