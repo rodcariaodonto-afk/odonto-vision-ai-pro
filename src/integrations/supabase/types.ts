@@ -362,6 +362,200 @@ export type Database = {
           },
         ]
       }
+      cephalometric_planning_audit_log: {
+        Row: {
+          cephalometric_analysis_id: string
+          clinical_context_snapshot: Json | null
+          confidence_level:
+            | Database["public"]["Enums"]["ceph_planning_confidence"]
+            | null
+          content_after: string | null
+          content_before: string | null
+          created_at: string
+          data_sufficiency_score: number | null
+          event_timestamp: string
+          event_type: Database["public"]["Enums"]["ceph_planning_audit_event"]
+          id: string
+          input_measurements_snapshot: Json | null
+          metadata: Json | null
+          missing_data_list: string[] | null
+          planning_suggestion_id: string
+          reason: string | null
+          rules_version: string | null
+          safety_filter_version: string | null
+          template_version: string | null
+          user_id: string | null
+        }
+        Insert: {
+          cephalometric_analysis_id: string
+          clinical_context_snapshot?: Json | null
+          confidence_level?:
+            | Database["public"]["Enums"]["ceph_planning_confidence"]
+            | null
+          content_after?: string | null
+          content_before?: string | null
+          created_at?: string
+          data_sufficiency_score?: number | null
+          event_timestamp?: string
+          event_type: Database["public"]["Enums"]["ceph_planning_audit_event"]
+          id?: string
+          input_measurements_snapshot?: Json | null
+          metadata?: Json | null
+          missing_data_list?: string[] | null
+          planning_suggestion_id: string
+          reason?: string | null
+          rules_version?: string | null
+          safety_filter_version?: string | null
+          template_version?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          cephalometric_analysis_id?: string
+          clinical_context_snapshot?: Json | null
+          confidence_level?:
+            | Database["public"]["Enums"]["ceph_planning_confidence"]
+            | null
+          content_after?: string | null
+          content_before?: string | null
+          created_at?: string
+          data_sufficiency_score?: number | null
+          event_timestamp?: string
+          event_type?: Database["public"]["Enums"]["ceph_planning_audit_event"]
+          id?: string
+          input_measurements_snapshot?: Json | null
+          metadata?: Json | null
+          missing_data_list?: string[] | null
+          planning_suggestion_id?: string
+          reason?: string | null
+          rules_version?: string | null
+          safety_filter_version?: string | null
+          template_version?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cephalometric_planning_audit_log_cephalometric_analysis_id_fkey"
+            columns: ["cephalometric_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "cephalometric_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cephalometric_planning_audit_log_planning_suggestion_id_fkey"
+            columns: ["planning_suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "cephalometric_planning_suggestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cephalometric_planning_suggestions: {
+        Row: {
+          ai_original_text: string
+          alerts_and_limitations: string[]
+          approved_at: string | null
+          approved_final_text: string | null
+          blocking_reasons: string[]
+          cephalometric_analysis_id: string
+          clinical_context_snapshot: Json
+          clinician_edited_text: string | null
+          clinician_user_id: string | null
+          confidence_level: Database["public"]["Enums"]["ceph_planning_confidence"]
+          created_at: string
+          data_sufficiency_score: number
+          edited_at: string | null
+          generated_at: string
+          id: string
+          input_measurements_snapshot: Json
+          missing_data: string[]
+          patient_friendly_explanation: string | null
+          prioritized_problems: string[]
+          rejected_at: string | null
+          rejection_reason: string | null
+          rules_version: string
+          safety_filter_version: string
+          status: Database["public"]["Enums"]["ceph_planning_status"]
+          summary: string
+          template_version: string
+          therapeutic_objectives: string[]
+          treatment_alternatives: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_original_text: string
+          alerts_and_limitations?: string[]
+          approved_at?: string | null
+          approved_final_text?: string | null
+          blocking_reasons?: string[]
+          cephalometric_analysis_id: string
+          clinical_context_snapshot?: Json
+          clinician_edited_text?: string | null
+          clinician_user_id?: string | null
+          confidence_level: Database["public"]["Enums"]["ceph_planning_confidence"]
+          created_at?: string
+          data_sufficiency_score: number
+          edited_at?: string | null
+          generated_at?: string
+          id?: string
+          input_measurements_snapshot: Json
+          missing_data?: string[]
+          patient_friendly_explanation?: string | null
+          prioritized_problems?: string[]
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          rules_version: string
+          safety_filter_version: string
+          status?: Database["public"]["Enums"]["ceph_planning_status"]
+          summary: string
+          template_version: string
+          therapeutic_objectives?: string[]
+          treatment_alternatives?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_original_text?: string
+          alerts_and_limitations?: string[]
+          approved_at?: string | null
+          approved_final_text?: string | null
+          blocking_reasons?: string[]
+          cephalometric_analysis_id?: string
+          clinical_context_snapshot?: Json
+          clinician_edited_text?: string | null
+          clinician_user_id?: string | null
+          confidence_level?: Database["public"]["Enums"]["ceph_planning_confidence"]
+          created_at?: string
+          data_sufficiency_score?: number
+          edited_at?: string | null
+          generated_at?: string
+          id?: string
+          input_measurements_snapshot?: Json
+          missing_data?: string[]
+          patient_friendly_explanation?: string | null
+          prioritized_problems?: string[]
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          rules_version?: string
+          safety_filter_version?: string
+          status?: Database["public"]["Enums"]["ceph_planning_status"]
+          summary?: string
+          template_version?: string
+          therapeutic_objectives?: string[]
+          treatment_alternatives?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cephalometric_planning_suggestio_cephalometric_analysis_id_fkey"
+            columns: ["cephalometric_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "cephalometric_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversations: {
         Row: {
           created_at: string
@@ -1056,6 +1250,21 @@ export type Database = {
       api_environment: "live" | "test"
       app_role: "admin" | "user"
       audit_severity: "info" | "warn" | "critical"
+      ceph_planning_audit_event:
+        | "generated"
+        | "edited"
+        | "approved"
+        | "rejected"
+        | "exported"
+        | "safety_blocked"
+        | "requested_more_data"
+      ceph_planning_confidence: "low" | "medium" | "high"
+      ceph_planning_status:
+        | "draft_ai_generated"
+        | "clinician_edited"
+        | "clinician_approved"
+        | "rejected"
+        | "requires_more_data"
       clinic_plan: "basic" | "professional" | "enterprise"
       consent_status: "granted" | "revoked" | "pending"
       consent_type:
@@ -1219,6 +1428,23 @@ export const Constants = {
       api_environment: ["live", "test"],
       app_role: ["admin", "user"],
       audit_severity: ["info", "warn", "critical"],
+      ceph_planning_audit_event: [
+        "generated",
+        "edited",
+        "approved",
+        "rejected",
+        "exported",
+        "safety_blocked",
+        "requested_more_data",
+      ],
+      ceph_planning_confidence: ["low", "medium", "high"],
+      ceph_planning_status: [
+        "draft_ai_generated",
+        "clinician_edited",
+        "clinician_approved",
+        "rejected",
+        "requires_more_data",
+      ],
       clinic_plan: ["basic", "professional", "enterprise"],
       consent_status: ["granted", "revoked", "pending"],
       consent_type: [
