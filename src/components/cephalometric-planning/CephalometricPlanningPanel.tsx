@@ -8,13 +8,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCephalometricPlanning } from "@/hooks/useCephalometricPlanning";
 import {
-  buildEngineInput,
+  buildEngineInputMulti,
   calculateCephalometricPlanningDataSufficiency,
   hasMinimumMeasurementsForPlanning,
   downloadPlanningSuggestionPDF,
   type UiClinicalContext,
   type CephalometricPlanningSuggestion,
-  type RawMeasurements,
+  type AnalysisResultsMap,
 } from "@/lib/cephalometric-planning";
 
 import { DataSufficiencyBadge } from "./DataSufficiencyBadge";
@@ -29,8 +29,8 @@ import type { PlanningSummary } from "@/hooks/useCephalometricPlanning";
 interface Props {
   /** ID da analise cefalometrica ja persistida em cephalometric_analyses */
   cephalometricAnalysisId: string | null;
-  /** Medidas brutas do estado React (chaves UI: SNA, SNB, ANB, etc.) */
-  measurements: RawMeasurements;
+  /** Resultados de TODAS as analises rodadas (Steiner, McNamara, etc.) */
+  results: AnalysisResultsMap;
   /** Nome do paciente (opcional, usado no PDF) */
   patientName?: string;
   /** ID do paciente (opcional, usado no PDF) */
@@ -50,7 +50,7 @@ type LocalState =
  * Aparece dentro de Cephalometry.tsx apos a analise rodar e ter medidas
  * suficientes. Orquestra: gerar -> exibir -> editar -> aprovar/rejeitar.
  */
-export function CephalometricPlanningPanel({ cephalometricAnalysisId, measurements, patientName, patientId }: Props) {
+export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, patientName, patientId }: Props) {
   const { user } = useAuth();
   const { isGenerating, isUpdating, generate, updateText, approve, reject, listSuggestions, fetchSuggestion } = useCephalometricPlanning();
   const [state, setState] = useState<LocalState>({ kind: "idle" });
@@ -92,14 +92,14 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
 
   // Pre-check: ha dados sagitais minimos?
   const canGenerate = useMemo(
-    () => hasMinimumMeasurementsForPlanning(measurements) && cephalometricAnalysisId !== null,
+    () => hasMinimumMeasurementsForPlanning(results) && cephalometricAnalysisId !== null,
     [measurements, cephalometricAnalysisId],
   );
 
   // Preview do score antes mesmo de gerar
   const previewSufficiency = useMemo(() => {
     if (!canGenerate) return null;
-    const input = buildEngineInput(measurements, uiContext);
+    const input = buildEngineInputMulti(results, uiContext);
     return calculateCephalometricPlanningDataSufficiency(input);
   }, [measurements, uiContext, canGenerate]);
 

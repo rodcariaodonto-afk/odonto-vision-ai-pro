@@ -24,6 +24,7 @@ import {
 } from "@/lib/cephalometric-math";
 import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
 import { CephalometricPlanningPanel } from "@/components/cephalometric-planning";
+import type { AnalysisResultsMap } from "@/lib/cephalometric-planning";
 
 interface HistoryItem {
   id: string; patient_name: string | null; patient_id: string;
@@ -596,7 +597,7 @@ export default function Cephalometry() {
           {result?.analysisId && (
             <CephalometricPlanningPanel
               cephalometricAnalysisId={result.analysisId}
-              measurements={(result.results.steiner?.measurements ?? {}) as Record<string, number | undefined>}
+              results={result.results as AnalysisResultsMap}
               patientName={patientName || undefined}
               patientId={patientId || undefined}
             />
