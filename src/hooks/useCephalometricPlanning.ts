@@ -53,6 +53,18 @@ export interface PlanningSummary {
   rejection_reason: string | null;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  event_type: string;
+  event_timestamp: string;
+  reason: string | null;
+  content_before: string | null;
+  content_after: string | null;
+  rules_version: string | null;
+  data_sufficiency_score: number | null;
+  confidence_level: string | null;
+}
+
 interface UpdateOptions {
   planningSuggestionId: string;
   userId: string;
@@ -410,6 +422,26 @@ export function useCephalometricPlanning() {
     [],
   );
 
+  // -------------------------------------------------------------------------
+  // LISTAR EVENTOS DE AUDITORIA DE UMA SUGESTAO
+  // -------------------------------------------------------------------------
+  const fetchAuditLog = useCallback(
+    async (planningSuggestionId: string): Promise<AuditLogEntry[]> => {
+      const { data, error } = await supabase
+        .from('cephalometric_planning_audit_log')
+        .select('id, event_type, event_timestamp, reason, content_before, content_after, rules_version, data_sufficiency_score, confidence_level')
+        .eq('planning_suggestion_id', planningSuggestionId)
+        .order('event_timestamp', { ascending: true });
+
+      if (error) {
+        console.error('[useCephalometricPlanning] fetchAuditLog error:', error.message);
+        return [];
+      }
+      return (data ?? []) as AuditLogEntry[];
+    },
+    [],
+  );
+
   return {
     isGenerating,
     isUpdating,
@@ -420,5 +452,6 @@ export function useCephalometricPlanning() {
     reject,
     listSuggestions,
     fetchSuggestion,
+    fetchAuditLog,
   };
 }

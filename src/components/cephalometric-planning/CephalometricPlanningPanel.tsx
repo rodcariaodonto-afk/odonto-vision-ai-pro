@@ -23,6 +23,7 @@ import { SuggestionDisplay } from "./SuggestionDisplay";
 import { SuggestionEditor } from "./SuggestionEditor";
 import { PlanningApprovalActions } from "./PlanningApprovalActions";
 import { SuggestionHistoryList } from "./SuggestionHistoryList";
+import { AuditLogTimeline } from "./AuditLogTimeline";
 import type { PlanningSummary } from "@/hooks/useCephalometricPlanning";
 
 interface Props {
@@ -30,6 +31,10 @@ interface Props {
   cephalometricAnalysisId: string | null;
   /** Medidas brutas do estado React (chaves UI: SNA, SNB, ANB, etc.) */
   measurements: RawMeasurements;
+  /** Nome do paciente (opcional, usado no PDF) */
+  patientName?: string;
+  /** ID do paciente (opcional, usado no PDF) */
+  patientId?: string;
 }
 
 type LocalState =
@@ -45,7 +50,7 @@ type LocalState =
  * Aparece dentro de Cephalometry.tsx apos a analise rodar e ter medidas
  * suficientes. Orquestra: gerar -> exibir -> editar -> aprovar/rejeitar.
  */
-export function CephalometricPlanningPanel({ cephalometricAnalysisId, measurements }: Props) {
+export function CephalometricPlanningPanel({ cephalometricAnalysisId, measurements, patientName, patientId }: Props) {
   const { user } = useAuth();
   const { isGenerating, isUpdating, generate, updateText, approve, reject, listSuggestions, fetchSuggestion } = useCephalometricPlanning();
   const [state, setState] = useState<LocalState>({ kind: "idle" });
@@ -315,12 +320,15 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
               confidenceLevel={state.suggestion.confidenceLevel}
             />
             <SuggestionDisplay suggestion={state.suggestion} />
-            <PlanningApprovalActions
-              onEdit={handleStartEdit}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              isBusy={isUpdating}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <AuditLogTimeline planningSuggestionId={state.persistedId} />
+              <PlanningApprovalActions
+                onEdit={handleStartEdit}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                isBusy={isUpdating}
+              />
+            </div>
           </>
         )}
 
@@ -361,13 +369,16 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
               </AlertDescription>
             </Alert>
 
-            {state.status === "approved" && (
-              <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <AuditLogTimeline planningSuggestionId={state.persistedId} />
+              {state.status === "approved" && (
                 <Button
                   variant="outline"
                   onClick={() => {
                     try {
                       downloadPlanningSuggestionPDF(state.suggestion, {
+                        patientName,
+                        patientId,
                         clinicianEmail: user?.email ?? undefined,
                         approvedAt: state.suggestion.approvedAt,
                       });
@@ -384,8 +395,8 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
                   <Download className="mr-2 h-4 w-4" />
                   Exportar PDF
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </CardContent>

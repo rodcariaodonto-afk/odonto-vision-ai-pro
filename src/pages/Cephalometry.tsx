@@ -597,6 +597,8 @@ export default function Cephalometry() {
             <CephalometricPlanningPanel
               cephalometricAnalysisId={result.analysisId}
               measurements={(result.results.steiner?.measurements ?? {}) as Record<string, number | undefined>}
+              patientName={patientName || undefined}
+              patientId={patientId || undefined}
             />
           )}
         </TabsContent>
