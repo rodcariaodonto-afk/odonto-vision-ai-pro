@@ -43,29 +43,72 @@ export type DataSufficiencyLevel = 'insufficient' | 'partial' | 'sufficient';
  * Nomes alinhados com a tabela `cephalometric_analyses` do OdontoVision.
  */
 export interface CephalometricMeasurements {
-  // Sagitais
-  sna?: number;        // ângulo SNA (graus)
-  snb?: number;        // ângulo SNB (graus)
-  anb?: number;        // ângulo ANB (graus)
-  wits?: number;       // Wits appraisal (mm) — opcional, será adicionado em chunk separado
+  // === STEINER (sagital esqueletico padrao-ouro) ===
+  sna?: number;        // angulo SNA (graus)
+  snb?: number;        // angulo SNB (graus)
+  anb?: number;        // angulo ANB (graus)
+  wits?: number;       // Wits appraisal (mm) opcional manual
 
-  // Verticais
+  // === VERTICAIS (Steiner) ===
   snGoGn?: number;     // SN-GoGn (graus)
   fma?: number;        // Frankfort Mandibular Angle (graus)
   mmpa?: number;       // Maxillomandibular Planes Angle (graus)
 
-  // Dentários — incisivos superiores
-  u1Na?: number;       // U1-NA distância (mm) ou ângulo
-  u1NaAngle?: number;  // U1-NA ângulo (graus)
-
-  // Dentários — incisivos inferiores
-  l1Nb?: number;       // L1-NB distância (mm) ou ângulo
-  l1NbAngle?: number;  // L1-NB ângulo (graus)
+  // === INCISIVOS (Steiner) ===
+  u1Na?: number;       // U1-NA distancia (mm)
+  u1NaAngle?: number;  // U1-NA angulo (graus)
+  l1Nb?: number;       // L1-NB distancia (mm)
+  l1NbAngle?: number;  // L1-NB angulo (graus)
   impa?: number;       // Incisor Mandibular Plane Angle (graus)
 
-  // Oclusão
-  overjet?: number;    // sobressaliência (mm)
+  // === OCLUSAO ===
+  overjet?: number;    // sobressaliencia (mm)
   overbite?: number;   // sobremordida (mm)
+
+  // === McNAMARA (sagital alternativo + vertical) ===
+  mcnamaraANperp?: number;     // A-Nperp (mm) - posicao sagital maxila
+  mcnamaraPogNperp?: number;   // Pog-Nperp (mm) - posicao sagital mandibula
+  mcnamaraCoA?: number;        // Co-A (mm) - comprimento maxila
+  mcnamaraCoGn?: number;       // Co-Gn (mm) - comprimento mandibula
+  mcnamaraMaxMand?: number;    // diferencial maxilo-mandibular (mm)
+  mcnamaraLafh?: number;       // altura facial inferior LAFH (mm)
+
+  // === RICKETTS (crescimento + sagital aproximado) ===
+  rickettsFacialAxis?: number;   // direcao do crescimento mandibular (graus)
+  rickettsFacialDepth?: number;  // profundidade facial - sagital A-P (graus)
+  rickettsMandPlane?: number;    // plano mandibular (graus)
+  rickettsLowerFaceH?: number;   // altura facial inferior ENA-Xi-Pm (graus)
+  rickettsConvFacial?: number;   // convexidade facial (mm)
+
+  // === DOWNS (sagital aproximado + vertical historico) ===
+  downsFacialAngle?: number;   // angulo facial FH x N-Pog (graus)
+  downsAngConvex?: number;     // angulo de convexidade NA x A-Pog (graus)
+  downsABplane?: number;       // plano A-B (graus)
+  downsMandPlane?: number;     // plano mandibular (graus)
+  downsYAxis?: number;         // eixo Y - direcao do crescimento (graus)
+  downsU1L1?: number;          // angulo interincisal (graus)
+
+  // === JARABAK (crescimento + proporcoes) ===
+  jarabakRatio?: number;       // razao AFP/AFA (%)
+  jarabakGonialAngle?: number; // angulo goniaco ArGoMe (graus)
+  jarabakSellaAngle?: number;  // angulo sela NSAr (graus)
+  jarabakArticularAngle?: number; // angulo articular SArGo (graus)
+
+  // === TWEED (vertical + dental) ===
+  tweedFmia?: number;          // FMIA - inclinacao incisivo inferior (graus)
+}
+
+/**
+ * Identifica as fontes de analise que contribuiram para a sugestao.
+ * Usado para registrar transparencia clinica na audit_log.
+ */
+export interface MeasurementSources {
+  hasSteiner: boolean;
+  hasMcnamara: boolean;
+  hasRicketts: boolean;
+  hasDowns: boolean;
+  hasJarabak: boolean;
+  hasTweed: boolean;
 }
 
 /**

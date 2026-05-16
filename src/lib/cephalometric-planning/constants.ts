@@ -119,3 +119,133 @@ export const MISSING_DATA_LABELS: Record<string, string> = {
   facialPhotos: 'Fotografias faciais para correlação',
   occlusalExam: 'Exame oclusal documentado',
 };
+
+// ============================================================================
+// NORMAS DAS ANALISES ALTERNATIVAS (McNAMARA / RICKETTS / DOWNS)
+// ============================================================================
+
+/**
+ * McNamara A-Nperp (mm) - posicao sagital da maxila.
+ * Norma: 1 +/- 2mm. Combinado com Pog-Nperp da uma leitura sagital.
+ */
+export const MCNAMARA_ANPERP_THRESHOLDS = {
+  retrognathicMax: -1,  // A muito posterior ao Nperp = maxila retrognatica
+  prognathicMin: 3,     // A muito anterior ao Nperp = maxila prognatica
+} as const;
+
+/**
+ * McNamara Pog-Nperp (mm) - posicao sagital da mandibula.
+ * Norma: -2 +/- 2mm. Adulto: 0 a -4mm.
+ */
+export const MCNAMARA_POGNPERP_THRESHOLDS = {
+  retrognathicMax: -4,
+  prognathicMin: 2,
+} as const;
+
+/**
+ * Ricketts FacialDepth (graus) - profundidade facial sagital.
+ * Norma: 87 +/- 3 graus. Inclui aumento de 1 grau por idade (criancas).
+ */
+export const RICKETTS_FACIAL_DEPTH_THRESHOLDS = {
+  classIIIMin: 90,    // >= 90 = mandibula prognatica (tendencia III)
+  classIIMax: 84,     // <= 84 = mandibula retrognatica (tendencia II)
+} as const;
+
+/**
+ * Ricketts FacialAxis (graus) - direcao do crescimento mandibular.
+ * Norma: 90 +/- 3 graus. < 90 = vertical, > 90 = horizontal.
+ */
+export const RICKETTS_FACIAL_AXIS_THRESHOLDS = {
+  verticalGrowthMax: 87,    // <= 87 = crescimento vertical
+  horizontalGrowthMin: 93,  // >= 93 = crescimento horizontal
+} as const;
+
+/**
+ * Ricketts MandPlane (graus). Norma: 26 +/- 5 graus.
+ */
+export const RICKETTS_MAND_PLANE_THRESHOLDS = {
+  hypodivergentMax: 21,
+  hyperdivergentMin: 31,
+} as const;
+
+/**
+ * Downs FacialAngle (graus). Norma: 87 +/- 5 graus.
+ * Mede prognatismo: > 87 = prognatismo (III), < 82 = retrognatismo (II).
+ */
+export const DOWNS_FACIAL_ANGLE_THRESHOLDS = {
+  classIIMax: 82,
+  classIIIMin: 90,
+} as const;
+
+/**
+ * Downs AngConvex (graus). Norma: 0 +/- 8.5 graus.
+ * Positivo = perfil convexo (Classe II). Negativo = concavo (Classe III).
+ */
+export const DOWNS_ANG_CONVEX_THRESHOLDS = {
+  classIIIMax: -2,
+  classIIMin: 6,
+} as const;
+
+/**
+ * Downs YAxis (graus). Norma: 59.4 +/- 6.6 graus.
+ */
+export const DOWNS_Y_AXIS_THRESHOLDS = {
+  horizontalGrowthMax: 53,
+  verticalGrowthMin: 66,
+} as const;
+
+/**
+ * Jarabak Ratio (AFP/AFA em %). Norma: 62-65%.
+ * > 65% = crescimento horizontal (anti-horario, hipodivergente).
+ * < 62% = crescimento vertical (horario, hiperdivergente).
+ */
+export const JARABAK_RATIO_THRESHOLDS = {
+  hyperdivergentMax: 62,    // <= 62% = hiperdivergente
+  hypodivergentMin: 65,     // >= 65% = hipodivergente
+} as const;
+
+/**
+ * Tweed FMIA (graus). Norma: 65-75 graus.
+ * < 65 = incisivo inferior proclinado. > 75 = retroclinado.
+ */
+export const TWEED_FMIA_THRESHOLDS = {
+  proclinedMax: 65,
+  retroclinedMin: 75,
+} as const;
+
+// ============================================================================
+// PESOS PARA SCORE MULTI-ANALISE
+// ============================================================================
+
+/**
+ * Pesos adicionais quando dados de analises alternativas estao presentes.
+ * Aplicados SOMENTE quando Steiner ANB esta ausente (fallback).
+ * Steiner mantem prioridade quando presente (regra de ouro).
+ */
+export const ALTERNATIVE_ANALYSIS_WEIGHTS = {
+  mcnamaraSagittal: 12,  // A-Nperp + Pog-Nperp juntos
+  rickettsSagittal: 8,
+  downsSagittal: 8,
+  alternativeVertical: 5,  // qualquer vertical de Ricketts/Downs/Jarabak/Tweed
+  alternativeIncisor: 5,   // FMIA do Tweed quando sem L1-NB
+} as const;
+
+// ============================================================================
+// LABELS DE FONTES (para alertas transparentes)
+// ============================================================================
+
+export const SAGITTAL_SOURCE_LABELS: Record<string, string> = {
+  steiner_anb: 'Steiner ANB',
+  mcnamara: 'McNamara A-Nperp + Pog-Nperp',
+  ricketts: 'Ricketts Profundidade Facial',
+  downs: 'Downs Angulo Facial + Convexidade',
+};
+
+export const VERTICAL_SOURCE_LABELS: Record<string, string> = {
+  steiner_fma: 'Steiner FMA',
+  steiner_sn_gogn: 'Steiner SN-GoGn',
+  ricketts_mand_plane: 'Ricketts Plano Mandibular',
+  downs_mand_plane: 'Downs Plano Mandibular',
+  jarabak_ratio: 'Jarabak Razao AFP/AFA',
+  mcnamara_lafh: 'McNamara LAFH',
+};
