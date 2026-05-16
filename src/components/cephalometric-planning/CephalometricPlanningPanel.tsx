@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -22,6 +22,8 @@ import { PlanningContextForm } from "./PlanningContextForm";
 import { SuggestionDisplay } from "./SuggestionDisplay";
 import { SuggestionEditor } from "./SuggestionEditor";
 import { PlanningApprovalActions } from "./PlanningApprovalActions";
+import { SuggestionHistoryList } from "./SuggestionHistoryList";
+import type { PlanningSummary } from "@/hooks/useCephalometricPlanning";
 
 interface Props {
   /** ID da analise cefalometrica ja persistida em cephalometric_analyses */
@@ -45,9 +47,43 @@ type LocalState =
  */
 export function CephalometricPlanningPanel({ cephalometricAnalysisId, measurements }: Props) {
   const { user } = useAuth();
-  const { isGenerating, isUpdating, generate, updateText, approve, reject } = useCephalometricPlanning();
+  const { isGenerating, isUpdating, generate, updateText, approve, reject, listSuggestions, fetchSuggestion } = useCephalometricPlanning();
   const [state, setState] = useState<LocalState>({ kind: "idle" });
   const [uiContext, setUiContext] = useState<UiClinicalContext>({});
+  const [history, setHistory] = useState<PlanningSummary[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Carregar historico quando o analysisId mudar
+  const reloadHistory = useCallback(async () => {
+    if (!cephalometricAnalysisId) return;
+    setIsLoadingHistory(true);
+    const items = await listSuggestions(cephalometricAnalysisId);
+    setHistory(items);
+    setIsLoadingHistory(false);
+  }, [cephalometricAnalysisId, listSuggestions]);
+
+  useEffect(() => {
+    reloadHistory();
+  }, [reloadHistory]);
+
+  // Selecionar sugestao do historico para visualizar
+  const handleSelectFromHistory = useCallback(
+    async (id: string) => {
+      const suggestion = await fetchSuggestion(id);
+      if (!suggestion) {
+        toast.error("Falha ao carregar sugestao do historico");
+        return;
+      }
+      if (suggestion.status === "clinician_approved") {
+        setState({ kind: "finalized", suggestion, persistedId: id, status: "approved" });
+      } else if (suggestion.status === "rejected") {
+        setState({ kind: "finalized", suggestion, persistedId: id, status: "rejected" });
+      } else {
+        setState({ kind: "generated", suggestion, persistedId: id });
+      }
+    },
+    [fetchSuggestion],
+  );
 
   // Pre-check: ha dados sagitais minimos?
   const canGenerate = useMemo(
@@ -96,6 +132,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
       persistedId,
     });
     toast.success("Sugestao gerada com sucesso");
+    reloadHistory();
   };
 
   const handleStartEdit = () => {
@@ -151,6 +188,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
     }
     setState({ ...state, kind: "finalized", status: "approved" });
     toast.success("Sugestao aprovada e registrada no log de auditoria");
+    reloadHistory();
   };
 
   const handleReject = async (reason: string) => {
@@ -163,6 +201,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
     }
     setState({ ...state, kind: "finalized", status: "rejected" });
     toast.success("Sugestao rejeitada");
+    reloadHistory();
   };
 
   // --------------------------------------------------------------------------
@@ -194,6 +233,13 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, measuremen
             requer revisao e aprovacao do dentista antes de qualquer aplicacao.
           </AlertDescription>
         </Alert>
+
+        {/* Historico de sugestoes desta analise */}
+        <SuggestionHistoryList
+          items={history}
+          onSelect={handleSelectFromHistory}
+          isLoading={isLoadingHistory}
+        />
 
         {/* Pre-check: dados sagitais minimos */}
         {!canGenerate && (

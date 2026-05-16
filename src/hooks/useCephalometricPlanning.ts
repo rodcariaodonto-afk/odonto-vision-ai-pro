@@ -41,6 +41,18 @@ export interface PlanningGenerationResult {
   blockedTerms?: string[];
 }
 
+export interface PlanningSummary {
+  id: string;
+  status: string;
+  data_sufficiency_score: number;
+  confidence_level: 'low' | 'medium' | 'high';
+  summary: string;
+  generated_at: string;
+  approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+}
+
 interface UpdateOptions {
   planningSuggestionId: string;
   userId: string;
@@ -327,6 +339,77 @@ export function useCephalometricPlanning() {
     [],
   );
 
+  // -------------------------------------------------------------------------
+  // LISTAR SUGESTOES DE UMA ANALISE
+  // -------------------------------------------------------------------------
+  const listSuggestions = useCallback(
+    async (cephalometricAnalysisId: string): Promise<PlanningSummary[]> => {
+      const { data, error } = await supabase
+        .from('cephalometric_planning_suggestions')
+        .select('id, status, data_sufficiency_score, confidence_level, summary, generated_at, approved_at, rejected_at, rejection_reason')
+        .eq('cephalometric_analysis_id', cephalometricAnalysisId)
+        .order('generated_at', { ascending: false });
+
+      if (error) {
+        console.error('[useCephalometricPlanning] listSuggestions error:', error.message);
+        return [];
+      }
+      return (data ?? []) as PlanningSummary[];
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // BUSCAR UMA SUGESTAO COMPLETA POR ID
+  // -------------------------------------------------------------------------
+  const fetchSuggestion = useCallback(
+    async (id: string): Promise<CephalometricPlanningSuggestion | null> => {
+      const { data, error } = await supabase
+        .from('cephalometric_planning_suggestions')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error('[useCephalometricPlanning] fetchSuggestion error:', error?.message);
+        return null;
+      }
+
+      // Mapeia snake_case -> camelCase
+      return {
+        id: data.id,
+        cephalometricAnalysisId: data.cephalometric_analysis_id,
+        userId: data.user_id,
+        status: data.status,
+        dataSufficiencyScore: data.data_sufficiency_score,
+        confidenceLevel: data.confidence_level,
+        missingData: data.missing_data ?? [],
+        blockingReasons: data.blocking_reasons ?? [],
+        inputMeasurementsSnapshot: data.input_measurements_snapshot ?? {},
+        clinicalContextSnapshot: data.clinical_context_snapshot ?? {},
+        summary: data.summary,
+        prioritizedProblems: data.prioritized_problems ?? [],
+        therapeuticObjectives: data.therapeutic_objectives ?? [],
+        treatmentAlternatives: data.treatment_alternatives ?? [],
+        alertsAndLimitations: data.alerts_and_limitations ?? [],
+        patientFriendlyExplanation: data.patient_friendly_explanation ?? undefined,
+        aiOriginalText: data.ai_original_text,
+        clinicianEditedText: data.clinician_edited_text ?? undefined,
+        approvedFinalText: data.approved_final_text ?? undefined,
+        rejectionReason: data.rejection_reason ?? undefined,
+        rulesVersion: data.rules_version,
+        templateVersion: data.template_version,
+        safetyFilterVersion: data.safety_filter_version,
+        generatedAt: data.generated_at,
+        editedAt: data.edited_at ?? undefined,
+        approvedAt: data.approved_at ?? undefined,
+        rejectedAt: data.rejected_at ?? undefined,
+        clinicianUserId: data.clinician_user_id ?? undefined,
+      };
+    },
+    [],
+  );
+
   return {
     isGenerating,
     isUpdating,
@@ -335,5 +418,7 @@ export function useCephalometricPlanning() {
     updateText,
     approve,
     reject,
+    listSuggestions,
+    fetchSuggestion,
   };
 }
