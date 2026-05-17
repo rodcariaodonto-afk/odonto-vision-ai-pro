@@ -93,7 +93,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
   // Pre-check: ha dados sagitais minimos?
   const canGenerate = useMemo(
     () => hasMinimumMeasurementsForPlanning(results) && cephalometricAnalysisId !== null,
-    [measurements, cephalometricAnalysisId],
+    [results, cephalometricAnalysisId],
   );
 
   // Preview do score antes mesmo de gerar
@@ -101,7 +101,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
     if (!canGenerate) return null;
     const input = buildEngineInputMulti(results, uiContext);
     return calculateCephalometricPlanningDataSufficiency(input);
-  }, [measurements, uiContext, canGenerate]);
+  }, [results, uiContext, canGenerate]);
 
   // --------------------------------------------------------------------------
   // HANDLERS
@@ -246,14 +246,23 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
           isLoading={isLoadingHistory}
         />
 
-        {/* Pre-check: dados sagitais minimos */}
+        {/* Pre-check: dados sagitais minimos (qualquer analise) */}
         {!canGenerate && (
           <Alert>
             <FileWarning className="h-4 w-4" />
             <AlertTitle>Dados insuficientes</AlertTitle>
             <AlertDescription>
-              Para gerar uma sugestao, e necessario que a analise contenha ao menos
-              ANB ou SNA + SNB. Rode a analise Steiner antes de prosseguir.
+              Para gerar uma sugestao e necessaria pelo menos uma fonte sagital:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Steiner (ANB ou SNA + SNB) - padrao-ouro</li>
+                <li>McNamara (A-Nperp + Pog-Nperp)</li>
+                <li>Ricketts (Profundidade Facial)</li>
+                <li>Downs (Angulo Facial ou Convexidade)</li>
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Para sugestao completa, combine sagital com vertical (ex: McNamara + Jarabak)
+                e incisivos (ex: Steiner ou Tweed).
+              </p>
             </AlertDescription>
           </Alert>
         )}
