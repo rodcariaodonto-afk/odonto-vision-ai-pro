@@ -113,6 +113,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
     }
 
     setState({ kind: "generating" });
+    const { measurements } = buildEngineInputMulti(results, uiContext);
     const result = await generate({
       cephalometricAnalysisId,
       userId: user.id,
