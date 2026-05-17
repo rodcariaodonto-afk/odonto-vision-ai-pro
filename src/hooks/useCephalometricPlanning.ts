@@ -16,9 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   generateCephalometricPlanningSuggestion,
   validateAndSanitizeSuggestionText,
-  buildEngineInput,
   type UiClinicalContext,
-  type RawMeasurements,
+  type CephalometricMeasurements,
+  type ClinicalContext,
   type CephalometricPlanningSuggestion,
 } from '@/lib/cephalometric-planning';
 
@@ -29,7 +29,7 @@ import {
 export interface PlanningGenerationParams {
   cephalometricAnalysisId: string;
   userId: string;
-  measurements: RawMeasurements;
+  measurements: CephalometricMeasurements;
   clinicalContext: UiClinicalContext;
 }
 
@@ -92,8 +92,16 @@ export function useCephalometricPlanning() {
     async (params: PlanningGenerationParams): Promise<PlanningGenerationResult> => {
       setIsGenerating(true);
       try {
-        // 1. Monta input do engine
-        const input = buildEngineInput(params.measurements, params.clinicalContext);
+        // 1. Monta input do engine (measurements ja vem agregado multi-analise)
+        const { manualWitsMm, ...ctx } = params.clinicalContext;
+        const measurements: CephalometricMeasurements = {
+          ...params.measurements,
+          ...(typeof manualWitsMm === 'number' ? { wits: manualWitsMm } : {}),
+        };
+        const input = {
+          measurements,
+          clinicalContext: ctx as ClinicalContext,
+        };
 
         // 2. Roda engine deterministico
         const suggestion = generateCephalometricPlanningSuggestion({
