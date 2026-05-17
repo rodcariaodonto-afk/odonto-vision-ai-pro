@@ -29,6 +29,8 @@ import {
 import {
   GROWTH_POTENTIAL_AGE_THRESHOLD,
   ADULT_AGE_THRESHOLD,
+  SAGITTAL_SOURCE_LABELS,
+  VERTICAL_SOURCE_LABELS,
 } from './constants';
 
 // ============================================================================
@@ -225,6 +227,40 @@ function generateAlertsAndLimitations(
   input: CephalometricPlanningInput,
 ): string[] {
   const alerts: string[] = [];
+
+  // Transparencia clinica: alertar quando classificacao usou fonte nao-Steiner
+  if (
+    classification.sagittalSource &&
+    classification.sagittalSource !== 'steiner_anb' &&
+    classification.sagittalSource !== 'none'
+  ) {
+    const label = SAGITTAL_SOURCE_LABELS[classification.sagittalSource] ?? classification.sagittalSource;
+    alerts.push(
+      `Classificacao sagital baseada em ${label} (Steiner ANB indisponivel). ` +
+        'Confianca reduzida - considerar complementar com analise Steiner.',
+    );
+  }
+
+  if (
+    classification.verticalSource &&
+    classification.verticalSource !== 'steiner_fma' &&
+    classification.verticalSource !== 'steiner_sn_gogn' &&
+    classification.verticalSource !== 'none'
+  ) {
+    const label = VERTICAL_SOURCE_LABELS[classification.verticalSource] ?? classification.verticalSource;
+    alerts.push(
+      `Padrao vertical baseado em ${label} (Steiner indisponivel).`,
+    );
+  }
+
+  if (
+    classification.lowerIncisorSource &&
+    classification.lowerIncisorSource === 'tweed_fmia'
+  ) {
+    alerts.push(
+      'Inclinacao do incisivo inferior baseada em Tweed FMIA (Steiner L1-NB indisponivel).',
+    );
+  }
 
   // Alerta de score baixo
   if (sufficiency.level === 'partial') {
