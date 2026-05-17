@@ -148,6 +148,33 @@ export interface DataSufficiencyResult {
 // CLASSIFICAÇÕES INTERMEDIÁRIAS (motor de regras)
 // ============================================================================
 
+/**
+ * Identifica qual analise cefalometrica foi usada para classificar o eixo
+ * sagital. Importante para transparencia clinica e auditabilidade.
+ */
+export type SagittalSource =
+  | 'steiner_anb'
+  | 'mcnamara'
+  | 'ricketts'
+  | 'downs'
+  | 'none';
+
+export type VerticalSource =
+  | 'steiner_fma'
+  | 'steiner_sn_gogn'
+  | 'tweed_fma'
+  | 'ricketts_mand_plane'
+  | 'downs_mand_plane'
+  | 'jarabak_ratio'
+  | 'mcnamara_lafh'
+  | 'none';
+
+export type IncisorSource =
+  | 'steiner'
+  | 'tweed_fmia'
+  | 'downs_u1l1'
+  | 'none';
+
 export type SagittalClassification =
   | 'class_i'
   | 'class_ii_tendency'
@@ -173,6 +200,12 @@ export interface CephalometricClassification {
   upperIncisors: IncisorInclination;
   lowerIncisors: IncisorInclination;
   anbWitsContradiction: boolean; // bandeira de incerteza diagnóstica
+  /** Analise usada para classificar o eixo sagital (transparencia clinica) */
+  sagittalSource?: SagittalSource;
+  /** Analise usada para classificar o padrao vertical */
+  verticalSource?: VerticalSource;
+  /** Analise usada para classificar inclinacao incisivo inferior */
+  lowerIncisorSource?: IncisorSource;
 }
 
 // ============================================================================
