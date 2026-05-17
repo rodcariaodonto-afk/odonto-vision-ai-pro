@@ -27,8 +27,8 @@ export type RawMeasurements = Record<string, number | undefined>;
  * Espelha o tipo do Cephalometry.tsx:
  *   results: Partial<Record<AnalysisType, { measurements, interpretation }>>
  */
-export type AnalysisResultsMap = Partial
-  Record
+export type AnalysisResultsMap = Partial<
+  Record<
     'steiner' | 'jarabak' | 'mcnamara' | 'ricketts' | 'tweed' | 'downs',
     { measurements: RawMeasurements; interpretation?: string }
   >

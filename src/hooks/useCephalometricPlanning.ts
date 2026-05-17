@@ -16,9 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   generateCephalometricPlanningSuggestion,
   validateAndSanitizeSuggestionText,
-  buildEngineInput,
   type UiClinicalContext,
-  type RawMeasurements,
+  type CephalometricMeasurements,
+  type ClinicalContext,
   type CephalometricPlanningSuggestion,
 } from '@/lib/cephalometric-planning';
 
@@ -29,7 +29,7 @@ import {
 export interface PlanningGenerationParams {
   cephalometricAnalysisId: string;
   userId: string;
-  measurements: RawMeasurements;
+  measurements: CephalometricMeasurements;
   clinicalContext: UiClinicalContext;
 }
 
@@ -92,8 +92,16 @@ export function useCephalometricPlanning() {
     async (params: PlanningGenerationParams): Promise<PlanningGenerationResult> => {
       setIsGenerating(true);
       try {
-        // 1. Monta input do engine
-        const input = buildEngineInput(params.measurements, params.clinicalContext);
+        // 1. Monta input do engine (measurements ja vem agregado multi-analise)
+        const { manualWitsMm, ...ctx } = params.clinicalContext;
+        const measurements: CephalometricMeasurements = {
+          ...params.measurements,
+          ...(typeof manualWitsMm === 'number' ? { wits: manualWitsMm } : {}),
+        };
+        const input = {
+          measurements,
+          clinicalContext: ctx as ClinicalContext,
+        };
 
         // 2. Roda engine deterministico
         const suggestion = generateCephalometricPlanningSuggestion({
@@ -397,8 +405,8 @@ export function useCephalometricPlanning() {
         confidenceLevel: data.confidence_level,
         missingData: data.missing_data ?? [],
         blockingReasons: data.blocking_reasons ?? [],
-        inputMeasurementsSnapshot: data.input_measurements_snapshot ?? {},
-        clinicalContextSnapshot: data.clinical_context_snapshot ?? {},
+        inputMeasurementsSnapshot: (data.input_measurements_snapshot ?? {}) as unknown as CephalometricMeasurements,
+        clinicalContextSnapshot: (data.clinical_context_snapshot ?? {}) as unknown as ClinicalContext,
         summary: data.summary,
         prioritizedProblems: data.prioritized_problems ?? [],
         therapeuticObjectives: data.therapeutic_objectives ?? [],
