@@ -74,11 +74,14 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
   // Selecionar sugestao do historico para visualizar
   const handleSelectFromHistory = useCallback(
     async (id: string) => {
+      console.log("[CephalometricPlanningPanel] handleSelectFromHistory called with id=", id);
       const suggestion = await fetchSuggestion(id);
+      console.log("[CephalometricPlanningPanel] fetchSuggestion returned:", suggestion);
       if (!suggestion) {
         toast.error("Falha ao carregar sugestao do historico");
         return;
       }
+      console.log("[CephalometricPlanningPanel] setting state for status=", suggestion.status);
       if (suggestion.status === "clinician_approved") {
         setState({ kind: "finalized", suggestion, persistedId: id, status: "approved" });
       } else if (suggestion.status === "rejected") {
@@ -86,6 +89,9 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
       } else {
         setState({ kind: "generated", suggestion, persistedId: id });
       }
+      // Scroll para o topo do painel para que o usuario veja a sugestao carregada
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast.success("Sugestao carregada do historico");
     },
     [fetchSuggestion],
   );
