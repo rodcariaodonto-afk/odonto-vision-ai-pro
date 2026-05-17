@@ -223,11 +223,17 @@ export const TWEED_FMIA_THRESHOLDS = {
  * Steiner mantem prioridade quando presente (regra de ouro).
  */
 export const ALTERNATIVE_ANALYSIS_WEIGHTS = {
-  mcnamaraSagittal: 12,  // A-Nperp + Pog-Nperp juntos
-  rickettsSagittal: 8,
-  downsSagittal: 8,
-  alternativeVertical: 5,  // qualquer vertical de Ricketts/Downs/Jarabak/Tweed
-  alternativeIncisor: 5,   // FMIA do Tweed quando sem L1-NB
+  // Sagital alternativo - calibrado para permitir sugestao com 2-3 analises
+  // McNamara: 25pts (equivalente a SNA+SNB+ANB-5)
+  // Ricketts: 18pts (Profundidade Facial e referencia consagrada)
+  // Downs: 15pts (historico mas valido)
+  mcnamaraSagittal: 25,
+  rickettsSagittal: 18,
+  downsSagittal: 15,
+  // Vertical alternativo: mesmo peso da medida vertical Steiner (clinicamente equivalentes)
+  alternativeVertical: 15,
+  // Incisivo alternativo: mesmo peso do L1-NB/IMPA Steiner
+  alternativeIncisor: 10,
 } as const;
 
 // ============================================================================

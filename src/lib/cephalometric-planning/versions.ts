@@ -16,7 +16,7 @@
  * Bump quando: limiares clínicos mudam, novas regras adicionadas,
  * comportamento de classificação muda.
  */
-export const CEPH_PLANNING_RULES_VERSION = 'ceph_rules_v1.1.0';
+export const CEPH_PLANNING_RULES_VERSION = 'ceph_rules_v1.1.1';
 
 /**
  * Template de saída textual (estrutura do laudo de sugestão).
