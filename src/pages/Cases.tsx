@@ -282,7 +282,8 @@ export default function Cases() {
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(30);
-        const match = (data || []).find((item: any) => {
+        const rows = (data || []) as unknown as CephAnalysisLookupRow[];
+        const match = rows.find((item) => {
           const candidates = [item.patient_name, item.patient_id].filter(Boolean).map((v) => String(v).toLowerCase());
           const key = String(patientKey || "").toLowerCase();
           return candidates.some((value) => value === key || caseData.name.toLowerCase().includes(value));
@@ -307,7 +308,7 @@ export default function Cases() {
           };
           hydratedCase = { ...caseData, visual_analysis: visualAnalysis as SavedCephVisualAnalysis };
           setCases(prev => prev.map(c => c.id === caseData.id ? hydratedCase : c));
-          await supabase.from("cases").update({ visual_analysis: visualAnalysis } as any).eq("id", caseData.id).eq("user_id", user.id);
+          await supabase.from("cases").update({ visual_analysis: visualAnalysis as unknown as Record<string, unknown> }).eq("id", caseData.id).eq("user_id", user.id);
         }
       } catch (error) {
         console.warn("Falha ao recuperar imagem cefalométrica salva:", error);
@@ -360,7 +361,7 @@ export default function Cases() {
         if (!ctx) return;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         ctx.lineWidth = Math.max(3, canvas.width * 0.003);
-        landmarks.forEach((lm: any) => {
+        landmarks.forEach((lm) => {
           if (typeof lm?.x !== "number" || typeof lm?.y !== "number") return;
           ctx.beginPath();
           ctx.arc(lm.x, lm.y, Math.max(8, canvas.width * 0.008), 0, Math.PI * 2);
@@ -382,7 +383,8 @@ export default function Cases() {
     const addSection = (title: string, content?: string | string[]) => {
       if (!content || (Array.isArray(content) && !content.length)) return;
       addText(title, 12, true);
-      Array.isArray(content) ? content.forEach(i => addText("• " + i)) : addText(content);
+      if (Array.isArray(content)) content.forEach(i => addText("• " + i));
+      else addText(content);
       yPos += 5;
     };
 
