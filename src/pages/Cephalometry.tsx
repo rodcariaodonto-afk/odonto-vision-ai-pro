@@ -40,6 +40,8 @@ interface ResultState {
   landmarks: Landmark[];
   selectedTypes: AnalysisType[];
   results: Partial<Record<AnalysisType, { measurements: Measurements; interpretation: string }>>;
+  imageUrl?: string;
+  imageStoragePath?: string;
 }
 
 const DRAFT_KEY = "cephalo_draft_v2";
@@ -75,6 +77,7 @@ export default function Cephalometry() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
+  const [savedCaseId, setSavedCaseId] = useState<string | null>(null);
   const [savingLandmarks, setSavingLandmarks] = useState(false);
   const landmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,6 +96,9 @@ export default function Cephalometry() {
     setResult(null);
     setSavingCase(false);
     setCaseSaved(false);
+    setSavedCaseId(null);
+    setPlanningContext({});
+    setPlanningSuggestion(null);
   };
 
   // ── Gate de assinatura: Cefalometria exige plano de 50 exames ou superior ──
@@ -175,7 +181,7 @@ export default function Cephalometry() {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast.error("Imagem maior que 10MB"); return; }
     setSelectedFile(file);
-    setResult(null); setCaseSaved(false);
+    setResult(null); setCaseSaved(false); setSavedCaseId(null); setPlanningSuggestion(null);
     const reader = new FileReader();
     reader.onload = (ev) => setImagePreview(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -219,6 +225,8 @@ export default function Cephalometry() {
         landmarks: scaledLandmarks,
         selectedTypes: (data.analysisTypes ?? selectedTypes) as AnalysisType[],
         results: data.results ?? {},
+        imageUrl: urlData.publicUrl,
+        imageStoragePath: fileName,
       });
       toast.success(`Análise concluída em ${selectedTypes.length} método(s)!`);
       loadHistory();
