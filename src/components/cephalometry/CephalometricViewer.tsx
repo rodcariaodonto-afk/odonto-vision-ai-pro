@@ -80,8 +80,10 @@ export default function CephalometricViewer({
 
     try {
     const maxW = wrap.clientWidth;
-    const maxH = wrap.clientHeight || 600;
-    const baseScale = Math.min(1, maxW / img.width, maxH / img.height);
+    const maxH = wrap.clientHeight || 900;
+    // Permite upscaling até 2x para que radiografias pequenas/com bordas pretas
+    // aproveitem todo o espaço disponível do container.
+    const baseScale = Math.min(2, maxW / img.width, maxH / img.height);
     baseScaleRef.current = baseScale;
     canvas.width = img.width * baseScale;
     canvas.height = img.height * baseScale;
@@ -293,7 +295,7 @@ export default function CephalometricViewer({
       </div>
 
       <div ref={wrapRef} className={`relative w-full overflow-auto rounded-lg border bg-black flex items-center justify-center ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}`}
-        style={{ touchAction: "none", maxHeight: isFullscreen ? "100vh" : "min(85vh, 900px)" }}>
+        style={{ touchAction: "none", height: isFullscreen ? "100vh" : "min(90vh, 1400px)", minHeight: 600 }}>
         <canvas
           ref={canvasRef}
           className="block max-w-full max-h-full"
