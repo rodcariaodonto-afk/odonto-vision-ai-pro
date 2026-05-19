@@ -30,7 +30,9 @@ interface HistoryItem {
   id: string; patient_name: string | null; patient_id: string;
   landmarks: Landmark[]; measurements: Measurements;
   interpretation: string | null; status: string; created_at: string;
-  analysis_type?: AnalysisType; image_storage_path: string; image_url: string;
+  analysis_type?: AnalysisType;
+  analysis_types?: AnalysisType[];
+  image_storage_path: string; image_url: string;
 }
 
 interface ResultState {
@@ -161,7 +163,7 @@ export default function Cephalometry() {
     setLoadingHistory(true);
     try {
       const { data } = await supabase
-        .from("cephalometric_analyses").select("*")
+        .from("cephalometric_analyses").select("id, patient_name, patient_id, landmarks, measurements, interpretation, status, created_at, analysis_type, image_storage_path, image_url")
         .eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
       if (data) setHistory(data as unknown as HistoryItem[]);
     } catch {} finally { setLoadingHistory(false); }
@@ -498,25 +500,44 @@ export default function Cephalometry() {
 
   async function handleReopen(item: HistoryItem) {
     try {
-      // Build single-analysis result from history (legacy items only stored one)
-      const t = (item.analysis_type ?? "steiner") as AnalysisType;
-      // Get a public URL from storage
+      // Suporta múltiplos tipos (análises modernas) e tipo único (legado)
+      const types: AnalysisType[] = (() => {
+        if (Array.isArray(item.analysis_types) && item.analysis_types.length > 0) {
+          return item.analysis_types;
+        }
+        return [(item.analysis_type ?? "steiner") as AnalysisType];
+      })();
+
+      // URL pública da imagem no Storage
       const { data: urlData } = supabase.storage
         .from("cephalometric-images").getPublicUrl(item.image_storage_path);
       const url = urlData.publicUrl;
-      // Recalculate ALL selected types from saved landmarks (only the one stored is guaranteed)
-      const recalc = recalcAll(item.landmarks ?? [], [t]);
-      setSelectedTypes([t]);
+
+      // Recalcular TODOS os tipos a partir dos landmarks salvos
+      const landmarks = item.landmarks ?? [];
+      const recalc = recalcAll(landmarks, types);
+
+      // Montar results para cada tipo
+      const results: ResultState["results"] = {};
+      types.forEach((t) => {
+        results[t] = {
+          measurements: recalc[t] ?? (types.length === 1 ? (item.measurements as Measurements) ?? {} : {}),
+          interpretation: types.length === 1 ? (item.interpretation ?? "") : "",
+        };
+      });
+
+      setSelectedTypes(types);
       setPatientId(item.patient_id);
       setPatientName(item.patient_name ?? "");
       setImagePreview(url);
+      setCaseSaved(false);
       setResult({
         analysisId: item.id,
-        landmarks: item.landmarks ?? [],
-        selectedTypes: [t],
-        results: { [t]: { measurements: recalc[t] ?? (item.measurements as Measurements) ?? {}, interpretation: item.interpretation ?? "" } },
+        landmarks,
+        selectedTypes: types,
+        results,
       });
-      toast.success("Análise restaurada");
+      toast.success(`Análise restaurada (${types.length} método(s))`);
     } catch (err: any) {
       toast.error("Erro ao reabrir: " + err.message);
     }
