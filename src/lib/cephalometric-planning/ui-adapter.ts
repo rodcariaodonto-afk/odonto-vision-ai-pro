@@ -35,6 +35,7 @@ export type AnalysisResultsMap = Partial<
 >;
 
 export interface UiClinicalContext {
+  // ── Dados básicos ──────────────────────────────────────────────
   patientAge?: number;
   patientSex?: 'male' | 'female' | 'other';
   hasPeriodontalData?: boolean;
@@ -42,6 +43,47 @@ export interface UiClinicalContext {
   hasOcclusalExam?: boolean;
   /** Wits opcional digitado manualmente. */
   manualWitsMm?: number;
+
+  // ── Formulário A009 — Diagnóstico Facial ───────────────────────
+  padraoFacial?: 'braquifacial' | 'mesofacial' | 'dolicofacial';
+  indiceVert?: 'braqui_severo' | 'braqui_suave' | 'braquifacial' | 'mesofacial' | 'dolicofacial' | 'dolico_suave' | 'dolico_severo';
+  assimetriaFacial?: 'nao' | 'direita_desenvolvida' | 'esquerda_desenvolvida';
+  vedamentoLabial?: boolean;
+  corredorBucalAumentado?: boolean;
+  linhaDeSorriso?: 'alta' | 'normal' | 'baixa' | 'alta_exposicao_inferiores';
+
+  // ── Diagnóstico Dentário ────────────────────────────────────────
+  classeDentariaDireita?: 'classe_i' | 'classe_ii' | 'classe_iii';
+  classeDentariaEsquerda?: 'classe_i' | 'classe_ii' | 'classe_iii';
+  linhaMedia?: 'coincidente' | 'desvio_superior_direita' | 'desvio_superior_esquerda' | 'desvio_inferior_direita' | 'desvio_inferior_esquerda';
+  giroversoes?: boolean;
+
+  // ── Diagnóstico Esquelético ────────────────────────────────────
+  classeEsqueletica?: 'classe_i' | 'classe_ii' | 'classe_iii';
+  diagnosticoEsqueletico?: 'classe_i' | 'classe_ii_protrusao_maxilar' | 'classe_ii_retrusao_mandibular' | 'classe_iii_retrusao_maxilar' | 'classe_iii_protrusao_mandibular';
+
+  // ── Apinhamentos ───────────────────────────────────────────────
+  apinhamentoSuperiorAnterior?: boolean;
+  apinhamentoSuperiorPosterior?: boolean;
+  apinhamentoInferiorAnterior?: boolean;
+  apinhamentoInferiorPosterior?: boolean;
+
+  // ── Vertical ───────────────────────────────────────────────────
+  mordida?: 'aberta' | 'normal' | 'profunda';
+  reabsorcaoRadicular?: 'nao' | 'leve' | 'moderada' | 'severa';
+
+  // ── Plano de Tratamento ────────────────────────────────────────
+  necessidadeExodontia?: boolean;
+  queixaPrincipal?: string;
+  faseTratamento?: 'preventiva' | 'interceptativa' | 'ortopedica' | 'corretiva';
+  tratamentoMultidisciplinar?: ('fono' | 'ortognatica' | 'outro')[];
+
+  // ── Fases detalhadas ────────────────────────────────────────────
+  prescricao?: string;
+  ancoragem?: string;
+  correcaoTransversal?: string;
+  correcaoVertical?: string;
+  correcaoAnteroPosterior?: string;
 }
 
 // ============================================================================
@@ -216,6 +258,29 @@ export function buildEngineInputMulti(
     hasPeriodontalData: uiContext.hasPeriodontalData,
     hasFacialPhotos: uiContext.hasFacialPhotos,
     hasOcclusalExam: uiContext.hasOcclusalExam,
+    // Campos A009
+    ...(uiContext.padraoFacial         && { padraoFacial: uiContext.padraoFacial }),
+    ...(uiContext.indiceVert           && { indiceVert: uiContext.indiceVert }),
+    ...(uiContext.assimetriaFacial     && { assimetriaFacial: uiContext.assimetriaFacial }),
+    ...(uiContext.vedamentoLabial      != null && { vedamentoLabial: uiContext.vedamentoLabial }),
+    ...(uiContext.corredorBucalAumentado != null && { corredorBucalAumentado: uiContext.corredorBucalAumentado }),
+    ...(uiContext.linhaDeSorriso       && { linhaDeSorriso: uiContext.linhaDeSorriso }),
+    ...(uiContext.classeDentariaDireita && { classeDentariaDireita: uiContext.classeDentariaDireita }),
+    ...(uiContext.classeDentariaEsquerda && { classeDentariaEsquerda: uiContext.classeDentariaEsquerda }),
+    ...(uiContext.linhaMedia           && { linhaMedia: uiContext.linhaMedia }),
+    ...(uiContext.giroversoes          != null && { giroversoes: uiContext.giroversoes }),
+    ...(uiContext.classeEsqueletica    && { classeEsqueletica: uiContext.classeEsqueletica }),
+    ...(uiContext.diagnosticoEsqueletico && { diagnosticoEsqueletico: uiContext.diagnosticoEsqueletico }),
+    ...(uiContext.apinhamentoSuperiorAnterior != null && { apinhamentoSuperiorAnterior: uiContext.apinhamentoSuperiorAnterior }),
+    ...(uiContext.apinhamentoSuperiorPosterior != null && { apinhamentoSuperiorPosterior: uiContext.apinhamentoSuperiorPosterior }),
+    ...(uiContext.apinhamentoInferiorAnterior != null && { apinhamentoInferiorAnterior: uiContext.apinhamentoInferiorAnterior }),
+    ...(uiContext.apinhamentoInferiorPosterior != null && { apinhamentoInferiorPosterior: uiContext.apinhamentoInferiorPosterior }),
+    ...(uiContext.mordida              && { mordida: uiContext.mordida }),
+    ...(uiContext.reabsorcaoRadicular  && { reabsorcaoRadicular: uiContext.reabsorcaoRadicular }),
+    ...(uiContext.necessidadeExodontia != null && { necessidadeExodontia: uiContext.necessidadeExodontia }),
+    ...(uiContext.queixaPrincipal      && { queixaPrincipal: uiContext.queixaPrincipal }),
+    ...(uiContext.faseTratamento       && { faseTratamento: uiContext.faseTratamento }),
+    ...(uiContext.tratamentoMultidisciplinar?.length && { tratamentoMultidisciplinar: uiContext.tratamentoMultidisciplinar }),
   };
 
   const { measurements, sources } = adaptResultsToEngineFormat(
