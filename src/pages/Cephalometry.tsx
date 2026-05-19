@@ -263,10 +263,10 @@ export default function Cephalometry() {
           await supabase
             .from("cephalometric_analyses")
             .update({
-              landmarks: lm,
-              measurements: measurementsFinal,
+              landmarks: lm as any,
+              measurements: measurementsFinal as any,
               updated_at: new Date().toISOString(),
-            })
+            } as any)
             .eq("id", cur.analysisId);
         } catch (err) {
           console.warn("Erro ao salvar landmarks:", err);
@@ -344,7 +344,7 @@ export default function Cephalometry() {
             confidence: (planningSuggestion as Record<string, unknown>).confidenceLevel,
           } : null,
         },
-      });
+      } as any);
       if (error) throw error;
       setCaseSaved(true);
       toast.success("Caso salvo em Meus Casos!");
@@ -795,7 +795,7 @@ export default function Cephalometry() {
               patientName={patientName || undefined}
               patientId={patientId || undefined}
               onContextChange={(ctx) => setPlanningContext(ctx as Record<string, unknown>)}
-              onSuggestionChange={(s) => setPlanningSuggestion(s as Record<string, unknown> | null)}
+              onSuggestionChange={(s) => setPlanningSuggestion(s as unknown as Record<string, unknown> | null)}
             />
             </div>
           )}
