@@ -134,17 +134,8 @@ export default function Cephalometry() {
 
   // ── Restore draft from sessionStorage on mount ─────────────────────
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (d.patientId) setPatientId(d.patientId);
-        if (d.patientName) setPatientName(d.patientName);
-        if (Array.isArray(d.selectedTypes) && d.selectedTypes.length) setSelectedTypes(d.selectedTypes);
-        if (d.imagePreview) setImagePreview(d.imagePreview);
-        if (d.result) setResult(d.result);
-      }
-    } catch {}
+    // Sempre inicia em branco — usuario pediu para nao voltar ao ultimo caso
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
     loadHistory();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
