@@ -284,6 +284,12 @@ export function useCephalometricPlanning() {
           };
         }
 
+        const { data: existing } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .select('cephalometric_analysis_id')
+          .eq('id', planningSuggestionId)
+          .maybeSingle();
+
         const now = new Date().toISOString();
         const { error } = await supabase
           .from('cephalometric_planning_suggestions')
@@ -299,7 +305,7 @@ export function useCephalometricPlanning() {
 
         await supabase.from('cephalometric_planning_audit_log').insert({
           planning_suggestion_id: planningSuggestionId,
-          cephalometric_analysis_id: '',
+          cephalometric_analysis_id: existing?.cephalometric_analysis_id,
           user_id: userId,
           event_type: 'approved',
           content_after: finalText,
@@ -326,6 +332,12 @@ export function useCephalometricPlanning() {
       setIsUpdating(true);
       try {
         const now = new Date().toISOString();
+        const { data: existing } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .select('cephalometric_analysis_id')
+          .eq('id', planningSuggestionId)
+          .maybeSingle();
+
         const { error } = await supabase
           .from('cephalometric_planning_suggestions')
           .update({
@@ -340,7 +352,7 @@ export function useCephalometricPlanning() {
 
         await supabase.from('cephalometric_planning_audit_log').insert({
           planning_suggestion_id: planningSuggestionId,
-          cephalometric_analysis_id: '',
+          cephalometric_analysis_id: existing?.cephalometric_analysis_id,
           user_id: userId,
           event_type: 'rejected',
           reason,
