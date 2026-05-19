@@ -222,8 +222,6 @@ export default function Cephalometry() {
       });
       toast.success(`Análise concluída em ${selectedTypes.length} método(s)!`);
       loadHistory();
-      // Auto-salva o caso em "Meus Casos" logo apos a analise concluir
-      setTimeout(() => { handleSaveToCases().catch(() => {}); }, 300);
     } catch (err: any) {
       toast.error("Erro: " + (err?.message ?? "falha na análise"));
     } finally { setLoading(false); }
