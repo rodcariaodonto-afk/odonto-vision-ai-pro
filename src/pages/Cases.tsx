@@ -175,7 +175,11 @@ export default function Cases() {
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setCases((data || []).map(c => ({ ...c, analysis: c.analysis as AnalysisResult | null })));
+      setCases((data || []).map(c => ({
+        ...c,
+        analysis: c.analysis as AnalysisResult | null,
+        visual_analysis: c.visual_analysis as unknown as SavedCephVisualAnalysis | undefined,
+      })) as Case[]);
     } catch (e) {
       toast.error("Erro ao carregar casos");
     } finally {
@@ -279,7 +283,7 @@ export default function Cases() {
             image_url: match.image_url,
             image_storage_path: match.image_storage_path,
             analysis_id: match.id,
-            landmarks: match.landmarks || [],
+            landmarks: (Array.isArray(match.landmarks) ? match.landmarks : []) as unknown as Landmark[],
             selected_types: finalTypes,
             results: {
               [fallbackType]: {
@@ -288,7 +292,7 @@ export default function Cases() {
               },
             },
           };
-          hydratedCase = { ...caseData, visual_analysis: visualAnalysis };
+          hydratedCase = { ...caseData, visual_analysis: visualAnalysis as SavedCephVisualAnalysis };
           setCases(prev => prev.map(c => c.id === caseData.id ? hydratedCase : c));
           await supabase.from("cases").update({ visual_analysis: visualAnalysis } as any).eq("id", caseData.id).eq("user_id", user.id);
         }
