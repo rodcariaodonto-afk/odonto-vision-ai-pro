@@ -56,6 +56,7 @@ interface AnalysisResult {
 
 interface Case {
   id: string;
+  user_id?: string;
   name: string;
   exam_type: string;
   file_name: string | null;
@@ -222,6 +223,51 @@ export default function Cases() {
   const handleCompare = () => {
     if (selectedForCompare.length < 2) { toast.error("Selecione pelo menos 2 exames"); return; }
     navigate(`/compare?cases=${selectedForCompare.join(",")}`);
+  };
+
+  const handleOpenCase = async (caseData: Case) => {
+    let hydratedCase = caseData;
+    if (isCephalometryCase(caseData) && !caseData.visual_analysis?.image_url && user?.id) {
+      try {
+        const patientKey = caseData.analysis?.identificacao_paciente?.nome || extractPatientName(caseData.name);
+        const { data } = await supabase
+          .from("cephalometric_analyses")
+          .select("id, patient_id, patient_name, image_url, image_storage_path, landmarks, measurements, interpretation, analysis_type, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        const match = (data || []).find((item: any) => {
+          const candidates = [item.patient_name, item.patient_id].filter(Boolean).map((v) => String(v).toLowerCase());
+          const key = String(patientKey || "").toLowerCase();
+          return candidates.some((value) => value === key || caseData.name.toLowerCase().includes(value));
+        });
+        if (match) {
+          const selectedTypes = getCephSelectedTypes(caseData);
+          const fallbackType = (match.analysis_type || "steiner") as AnalysisType;
+          const finalTypes = selectedTypes.length ? selectedTypes : [fallbackType];
+          const visualAnalysis = {
+            kind: "cephalometry",
+            image_url: match.image_url,
+            image_storage_path: match.image_storage_path,
+            analysis_id: match.id,
+            landmarks: match.landmarks || [],
+            selected_types: finalTypes,
+            results: {
+              [fallbackType]: {
+                measurements: match.measurements || {},
+                interpretation: match.interpretation || "",
+              },
+            },
+          };
+          hydratedCase = { ...caseData, visual_analysis: visualAnalysis };
+          setCases(prev => prev.map(c => c.id === caseData.id ? hydratedCase : c));
+          await supabase.from("cases").update({ visual_analysis: visualAnalysis } as any).eq("id", caseData.id).eq("user_id", user.id);
+        }
+      } catch (error) {
+        console.warn("Falha ao recuperar imagem cefalométrica salva:", error);
+      }
+    }
+    setSelectedCase(hydratedCase);
   };
 
   // ── PDF ────────────────────────────────────────────────────────────────────
