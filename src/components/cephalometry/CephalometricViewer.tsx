@@ -104,11 +104,11 @@ export default function CephalometricViewer({
       if (!used.has(lm.name)) return;
       const x = lm.x * baseScale, y = lm.y * baseScale;
       // ponto pequeno
-      ctx.beginPath(); ctx.arc(x, y, 3 / zoom, 0, 2 * Math.PI);
+      ctx.beginPath(); ctx.arc(x, y, 7 / zoom, 0, 2 * Math.PI);
       ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
       ctx.fill();
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1 / zoom;
+      ctx.lineWidth = 2 / zoom;
       ctx.stroke();
     });
 
