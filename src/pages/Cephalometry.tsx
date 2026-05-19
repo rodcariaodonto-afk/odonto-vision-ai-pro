@@ -74,6 +74,19 @@ export default function Cephalometry() {
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
 
+  // ── Nova análise: limpa tudo incluindo draft ─────────────────────────────
+  const handleNewAnalysis = () => {
+    sessionStorage.removeItem(DRAFT_KEY);
+    setSelectedTypes(["steiner"]);
+    setPatientId("");
+    setPatientName("");
+    setSelectedFile(null);
+    setImagePreview("");
+    setResult(null);
+    setSavingCase(false);
+    setCaseSaved(false);
+  };
+
   // ── Gate de assinatura: Cefalometria exige plano de 50 exames ou superior ──
   const [accessChecked, setAccessChecked] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
@@ -456,7 +469,7 @@ export default function Cephalometry() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <Activity className="w-8 h-8 text-primary" />
             Análise Cefalométrica
@@ -465,6 +478,12 @@ export default function Cephalometry() {
             Steiner · Jarabak · McNamara · Ricketts · Tweed · Downs
           </p>
         </div>
+        {result && (
+          <Button variant="outline" size="sm" onClick={handleNewAnalysis} className="gap-2 shrink-0">
+            <Trash2 className="w-4 h-4" />
+            Nova Análise
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="new">
