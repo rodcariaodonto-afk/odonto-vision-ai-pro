@@ -306,6 +306,14 @@ export default function Cephalometry() {
       });
       const names = result.selectedTypes.map((t) => ANALYSES_BY_ID[t].name).join(" + ");
       const caseName = `${patientName.trim() || patientId.trim()} - Cefalometria (${names})`;
+      // Montar checklist clínico com apenas campos preenchidos
+      const checklistFilled: Record<string, unknown> = {};
+      Object.entries(planningContext).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "" && v !== false) {
+          checklistFilled[k] = v;
+        }
+      });
+
       const { error } = await supabase.from("cases").insert({
         user_id: user.id, name: caseName,
         exam_type: "cefalometria",
@@ -320,6 +328,21 @@ export default function Cephalometry() {
           tipo_exame: `Telerradiografia / Cefalometria (${names})`,
           analyses,
           analysis_types: result.selectedTypes,
+          // Checklist clínico A009 (apenas campos preenchidos)
+          checklist_clinico: Object.keys(checklistFilled).length > 0 ? checklistFilled : null,
+          // Planejamento gerado pela IA (se existir)
+          planejamento_ortodontico: planningSuggestion ? {
+            summary: (planningSuggestion as Record<string, unknown>).summary,
+            prioritized_problems: (planningSuggestion as Record<string, unknown>).prioritizedProblems,
+            therapeutic_objectives: (planningSuggestion as Record<string, unknown>).therapeuticObjectives,
+            treatment_alternatives: (planningSuggestion as Record<string, unknown>).treatmentAlternatives,
+            alerts: (planningSuggestion as Record<string, unknown>).alertsAndLimitations,
+            final_text: (planningSuggestion as Record<string, unknown>).approvedFinalText
+              || (planningSuggestion as Record<string, unknown>).clinicianEditedText
+              || (planningSuggestion as Record<string, unknown>).aiOriginalText,
+            status: (planningSuggestion as Record<string, unknown>).status,
+            confidence: (planningSuggestion as Record<string, unknown>).confidenceLevel,
+          } : null,
         },
       });
       if (error) throw error;
