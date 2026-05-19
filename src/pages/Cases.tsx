@@ -49,6 +49,7 @@ interface AnalysisResult {
     measurements?: string[];
     interpretation?: string;
   }>;
+  analysis_types?: AnalysisType[];
   checklist_clinico?: Record<string, unknown> | null;
   planejamento_ortodontico?: Record<string, any> | null;
 }
