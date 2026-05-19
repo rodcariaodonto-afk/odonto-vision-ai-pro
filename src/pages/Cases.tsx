@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
+import { VisualAnalysis } from "@/components/visual-analysis";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ interface Case {
   raw_content: string | null;
   created_at: string;
   patient_folder: string | null;
+  visual_analysis?: any;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -543,7 +545,7 @@ export default function Cases() {
 
       {/* ── DIALOG DETALHE DO CASO ── */}
       <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
           {selectedCase && (
             <>
               <DialogHeader>
@@ -562,6 +564,20 @@ export default function Cases() {
               </DialogHeader>
 
               <div className="space-y-4 mt-4">
+                {/* Imagem + anotações salvas (desenhos, marcações, próteses) */}
+                {selectedCase.visual_analysis?.image_url && (
+                  <VisualAnalysis
+                    imageUrl={selectedCase.visual_analysis.image_url}
+                    editable={false}
+                    analiseCompleta={selectedCase.visual_analysis}
+                    analiseSimplificada={selectedCase.visual_analysis}
+                    marcacoesManuals={selectedCase.visual_analysis?.user_annotations?.marcacoes_manuais || []}
+                    estruturasManuais={selectedCase.visual_analysis?.user_annotations?.estruturas_manuais || []}
+                    prostheticItems={selectedCase.visual_analysis?.user_annotations?.prosthetics || []}
+                    freeStrokes={selectedCase.visual_analysis?.user_annotations?.drawing_strokes || []}
+                  />
+                )}
+
                 {selectedCase.analysis && (() => {
                   const a = selectedCase.analysis;
                   const isNewFormat = !!a.achados_radiograficos;
