@@ -275,6 +275,14 @@ export default function Cephalometry() {
     else canvasMap.current.delete(t);
   }, []);
 
+  // Auto-salva o caso em "Meus Casos" assim que a analise conclui
+  useEffect(() => {
+    if (result && !caseSaved && !savingCase) {
+      handleSaveToCases();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.analysisId]);
+
   async function handleSaveToCases() {
     if (!result || !user) return;
     setSavingCase(true);
