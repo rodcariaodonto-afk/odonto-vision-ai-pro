@@ -585,7 +585,7 @@ export default function Cephalometry() {
                     <CheckCircle className="w-4 h-4 text-green-500" />
                     Resultados
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap justify-end">
                     <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
                       {savingCase
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
@@ -595,6 +595,9 @@ export default function Cephalometry() {
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleExportPDF}>
                       <Download className="w-4 h-4 mr-2" />Exportar PDF
+                    </Button>
+                    <Button size="sm" onClick={() => document.getElementById("planning-panel")?.scrollIntoView({ behavior: "smooth" })}>
+                      <Brain className="w-4 h-4 mr-2" />Avançar para Planejamento
                     </Button>
                   </div>
                 </CardTitle>
@@ -614,12 +617,14 @@ export default function Cephalometry() {
 
           {/* Sugestão de Planeamento Clínico (apoio à decisão) */}
           {result?.analysisId && (
+            <div id="planning-panel">
             <CephalometricPlanningPanel
               cephalometricAnalysisId={result.analysisId}
               results={result.results as AnalysisResultsMap}
               patientName={patientName || undefined}
               patientId={patientId || undefined}
             />
+            </div>
           )}
         </TabsContent>
 
