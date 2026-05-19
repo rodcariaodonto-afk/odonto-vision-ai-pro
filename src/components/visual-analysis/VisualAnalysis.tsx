@@ -716,11 +716,83 @@ export function VisualAnalysis({
         }
         selectedProstheticId={selectedProstheticId}
         onSelectProsthetic={setSelectedProstheticId}
+        freeDrawingMode={showDrawingMode && editable}
+        freeDrawingColor={drawColor}
+        freeDrawingWidth={drawWidth}
+        freeStrokes={freeStrokes}
+        onAddFreeStroke={(s) => setFreeStrokes(prev => [...prev, s])}
       />
-      
-      {/* Modo de desenho */}
+
+      {/* Barra de ferramentas do desenho livre — direto na imagem principal */}
       {showDrawingMode && editable && (
-        <DrawingCanvas imageUrl={imageUrl} />
+        <Card className="border-primary/30">
+          <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <PenTool className="w-4 h-4 text-primary" />
+              Desenho livre na radiografia
+            </span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 min-h-[40px]">
+                  <div className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: drawColor }} />
+                  <Palette className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" align="start">
+                <div className="grid grid-cols-5 gap-2">
+                  {DRAW_COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setDrawColor(c)}
+                      className={cn(
+                        "w-9 h-9 rounded-full border-2 transition-transform hover:scale-110",
+                        drawColor === c ? "border-primary ring-2 ring-primary/30" : "border-border"
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="flex items-center gap-2 min-w-[140px]">
+              <span className="text-xs text-muted-foreground">Traço</span>
+              <Slider
+                value={[drawWidth * 10]}
+                onValueChange={([v]) => setDrawWidth(v / 10)}
+                min={2}
+                max={20}
+                step={1}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground w-6">{Math.round(drawWidth * 10)}</span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[40px]"
+              disabled={!freeStrokes.length}
+              onClick={() => setFreeStrokes(prev => prev.slice(0, -1))}
+            >
+              <Undo2 className="w-4 h-4 mr-1" /> Desfazer
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[40px] text-destructive"
+              disabled={!freeStrokes.length}
+              onClick={() => { setFreeStrokes([]); toast.success("Desenhos apagados"); }}
+            >
+              <Trash2 className="w-4 h-4 mr-1" /> Limpar
+            </Button>
+
+            <Badge variant="secondary" className="ml-auto">
+              {freeStrokes.length} traço{freeStrokes.length !== 1 ? "s" : ""}
+            </Badge>
+          </CardContent>
+        </Card>
       )}
 
       {/* Painel de implantes e coroas */}
