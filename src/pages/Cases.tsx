@@ -19,6 +19,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { VisualAnalysis } from "@/components/visual-analysis";
+import {
+  ANALYSES_BY_ID, AnalysisType, getStatus, formatRange,
+} from "@/types/cephalometric-analyses";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,6 +42,14 @@ interface AnalysisResult {
   diagnosticos_diferenciais?: string[];
   riscos_alertas?: string[];
   recomendacoes_clinicas?: string[];
+  analyses?: Array<{
+    analysis_type?: AnalysisType;
+    analysis_name?: string;
+    measurements?: string[];
+    interpretation?: string;
+  }>;
+  checklist_clinico?: Record<string, unknown> | null;
+  planejamento_ortodontico?: Record<string, any> | null;
 }
 
 interface Case {
