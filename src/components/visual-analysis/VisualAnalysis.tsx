@@ -1,12 +1,13 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { DrawingCanvas } from "./DrawingCanvas";
 import { OdontogramaInterativo, TipoMarcacao, MarcacaoManual, TipoEstrutura, EstruturaManual } from "./OdontogramaInterativo";
-import { RadiografiaInterativa } from "./RadiografiaInterativa";
+import { RadiografiaInterativa, FreeStroke } from "./RadiografiaInterativa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2, Stethoscope } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2, Stethoscope, Undo2, Palette } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { DentalProstheticsPanel, ProstheticItem } from "./DentalProsthetics";
 
@@ -122,6 +123,13 @@ interface VisualAnalysisProps {
   marcacoesManuals?: MarcacaoManual[];
   analiseCompleta?: AnaliseVisualCompleta;
   analiseSimplificada?: AnaliseVisualSimplificada;
+  // Anotações persistidas (controladas pelo pai)
+  estruturasManuais?: EstruturaManual[];
+  onEstruturasManuaisChange?: (estruturas: EstruturaManual[]) => void;
+  prostheticItems?: ProstheticItem[];
+  onProstheticItemsChange?: (items: ProstheticItem[]) => void;
+  freeStrokes?: FreeStroke[];
+  onFreeStrokesChange?: (strokes: FreeStroke[]) => void;
 }
 
 export function VisualAnalysis({ 
@@ -134,7 +142,13 @@ export function VisualAnalysis({
   onMarcacoesManualChange,
   marcacoesManuals: externalMarcacoesManuals,
   analiseCompleta,
-  analiseSimplificada
+  analiseSimplificada,
+  estruturasManuais: externalEstruturas,
+  onEstruturasManuaisChange,
+  prostheticItems: externalProsthetics,
+  onProstheticItemsChange,
+  freeStrokes: externalFreeStrokes,
+  onFreeStrokesChange,
 }: VisualAnalysisProps) {
   const [zoom, setZoom] = useState(1);
   const [showAnatomicStructures, setShowAnatomicStructures] = useState(true);
@@ -144,11 +158,38 @@ export function VisualAnalysis({
   const [showDrawingMode, setShowDrawingMode] = useState(false);
   const [showMarcacoes, setShowMarcacoes] = useState(true);
   const [showProsthetics, setShowProsthetics] = useState(false);
-  const [prostheticItems, setProstheticItems] = useState<ProstheticItem[]>([]);
+  const [internalProstheticItems, setInternalProstheticItems] = useState<ProstheticItem[]>([]);
+  const prostheticItems = externalProsthetics ?? internalProstheticItems;
+  const setProstheticItems = useCallback((items: ProstheticItem[] | ((prev: ProstheticItem[]) => ProstheticItem[])) => {
+    const resolved = typeof items === "function" ? items(prostheticItems) : items;
+    if (onProstheticItemsChange) onProstheticItemsChange(resolved);
+    else setInternalProstheticItems(resolved);
+  }, [prostheticItems, onProstheticItemsChange]);
   const [selectedProstheticId, setSelectedProstheticId] = useState<string | null>(null);
   const [modoAtivo, setModoAtivo] = useState<{ dente: string | null; tipo: TipoMarcacao | null }>({ dente: null, tipo: null });
   const [estruturaAtiva, setEstruturaAtiva] = useState<{ tipo: TipoEstrutura | null; lado: "direito" | "esquerdo" | null }>({ tipo: null, lado: null });
-  const [estruturasManuais, setEstruturasManuais] = useState<EstruturaManual[]>([]);
+  const [internalEstruturasManuais, setInternalEstruturasManuais] = useState<EstruturaManual[]>([]);
+  const estruturasManuais = externalEstruturas ?? internalEstruturasManuais;
+  const setEstruturasManuais = useCallback((next: EstruturaManual[] | ((prev: EstruturaManual[]) => EstruturaManual[])) => {
+    const resolved = typeof next === "function" ? next(estruturasManuais) : next;
+    if (onEstruturasManuaisChange) onEstruturasManuaisChange(resolved);
+    else setInternalEstruturasManuais(resolved);
+  }, [estruturasManuais, onEstruturasManuaisChange]);
+
+  // Strokes de desenho livre
+  const [internalFreeStrokes, setInternalFreeStrokes] = useState<FreeStroke[]>([]);
+  const freeStrokes = externalFreeStrokes ?? internalFreeStrokes;
+  const setFreeStrokes = useCallback((next: FreeStroke[] | ((prev: FreeStroke[]) => FreeStroke[])) => {
+    const resolved = typeof next === "function" ? next(freeStrokes) : next;
+    if (onFreeStrokesChange) onFreeStrokesChange(resolved);
+    else setInternalFreeStrokes(resolved);
+  }, [freeStrokes, onFreeStrokesChange]);
+
+  // Configuração da ferramenta de desenho
+  const [drawColor, setDrawColor] = useState("#EF4444");
+  const [drawWidth, setDrawWidth] = useState(0.6);
+  const DRAW_COLORS = ["#EF4444", "#F59E0B", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#14B8A6", "#FFFFFF", "#000000"];
+
   const [internalMarcacoesManuals, setInternalMarcacoesManuals] = useState<MarcacaoManual[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
