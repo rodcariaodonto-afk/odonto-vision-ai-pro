@@ -222,12 +222,17 @@ export default function Cases() {
 
   // ── PDF ────────────────────────────────────────────────────────────────────
 
-  const generatePDF = (caseData: Case) => {
+  const generatePDF = async (caseData: Case) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
     const maxWidth = pageWidth - margin * 2;
     let yPos = 20;
+
+    const ensureSpace = (needed = 20) => {
+      if (yPos + needed > pageHeight - 20) { doc.addPage(); yPos = 20; }
+    };
 
     const addText = (text: string, fontSize = 10, bold = false) => {
       doc.setFontSize(fontSize);
@@ -238,6 +243,44 @@ export default function Cases() {
         yPos += fontSize * 0.5;
       });
       yPos += 5;
+    };
+
+    const addCephImage = async () => {
+      const imageUrl = caseData.visual_analysis?.image_url;
+      const landmarks = caseData.visual_analysis?.landmarks || [];
+      if (!imageUrl) return;
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("Imagem indisponível"));
+          img.src = imageUrl;
+        });
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || 1200;
+        canvas.height = img.naturalHeight || 900;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.lineWidth = Math.max(3, canvas.width * 0.003);
+        landmarks.forEach((lm: any) => {
+          if (typeof lm?.x !== "number" || typeof lm?.y !== "number") return;
+          ctx.beginPath();
+          ctx.arc(lm.x, lm.y, Math.max(8, canvas.width * 0.008), 0, Math.PI * 2);
+          ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
+          ctx.fill();
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.stroke();
+        });
+        const imgW = maxWidth;
+        const imgH = Math.min(120, (canvas.height / canvas.width) * imgW);
+        ensureSpace(imgH + 12);
+        doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", margin, yPos, imgW, imgH);
+        yPos += imgH + 10;
+      } catch {
+        addText("Imagem original: não foi possível anexar ao PDF, mas permanece salva no caso.", 9);
+      }
     };
 
     const addSection = (title: string, content?: string | string[]) => {
@@ -259,6 +302,35 @@ export default function Cases() {
     addText(`Tipo: ${caseData.exam_type} | Data: ${formatDate(caseData.created_at)}`);
     yPos += 5;
 
+    if (isCephalometryCase(caseData)) {
+      await addCephImage();
+      caseData.analysis?.analyses?.forEach((analysis) => {
+        ensureSpace(30);
+        addText(`Análise — ${analysis.analysis_name || analysis.analysis_type || "Cefalometria"}`, 12, true);
+        addSection("Medidas", analysis.measurements || []);
+        addSection("Interpretação Clínica", analysis.interpretation);
+      });
+      const checklist = caseData.analysis?.checklist_clinico;
+      if (checklist && Object.keys(checklist).length > 0) {
+        addText("Checklist Clínico", 12, true);
+        Object.entries(checklist).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === "" || value === false) return;
+          addText(`${checklistLabels[key] || key}: ${typeof value === "boolean" ? "Sim" : String(value).replace(/_/g, " ")}`);
+        });
+      }
+      const plan = caseData.analysis?.planejamento_ortodontico;
+      if (plan) {
+        addText("Planejamento Ortodôntico", 12, true);
+        addSection("Resumo", plan.summary);
+        addSection("Problemas Priorizados", plan.prioritized_problems);
+        addSection("Objetivos Terapêuticos", plan.therapeutic_objectives);
+        addSection("Alternativas de Tratamento", plan.treatment_alternatives);
+        addSection("Alertas e Limitações", plan.alerts);
+        addSection("Explicação ao Paciente", plan.patient_friendly_explanation);
+        addSection("Texto Final", plan.final_text);
+      }
+    } else {
+
     if (caseData.analysis) {
       const a = caseData.analysis;
       // Novo formato
@@ -277,6 +349,7 @@ export default function Cases() {
         addSection("Condutas", a.condutas);
         addSection("Observações", a.observacoes);
       }
+    }
     }
 
     yPos += 10;
