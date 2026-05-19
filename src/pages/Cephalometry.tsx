@@ -76,6 +76,10 @@ export default function Cephalometry() {
   const [savingLandmarks, setSavingLandmarks] = useState(false);
   const landmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Estados elevados do CephalometricPlanningPanel para incluir no PDF
+  const [planningContext, setPlanningContext] = useState<Record<string, unknown>>({});
+  const [planningSuggestion, setPlanningSuggestion] = useState<Record<string, unknown> | null>(null);
+
   // ── Nova análise: limpa tudo incluindo draft ─────────────────────────────
   const handleNewAnalysis = () => {
     sessionStorage.removeItem(DRAFT_KEY);
@@ -395,6 +399,95 @@ export default function Cephalometry() {
         doc.text(dlines, 15, 285);
       });
 
+      // ── Página: Checklist Clínico A009 ──────────────────────────────────
+      const ctx = planningContext as Record<string, unknown>;
+      const hasCtx = Object.keys(ctx).some(k => ctx[k] !== undefined && ctx[k] !== "");
+      if (hasCtx) {
+        doc.addPage();
+        let yc = 15;
+        doc.setFillColor(13, 43, 78);
+        doc.rect(0, 0, doc.internal.pageSize.getWidth(), 25, "F");
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(16); doc.setFont("helvetica","bold");
+        doc.text("CHECKLIST CLÍNICO", doc.internal.pageSize.getWidth()/2, 12, { align: "center" });
+        doc.setFontSize(9); doc.setFont("helvetica","normal");
+        doc.text("Formulário Clínico — OdontoVision AI Pro", doc.internal.pageSize.getWidth()/2, 19, { align: "center" });
+        doc.setTextColor(0,0,0); yc = 35;
+
+        const labelMap: Record<string, string> = {
+          patientAge: "Idade", patientSex: "Sexo",
+          padraoFacial: "Padrão Facial", indiceVert: "Índice de Vert",
+          assimetriaFacial: "Assimetria Facial", linhaDeSorriso: "Linha de Sorriso",
+          vedamentoLabial: "Vedamento Labial Passivo", corredorBucalAumentado: "Corredor Bucal Aumentado",
+          classeDentariaDireita: "Classe Dentária Direita", classeDentariaEsquerda: "Classe Dentária Esquerda",
+          linhaMedia: "Linha Média", mordida: "Mordida Vertical", giroversoes: "Giroversões",
+          classeEsqueletica: "Classe Esquelética", diagnosticoEsqueletico: "Diagnóstico Esquelético",
+          apinhamentoSuperiorAnterior: "Apinhamento Sup. Anterior", apinhamentoSuperiorPosterior: "Apinhamento Sup. Posterior",
+          apinhamentoInferiorAnterior: "Apinhamento Inf. Anterior", apinhamentoInferiorPosterior: "Apinhamento Inf. Posterior",
+          reabsorcaoRadicular: "Reabsorção Radicular", necessidadeExodontia: "Necessidade de Exodontia",
+          faseTratamento: "Fase do Tratamento", queixaPrincipal: "Queixa Principal",
+        };
+
+        doc.setFontSize(11); doc.setFont("helvetica","bold");
+        doc.text("Dados Clínicos Preenchidos pelo Dentista", 15, yc); yc += 8;
+        doc.setFont("helvetica","normal"); doc.setFontSize(10);
+
+        Object.entries(labelMap).forEach(([key, label]) => {
+          const v = ctx[key];
+          if (v === undefined || v === null || v === "" || v === false) return;
+          if (yc > 270) { doc.addPage(); yc = 15; }
+          const val = typeof v === "boolean" ? "Sim" : String(v).replace(/_/g, " ");
+          doc.setFont("helvetica","bold"); doc.text(`${label}:`, 15, yc);
+          doc.setFont("helvetica","normal"); doc.text(val, 80, yc); yc += 6;
+        });
+      }
+
+      // ── Página: Planejamento Gerado pela IA ─────────────────────────────
+      if (planningSuggestion) {
+        const ps = planningSuggestion as Record<string, unknown>;
+        doc.addPage();
+        let yp = 15;
+        const pw = doc.internal.pageSize.getWidth();
+        doc.setFillColor(13, 43, 78);
+        doc.rect(0, 0, pw, 25, "F");
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(16); doc.setFont("helvetica","bold");
+        doc.text("PLANEJAMENTO ORTODÔNTICO", pw/2, 12, { align: "center" });
+        doc.setFontSize(9); doc.setFont("helvetica","normal");
+        doc.text("Sugestão de Apoio à Decisão Clínica — OdontoVision AI Pro", pw/2, 19, { align: "center" });
+        doc.setTextColor(0,0,0); yp = 35;
+
+        const addSection = (title: string, text: string | string[]) => {
+          if (yp > 250) { doc.addPage(); yp = 15; }
+          doc.setFontSize(11); doc.setFont("helvetica","bold");
+          doc.text(title, 15, yp); yp += 6;
+          doc.setFont("helvetica","normal"); doc.setFontSize(10);
+          const items = Array.isArray(text) ? text : [text];
+          items.forEach(line => {
+            if (!line) return;
+            if (yp > 270) { doc.addPage(); yp = 15; }
+            const lines = doc.splitTextToSize(`• ${line}`, pw - 35);
+            doc.text(lines, 20, yp); yp += lines.length * 5 + 2;
+          });
+          yp += 4;
+        };
+
+        if (ps.summary) addSection("Resumo Diagnóstico", String(ps.summary));
+        if (Array.isArray(ps.prioritizedProblems) && ps.prioritizedProblems.length) addSection("Problemas Priorizados", ps.prioritizedProblems as string[]);
+        if (Array.isArray(ps.therapeuticObjectives) && ps.therapeuticObjectives.length) addSection("Objetivos Terapêuticos", ps.therapeuticObjectives as string[]);
+        if (Array.isArray(ps.treatmentAlternatives) && ps.treatmentAlternatives.length) addSection("Alternativas de Tratamento", ps.treatmentAlternatives as string[]);
+        if (Array.isArray(ps.alertsAndLimitations) && ps.alertsAndLimitations.length) addSection("Alertas e Limitações", ps.alertsAndLimitations as string[]);
+
+        const finalText = (ps.approvedFinalText || ps.clinicianEditedText || ps.aiOriginalText) as string | undefined;
+        if (finalText) addSection("Texto Final do Plano", finalText);
+
+        if (yp > 270) { doc.addPage(); yp = 15; }
+        doc.setFontSize(8); doc.setTextColor(100,100,100);
+        const disclaimer = "AVISO: Esta sugestão é gerada por IA como apoio à decisão clínica. NÃO substitui o julgamento profissional. Requer validação por dentista habilitado.";
+        const dls = doc.splitTextToSize(disclaimer, pw - 30);
+        doc.text(dls, 15, yp);
+      }
+
       const fileName = `cefalometria-${(patientName.trim() || patientId.trim()).replace(/\s+/g, "_")}-${Date.now()}.pdf`;
       doc.save(fileName);
       toast.success("PDF exportado!");
@@ -657,6 +750,8 @@ export default function Cephalometry() {
               results={result.results as AnalysisResultsMap}
               patientName={patientName || undefined}
               patientId={patientId || undefined}
+              onContextChange={(ctx) => setPlanningContext(ctx as Record<string, unknown>)}
+              onSuggestionChange={(s) => setPlanningSuggestion(s as Record<string, unknown> | null)}
             />
             </div>
           )}

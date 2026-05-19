@@ -35,6 +35,10 @@ interface Props {
   patientName?: string;
   /** ID do paciente (opcional, usado no PDF) */
   patientId?: string;
+  /** Callback: eleva uiContext para o pai (para PDF incluir checklist) */
+  onContextChange?: (ctx: UiClinicalContext) => void;
+  /** Callback: eleva suggestion para o pai (para PDF incluir planejamento) */
+  onSuggestionChange?: (s: CephalometricPlanningSuggestion | null) => void;
 }
 
 type LocalState =
@@ -50,11 +54,17 @@ type LocalState =
  * Aparece dentro de Cephalometry.tsx apos a analise rodar e ter medidas
  * suficientes. Orquestra: gerar -> exibir -> editar -> aprovar/rejeitar.
  */
-export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, patientName, patientId }: Props) {
+export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, patientName, patientId, onContextChange, onSuggestionChange }: Props) {
   const { user } = useAuth();
   const { isGenerating, isUpdating, generate, updateText, approve, reject, listSuggestions, fetchSuggestion } = useCephalometricPlanning();
   const [state, setState] = useState<LocalState>({ kind: "idle" });
   const [uiContext, setUiContext] = useState<UiClinicalContext>({});
+
+  // Eleva uiContext para o pai sempre que mudar
+  const handleContextChange = useCallback((ctx: UiClinicalContext) => {
+    setUiContext(ctx);
+    onContextChange?.(ctx);
+  }, [onContextChange]);
   const [history, setHistory] = useState<PlanningSummary[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -84,10 +94,12 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
       console.log("[CephalometricPlanningPanel] setting state for status=", suggestion.status);
       if (suggestion.status === "clinician_approved") {
         setState({ kind: "finalized", suggestion, persistedId: id, status: "approved" });
+        onSuggestionChange?.(suggestion);
       } else if (suggestion.status === "rejected") {
         setState({ kind: "finalized", suggestion, persistedId: id, status: "rejected" });
       } else {
         setState({ kind: "generated", suggestion, persistedId: id });
+      onSuggestionChange?.(suggestion);
       }
       // Scroll para o topo do painel para que o usuario veja a sugestao carregada
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -279,7 +291,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
           <>
             <PlanningContextForm
               value={uiContext}
-              onChange={setUiContext}
+              onChange={handleContextChange}
               disabled={isGenerating}
             />
 
