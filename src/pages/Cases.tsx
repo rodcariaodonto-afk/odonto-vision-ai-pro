@@ -35,7 +35,7 @@ interface AnalysisResult {
   condutas?: string[];
   observacoes?: string;
   // Campos do novo formato
-  identificacao_paciente?: { nome?: string; data_nascimento?: string; data_analise?: string };
+  identificacao_paciente?: { nome?: string; id?: string; data_nascimento?: string; data_analise?: string };
   tipo_exame?: string;
   qualidade_imagem?: string;
   achados_radiograficos?: string[];
