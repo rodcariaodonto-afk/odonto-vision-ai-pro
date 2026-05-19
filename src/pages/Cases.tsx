@@ -23,22 +23,22 @@ import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
 import {
   ANALYSES_BY_ID, AnalysisType,
 } from "@/types/cephalometric-analyses";
-
-interface SavedLandmark {
-  x: number;
-  y: number;
-  confidence?: number;
-  name?: string;
-}
+import type { Landmark } from "@/lib/cephalometric-math";
 
 interface SavedCephVisualAnalysis {
   kind?: string;
   image_url?: string;
   image_storage_path?: string | null;
   analysis_id?: string;
-  landmarks?: SavedLandmark[];
+  landmarks?: Landmark[];
   selected_types?: AnalysisType[];
   results?: Record<string, unknown>;
+  user_annotations?: {
+    marcacoes_manuais?: unknown[];
+    estruturas_manuais?: unknown[];
+    prosthetics?: unknown[];
+    drawing_strokes?: unknown[];
+  };
 }
 
 interface SavedPlanning {
