@@ -73,6 +73,8 @@ export default function Cephalometry() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
+  const [savingLandmarks, setSavingLandmarks] = useState(false);
+  const landmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Nova análise: limpa tudo incluindo draft ─────────────────────────────
   const handleNewAnalysis = () => {
@@ -228,7 +230,7 @@ export default function Cephalometry() {
     } finally { setLoading(false); }
   }
 
-  // Recalculate measurements when user drags landmarks
+  // Recalculate measurements when user drags landmarks + persist com debounce
   const handleLandmarksChange = useCallback((lm: Landmark[]) => {
     setResult((cur) => {
       if (!cur) return cur;
@@ -240,6 +242,33 @@ export default function Cephalometry() {
           interpretation: cur.results[t]?.interpretation ?? "",
         };
       });
+
+      // Debounce: salva landmarks corrigidos 1.5s apos parar de arrastar
+      if (landmarkDebounceRef.current) clearTimeout(landmarkDebounceRef.current);
+      landmarkDebounceRef.current = setTimeout(async () => {
+        if (!cur.analysisId) return;
+        setSavingLandmarks(true);
+        try {
+          const recalcFinal = recalcAll(lm, cur.selectedTypes);
+          const measurementsFinal: Record<string, number | undefined> = {};
+          cur.selectedTypes.forEach((t) => {
+            Object.assign(measurementsFinal, recalcFinal[t] ?? {});
+          });
+          await supabase
+            .from("cephalometric_analyses")
+            .update({
+              landmarks: lm,
+              measurements: measurementsFinal,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", cur.analysisId);
+        } catch (err) {
+          console.warn("Erro ao salvar landmarks:", err);
+        } finally {
+          setSavingLandmarks(false);
+        }
+      }, 1500);
+
       return { ...cur, landmarks: lm, results: merged };
     });
   }, []);
@@ -584,6 +613,11 @@ export default function Cephalometry() {
                   <span className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
                     Resultados
+                    {savingLandmarks && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />salvando pontos…
+                      </span>
+                    )}
                   </span>
                   <div className="flex gap-2 flex-wrap justify-end">
                     <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
