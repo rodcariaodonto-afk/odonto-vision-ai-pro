@@ -438,7 +438,7 @@ export function RadiografiaInterativa({
             ref={svgRef}
             className="absolute inset-0 w-full h-full"
             viewBox="0 0 100 100"
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="none"
             style={{ cursor: getCursorStyle() }}
             onClick={handleClick}
             onMouseDown={handleMouseDown}
