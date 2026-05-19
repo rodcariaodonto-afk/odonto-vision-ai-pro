@@ -169,6 +169,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
       suggestion: result.suggestion,
       persistedId,
     });
+    onSuggestionChange?.(result.suggestion);
     toast.success("Sugestao gerada com sucesso");
     reloadHistory();
   };
@@ -198,19 +199,22 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
     }
 
     // Atualiza estado local com os campos editados (merge em cima da sugestao original)
+    const updatedSuggestion: CephalometricPlanningSuggestion = {
+      ...state.suggestion,
+      summary: payload.summary,
+      prioritizedProblems: payload.prioritizedProblems,
+      therapeuticObjectives: payload.therapeuticObjectives,
+      treatmentAlternatives: payload.treatmentAlternatives,
+      alertsAndLimitations: payload.alertsAndLimitations,
+      patientFriendlyExplanation: payload.patientFriendlyExplanation,
+    };
+
     setState({
       kind: "generated",
-      suggestion: {
-        ...state.suggestion,
-        summary: payload.summary,
-        prioritizedProblems: payload.prioritizedProblems,
-        therapeuticObjectives: payload.therapeuticObjectives,
-        treatmentAlternatives: payload.treatmentAlternatives,
-        alertsAndLimitations: payload.alertsAndLimitations,
-        patientFriendlyExplanation: payload.patientFriendlyExplanation,
-      },
+      suggestion: updatedSuggestion,
       persistedId: state.persistedId,
     });
+    onSuggestionChange?.(updatedSuggestion);
     toast.success("Edicao salva");
   };
 
@@ -224,7 +228,15 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
       toast.error(res.error ?? "Falha ao aprovar");
       return;
     }
-    setState({ ...state, kind: "finalized", status: "approved" });
+    const approvedSuggestion: CephalometricPlanningSuggestion = {
+      ...state.suggestion,
+      status: "clinician_approved",
+      approvedFinalText: finalText,
+      approvedAt: new Date().toISOString(),
+      clinicianUserId: user.id,
+    };
+    setState({ kind: "finalized", suggestion: approvedSuggestion, persistedId: state.persistedId, status: "approved" });
+    onSuggestionChange?.(approvedSuggestion);
     toast.success("Sugestao aprovada e registrada no log de auditoria");
     reloadHistory();
   };
