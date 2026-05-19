@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ComponentProps } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -769,18 +769,27 @@ export default function Cases() {
                 })()}
 
                 {/* Imagem + anotações salvas (desenhos, marcações, próteses) */}
-                {!isCephalometryCase(selectedCase) && selectedCase.visual_analysis?.image_url && (
-                  <VisualAnalysis
-                    imageUrl={selectedCase.visual_analysis.image_url}
-                    editable={false}
-                    analiseCompleta={selectedCase.visual_analysis}
-                    analiseSimplificada={selectedCase.visual_analysis}
-                    marcacoesManuals={selectedCase.visual_analysis?.user_annotations?.marcacoes_manuais || []}
-                    estruturasManuais={selectedCase.visual_analysis?.user_annotations?.estruturas_manuais || []}
-                    prostheticItems={selectedCase.visual_analysis?.user_annotations?.prosthetics || []}
-                    freeStrokes={selectedCase.visual_analysis?.user_annotations?.drawing_strokes || []}
-                  />
-                )}
+                {!isCephalometryCase(selectedCase) && selectedCase.visual_analysis?.image_url && (() => {
+                  const visualData = selectedCase.visual_analysis as unknown;
+                  const annotations = selectedCase.visual_analysis.user_annotations as unknown as {
+                    marcacoes_manuais?: ComponentProps<typeof VisualAnalysis>["marcacoesManuals"];
+                    estruturas_manuais?: ComponentProps<typeof VisualAnalysis>["estruturasManuais"];
+                    prosthetics?: ComponentProps<typeof VisualAnalysis>["prostheticItems"];
+                    drawing_strokes?: ComponentProps<typeof VisualAnalysis>["freeStrokes"];
+                  } | undefined;
+                  return (
+                    <VisualAnalysis
+                      imageUrl={selectedCase.visual_analysis.image_url}
+                      editable={false}
+                      analiseCompleta={visualData as ComponentProps<typeof VisualAnalysis>["analiseCompleta"]}
+                      analiseSimplificada={visualData as ComponentProps<typeof VisualAnalysis>["analiseSimplificada"]}
+                      marcacoesManuals={annotations?.marcacoes_manuais || []}
+                      estruturasManuais={annotations?.estruturas_manuais || []}
+                      prostheticItems={annotations?.prosthetics || []}
+                      freeStrokes={annotations?.drawing_strokes || []}
+                    />
+                  );
+                })()}
 
                 {isCephalometryCase(selectedCase) && selectedCase.analysis?.analyses && (
                   <div className="space-y-4">
