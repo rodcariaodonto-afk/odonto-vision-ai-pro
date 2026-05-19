@@ -1053,6 +1053,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setExamCategories([]);
     setVisualAnalysisResult(null);
     setShowVisualAnalysis(false);
+    setManualMarcacoes([]);
+    setManualEstruturas([]);
+    setManualProsthetics([]);
+    setDrawingStrokes([]);
     clearDraft();
     setPatientData({
       nome: "",
