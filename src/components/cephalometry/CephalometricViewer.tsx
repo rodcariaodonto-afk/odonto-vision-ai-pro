@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import {
   ZoomIn, ZoomOut, RotateCcw, Pencil, Eraser, Minus,
   Move, Trash2, Undo2,
-} from "lucide-react";
+,
+  Maximize2, Minimize2} from "lucide-react";
 
 type Tool = "none" | "pen" | "line" | "eraser";
 const COLORS = ["#3B82F6", "#EF4444", "#22C55E", "#F59E0B"];
@@ -35,6 +36,14 @@ export default function CephalometricViewer({
   const def = ANALYSES_BY_ID[analysisType];
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Escape fecha fullscreen
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setIsFullscreen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   const [zoom, setZoom] = useState(1);
@@ -278,11 +287,14 @@ export default function CephalometricViewer({
           <Button size="sm" variant="outline" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
             <RotateCcw className="w-3.5 h-3.5" />
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}>
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </Button>
         </div>
       </div>
 
-      <div ref={wrapRef} className="relative w-full overflow-auto rounded-lg border bg-black flex items-center justify-center"
-        style={{ touchAction: "none", maxHeight: "min(70vh, 600px)" }}>
+      <div ref={wrapRef} className={`relative w-full overflow-auto rounded-lg border bg-black flex items-center justify-center ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}`}
+        style={{ touchAction: "none", maxHeight: isFullscreen ? "100vh" : "min(85vh, 900px)" }}>
         <canvas
           ref={canvasRef}
           className="block max-w-full max-h-full"
