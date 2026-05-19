@@ -24,6 +24,35 @@ import {
   ANALYSES_BY_ID, AnalysisType,
 } from "@/types/cephalometric-analyses";
 
+interface SavedLandmark {
+  x: number;
+  y: number;
+  confidence?: number;
+  name?: string;
+}
+
+interface SavedCephVisualAnalysis {
+  kind?: string;
+  image_url?: string;
+  image_storage_path?: string | null;
+  analysis_id?: string;
+  landmarks?: SavedLandmark[];
+  selected_types?: AnalysisType[];
+  results?: Record<string, unknown>;
+}
+
+interface SavedPlanning {
+  summary?: string;
+  prioritized_problems?: string[];
+  therapeutic_objectives?: string[];
+  treatment_alternatives?: string[];
+  alerts?: string[];
+  patient_friendly_explanation?: string;
+  final_text?: string;
+  status?: string;
+  confidence?: string;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AnalysisResult {
@@ -51,7 +80,7 @@ interface AnalysisResult {
   }>;
   analysis_types?: AnalysisType[];
   checklist_clinico?: Record<string, unknown> | null;
-  planejamento_ortodontico?: Record<string, any> | null;
+  planejamento_ortodontico?: SavedPlanning | null;
 }
 
 interface Case {
@@ -66,7 +95,7 @@ interface Case {
   raw_content: string | null;
   created_at: string;
   patient_folder: string | null;
-  visual_analysis?: any;
+  visual_analysis?: SavedCephVisualAnalysis;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
