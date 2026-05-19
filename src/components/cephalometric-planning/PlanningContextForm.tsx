@@ -12,6 +12,7 @@ interface Props {
   value: UiClinicalContext;
   onChange: (next: UiClinicalContext) => void;
   disabled?: boolean;
+  inferredFields?: (keyof UiClinicalContext)[];
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -35,9 +36,18 @@ function CheckItem({ label, checked, onChange, disabled }: {
   );
 }
 
-export function PlanningContextForm({ value, onChange, disabled }: Props) {
+export function PlanningContextForm({ value, onChange, disabled, inferredFields = [] }: Props) {
   const set = <K extends keyof UiClinicalContext>(key: K, v: UiClinicalContext[K]) =>
     onChange({ ...value, [key]: v });
+
+  const isInferred = (key: keyof UiClinicalContext) => inferredFields.includes(key);
+
+  const AiBadge = ({ field }: { field: keyof UiClinicalContext }) =>
+    isInferred(field) ? (
+      <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+        ✦ IA
+      </span>
+    ) : null;
 
   const parseNumber = (raw: string): number | undefined => {
     if (raw === "") return undefined;
@@ -96,7 +106,7 @@ export function PlanningContextForm({ value, onChange, disabled }: Props) {
       <Section title="Padrão Facial">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Padrão Facial</Label>
+            <Label>Padrão Facial <AiBadge field="padraoFacial" /></Label>
             <Select value={value.padraoFacial ?? ""} disabled={disabled}
               onValueChange={(v) => set("padraoFacial", v as UiClinicalContext["padraoFacial"])}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
@@ -108,7 +118,7 @@ export function PlanningContextForm({ value, onChange, disabled }: Props) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Índice de Vert</Label>
+            <Label>Índice de Vert <AiBadge field="indiceVert" /></Label>
             <Select value={value.indiceVert ?? ""} disabled={disabled}
               onValueChange={(v) => set("indiceVert", v as UiClinicalContext["indiceVert"])}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
@@ -136,7 +146,7 @@ export function PlanningContextForm({ value, onChange, disabled }: Props) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Linha de Sorriso</Label>
+            <Label>Linha de Sorriso <AiBadge field="linhaDeSorriso" /></Label>
             <Select value={value.linhaDeSorriso ?? ""} disabled={disabled}
               onValueChange={(v) => set("linhaDeSorriso", v as UiClinicalContext["linhaDeSorriso"])}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
@@ -201,7 +211,7 @@ export function PlanningContextForm({ value, onChange, disabled }: Props) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Mordida Vertical</Label>
+            <Label>Mordida Vertical <AiBadge field="mordida" /></Label>
             <Select value={value.mordida ?? ""} disabled={disabled}
               onValueChange={(v) => set("mordida", v as UiClinicalContext["mordida"])}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
@@ -224,7 +234,7 @@ export function PlanningContextForm({ value, onChange, disabled }: Props) {
       <Section title="Diagnóstico Esquelético">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Classe Esquelética</Label>
+            <Label>Classe Esquelética <AiBadge field="classeEsqueletica" /></Label>
             <Select value={value.classeEsqueletica ?? ""} disabled={disabled}
               onValueChange={(v) => set("classeEsqueletica", v as UiClinicalContext["classeEsqueletica"])}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
@@ -236,7 +246,7 @@ export function PlanningContextForm({ value, onChange, disabled }: Props) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Diagnóstico Detalhado</Label>
+            <Label>Diagnóstico Detalhado <AiBadge field="diagnosticoEsqueletico" /></Label>
             <Select value={value.diagnosticoEsqueletico ?? ""} disabled={disabled}
               onValueChange={(v) => set("diagnosticoEsqueletico", v as UiClinicalContext["diagnosticoEsqueletico"])}>
               <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>

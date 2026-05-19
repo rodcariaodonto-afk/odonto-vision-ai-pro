@@ -13,3 +13,4 @@ export * from './engine';
 export * from './safety-filter';
 export * from './ui-adapter';
 export * from './pdf-export';
+export * from './form-prefill';

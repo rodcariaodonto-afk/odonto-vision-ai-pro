@@ -12,6 +12,8 @@ import {
   calculateCephalometricPlanningDataSufficiency,
   hasMinimumMeasurementsForPlanning,
   downloadPlanningSuggestionPDF,
+  prefillFromCephalometricResults,
+  getInferredFields,
   type UiClinicalContext,
   type CephalometricPlanningSuggestion,
   type AnalysisResultsMap,
@@ -59,6 +61,18 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
   const { isGenerating, isUpdating, generate, updateText, approve, reject, listSuggestions, fetchSuggestion } = useCephalometricPlanning();
   const [state, setState] = useState<LocalState>({ kind: "idle" });
   const [uiContext, setUiContext] = useState<UiClinicalContext>({});
+  const [inferredFields, setInferredFields] = useState<(keyof UiClinicalContext)[]>([]);
+
+  // Pré-preencher formulário quando resultados chegam
+  useEffect(() => {
+    if (!results || Object.keys(results).length === 0) return;
+    setUiContext(prev => {
+      const prefilled = prefillFromCephalometricResults(results, prev);
+      const fields = getInferredFields(results, prev);
+      if (fields.length > 0) setInferredFields(fields);
+      return prefilled;
+    });
+  }, [results]);
 
   // Eleva uiContext para o pai sempre que mudar
   const handleContextChange = useCallback((ctx: UiClinicalContext) => {
@@ -292,6 +306,7 @@ export function CephalometricPlanningPanel({ cephalometricAnalysisId, results, p
             <PlanningContextForm
               value={uiContext}
               onChange={handleContextChange}
+              inferredFields={inferredFields}
               disabled={isGenerating}
             />
 
