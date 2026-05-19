@@ -789,7 +789,7 @@ export default function Cephalometry() {
                     )}
                   </span>
                   <div className="flex gap-2 flex-wrap justify-end">
-                    <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
+                    <Button size="sm" variant="outline" onClick={() => handleSaveToCases()} disabled={savingCase || caseSaved}>
                       {savingCase
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
                         : caseSaved
