@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ComponentProps } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,51 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { VisualAnalysis } from "@/components/visual-analysis";
+import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
+import {
+  ANALYSES_BY_ID, AnalysisType,
+} from "@/types/cephalometric-analyses";
+import type { Landmark } from "@/lib/cephalometric-math";
+
+interface SavedCephVisualAnalysis {
+  kind?: string;
+  image_url?: string;
+  image_storage_path?: string | null;
+  analysis_id?: string;
+  landmarks?: Landmark[];
+  selected_types?: AnalysisType[];
+  results?: Record<string, unknown>;
+  user_annotations?: {
+    marcacoes_manuais?: unknown[];
+    estruturas_manuais?: unknown[];
+    prosthetics?: unknown[];
+    drawing_strokes?: unknown[];
+  };
+}
+
+interface SavedPlanning {
+  summary?: string;
+  prioritized_problems?: string[];
+  therapeutic_objectives?: string[];
+  treatment_alternatives?: string[];
+  alerts?: string[];
+  patient_friendly_explanation?: string;
+  final_text?: string;
+  status?: string;
+  confidence?: string;
+}
+
+interface CephAnalysisLookupRow {
+  id: string;
+  patient_id: string | null;
+  patient_name: string | null;
+  image_url: string;
+  image_storage_path: string;
+  landmarks: unknown;
+  measurements: unknown;
+  interpretation: string | null;
+  analysis_type: string | null;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,7 +76,7 @@ interface AnalysisResult {
   condutas?: string[];
   observacoes?: string;
   // Campos do novo formato
-  identificacao_paciente?: { nome?: string; data_nascimento?: string; data_analise?: string };
+  identificacao_paciente?: { nome?: string; id?: string; data_nascimento?: string; data_analise?: string };
   tipo_exame?: string;
   qualidade_imagem?: string;
   achados_radiograficos?: string[];
@@ -39,10 +84,20 @@ interface AnalysisResult {
   diagnosticos_diferenciais?: string[];
   riscos_alertas?: string[];
   recomendacoes_clinicas?: string[];
+  analyses?: Array<{
+    analysis_type?: AnalysisType;
+    analysis_name?: string;
+    measurements?: string[];
+    interpretation?: string;
+  }>;
+  analysis_types?: AnalysisType[];
+  checklist_clinico?: Record<string, unknown> | null;
+  planejamento_ortodontico?: SavedPlanning | null;
 }
 
 interface Case {
   id: string;
+  user_id?: string;
   name: string;
   exam_type: string;
   file_name: string | null;
@@ -52,7 +107,7 @@ interface Case {
   raw_content: string | null;
   created_at: string;
   patient_folder: string | null;
-  visual_analysis?: any;
+  visual_analysis?: SavedCephVisualAnalysis;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,6 +127,31 @@ const getTypeIcon = (type: string) =>
 const extractPatientName = (caseName: string): string => {
   const parts = caseName.split(" - ");
   return parts.length > 1 ? parts.slice(0, -1).join(" - ") : caseName;
+};
+
+const isCephalometryCase = (caseData: Case) =>
+  caseData.exam_type.toLowerCase().includes("cefalometria") ||
+  caseData.visual_analysis?.kind === "cephalometry" ||
+  Array.isArray(caseData.analysis?.analyses);
+
+const getCephSelectedTypes = (caseData: Case): AnalysisType[] => {
+  const savedTypes = caseData.visual_analysis?.selected_types || caseData.analysis?.analysis_types;
+  if (Array.isArray(savedTypes) && savedTypes.length) return savedTypes as AnalysisType[];
+  return (caseData.analysis?.analyses || [])
+    .map((a) => a.analysis_type)
+    .filter((t): t is AnalysisType => !!t && !!ANALYSES_BY_ID[t]);
+};
+
+const checklistLabels: Record<string, string> = {
+  patientAge: "Idade", patientSex: "Sexo", padraoFacial: "Padrão Facial", indiceVert: "Índice de Vert",
+  assimetriaFacial: "Assimetria Facial", linhaDeSorriso: "Linha de Sorriso", vedamentoLabial: "Vedamento Labial Passivo",
+  corredorBucalAumentado: "Corredor Bucal Aumentado", classeDentariaDireita: "Classe Dentária Direita",
+  classeDentariaEsquerda: "Classe Dentária Esquerda", linhaMedia: "Linha Média", mordida: "Mordida Vertical",
+  giroversoes: "Giroversões", classeEsqueletica: "Classe Esquelética", diagnosticoEsqueletico: "Diagnóstico Esquelético",
+  apinhamentoSuperiorAnterior: "Apinhamento Sup. Anterior", apinhamentoSuperiorPosterior: "Apinhamento Sup. Posterior",
+  apinhamentoInferiorAnterior: "Apinhamento Inf. Anterior", apinhamentoInferiorPosterior: "Apinhamento Inf. Posterior",
+  reabsorcaoRadicular: "Reabsorção Radicular", necessidadeExodontia: "Necessidade de Exodontia", faseTratamento: "Fase do Tratamento",
+  queixaPrincipal: "Queixa Principal",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -107,7 +187,11 @@ export default function Cases() {
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setCases((data || []).map(c => ({ ...c, analysis: c.analysis as AnalysisResult | null })));
+      setCases((data || []).map(c => ({
+        ...c,
+        analysis: c.analysis as AnalysisResult | null,
+        visual_analysis: c.visual_analysis as unknown as SavedCephVisualAnalysis | undefined,
+      })) as Case[]);
     } catch (e) {
       toast.error("Erro ao carregar casos");
     } finally {
@@ -126,7 +210,8 @@ export default function Cases() {
   const toggleFolder = (name: string) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
   };
@@ -186,14 +271,65 @@ export default function Cases() {
     navigate(`/compare?cases=${selectedForCompare.join(",")}`);
   };
 
+  const handleOpenCase = async (caseData: Case) => {
+    let hydratedCase = caseData;
+    if (isCephalometryCase(caseData) && !caseData.visual_analysis?.image_url && user?.id) {
+      try {
+        const patientKey = caseData.analysis?.identificacao_paciente?.nome || extractPatientName(caseData.name);
+        const { data } = await supabase
+          .from("cephalometric_analyses")
+          .select("id, patient_id, patient_name, image_url, image_storage_path, landmarks, measurements, interpretation, analysis_type, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        const rows = (data || []) as unknown as CephAnalysisLookupRow[];
+        const match = rows.find((item) => {
+          const candidates = [item.patient_name, item.patient_id].filter(Boolean).map((v) => String(v).toLowerCase());
+          const key = String(patientKey || "").toLowerCase();
+          return candidates.some((value) => value === key || caseData.name.toLowerCase().includes(value));
+        });
+        if (match) {
+          const selectedTypes = getCephSelectedTypes(caseData);
+          const fallbackType = (match.analysis_type || "steiner") as AnalysisType;
+          const finalTypes = selectedTypes.length ? selectedTypes : [fallbackType];
+          const visualAnalysis = {
+            kind: "cephalometry",
+            image_url: match.image_url,
+            image_storage_path: match.image_storage_path,
+            analysis_id: match.id,
+            landmarks: (Array.isArray(match.landmarks) ? match.landmarks : []) as unknown as Landmark[],
+            selected_types: finalTypes,
+            results: {
+              [fallbackType]: {
+                measurements: match.measurements || {},
+                interpretation: match.interpretation || "",
+              },
+            },
+          };
+          hydratedCase = { ...caseData, visual_analysis: visualAnalysis as SavedCephVisualAnalysis };
+          setCases(prev => prev.map(c => c.id === caseData.id ? hydratedCase : c));
+          await supabase.from("cases").update({ visual_analysis: visualAnalysis as unknown as Record<string, unknown> }).eq("id", caseData.id).eq("user_id", user.id);
+        }
+      } catch (error) {
+        console.warn("Falha ao recuperar imagem cefalométrica salva:", error);
+      }
+    }
+    setSelectedCase(hydratedCase);
+  };
+
   // ── PDF ────────────────────────────────────────────────────────────────────
 
-  const generatePDF = (caseData: Case) => {
+  const generatePDF = async (caseData: Case) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
     const maxWidth = pageWidth - margin * 2;
     let yPos = 20;
+
+    const ensureSpace = (needed = 20) => {
+      if (yPos + needed > pageHeight - 20) { doc.addPage(); yPos = 20; }
+    };
 
     const addText = (text: string, fontSize = 10, bold = false) => {
       doc.setFontSize(fontSize);
@@ -206,10 +342,49 @@ export default function Cases() {
       yPos += 5;
     };
 
+    const addCephImage = async () => {
+      const imageUrl = caseData.visual_analysis?.image_url;
+      const landmarks = caseData.visual_analysis?.landmarks || [];
+      if (!imageUrl) return;
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("Imagem indisponível"));
+          img.src = imageUrl;
+        });
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || 1200;
+        canvas.height = img.naturalHeight || 900;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.lineWidth = Math.max(3, canvas.width * 0.003);
+        landmarks.forEach((lm) => {
+          if (typeof lm?.x !== "number" || typeof lm?.y !== "number") return;
+          ctx.beginPath();
+          ctx.arc(lm.x, lm.y, Math.max(8, canvas.width * 0.008), 0, Math.PI * 2);
+          ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
+          ctx.fill();
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.stroke();
+        });
+        const imgW = maxWidth;
+        const imgH = Math.min(120, (canvas.height / canvas.width) * imgW);
+        ensureSpace(imgH + 12);
+        doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", margin, yPos, imgW, imgH);
+        yPos += imgH + 10;
+      } catch {
+        addText("Imagem original: não foi possível anexar ao PDF, mas permanece salva no caso.", 9);
+      }
+    };
+
     const addSection = (title: string, content?: string | string[]) => {
       if (!content || (Array.isArray(content) && !content.length)) return;
       addText(title, 12, true);
-      Array.isArray(content) ? content.forEach(i => addText("• " + i)) : addText(content);
+      if (Array.isArray(content)) content.forEach(i => addText("• " + i));
+      else addText(content);
       yPos += 5;
     };
 
@@ -224,6 +399,35 @@ export default function Cases() {
     addText(caseData.name, 14, true);
     addText(`Tipo: ${caseData.exam_type} | Data: ${formatDate(caseData.created_at)}`);
     yPos += 5;
+
+    if (isCephalometryCase(caseData)) {
+      await addCephImage();
+      caseData.analysis?.analyses?.forEach((analysis) => {
+        ensureSpace(30);
+        addText(`Análise — ${analysis.analysis_name || analysis.analysis_type || "Cefalometria"}`, 12, true);
+        addSection("Medidas", analysis.measurements || []);
+        addSection("Interpretação Clínica", analysis.interpretation);
+      });
+      const checklist = caseData.analysis?.checklist_clinico;
+      if (checklist && Object.keys(checklist).length > 0) {
+        addText("Checklist Clínico", 12, true);
+        Object.entries(checklist).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === "" || value === false) return;
+          addText(`${checklistLabels[key] || key}: ${typeof value === "boolean" ? "Sim" : String(value).replace(/_/g, " ")}`);
+        });
+      }
+      const plan = caseData.analysis?.planejamento_ortodontico;
+      if (plan) {
+        addText("Planejamento Ortodôntico", 12, true);
+        addSection("Resumo", plan.summary);
+        addSection("Problemas Priorizados", plan.prioritized_problems);
+        addSection("Objetivos Terapêuticos", plan.therapeutic_objectives);
+        addSection("Alternativas de Tratamento", plan.treatment_alternatives);
+        addSection("Alertas e Limitações", plan.alerts);
+        addSection("Explicação ao Paciente", plan.patient_friendly_explanation);
+        addSection("Texto Final", plan.final_text);
+      }
+    } else {
 
     if (caseData.analysis) {
       const a = caseData.analysis;
@@ -243,6 +447,7 @@ export default function Cases() {
         addSection("Condutas", a.condutas);
         addSection("Observações", a.observacoes);
       }
+    }
     }
 
     yPos += 10;
@@ -331,7 +536,7 @@ export default function Cases() {
 
             {/* Ver */}
             <Button variant="ghost" size="icon" className="h-8 w-8"
-              onClick={() => setSelectedCase(c)}>
+              onClick={() => handleOpenCase(c)}>
               <Eye className="w-4 h-4" />
             </Button>
 
@@ -564,21 +769,96 @@ export default function Cases() {
               </DialogHeader>
 
               <div className="space-y-4 mt-4">
+                {/* Caso cefalométrico salvo: imagem original + pontos + medidas */}
+                {isCephalometryCase(selectedCase) && selectedCase.visual_analysis?.image_url && (() => {
+                  const selectedTypes = getCephSelectedTypes(selectedCase);
+                  return selectedTypes.length > 0 ? (
+                    <AnalysisResultTabs
+                      imageSrc={selectedCase.visual_analysis.image_url}
+                      landmarks={selectedCase.visual_analysis.landmarks || []}
+                      onLandmarksChange={() => undefined}
+                      results={selectedCase.visual_analysis.results || {}}
+                      selectedTypes={selectedTypes}
+                    />
+                  ) : null;
+                })()}
+
                 {/* Imagem + anotações salvas (desenhos, marcações, próteses) */}
-                {selectedCase.visual_analysis?.image_url && (
-                  <VisualAnalysis
-                    imageUrl={selectedCase.visual_analysis.image_url}
-                    editable={false}
-                    analiseCompleta={selectedCase.visual_analysis}
-                    analiseSimplificada={selectedCase.visual_analysis}
-                    marcacoesManuals={selectedCase.visual_analysis?.user_annotations?.marcacoes_manuais || []}
-                    estruturasManuais={selectedCase.visual_analysis?.user_annotations?.estruturas_manuais || []}
-                    prostheticItems={selectedCase.visual_analysis?.user_annotations?.prosthetics || []}
-                    freeStrokes={selectedCase.visual_analysis?.user_annotations?.drawing_strokes || []}
-                  />
+                {!isCephalometryCase(selectedCase) && selectedCase.visual_analysis?.image_url && (() => {
+                  const visualData = selectedCase.visual_analysis as unknown;
+                  const annotations = selectedCase.visual_analysis.user_annotations as unknown as {
+                    marcacoes_manuais?: ComponentProps<typeof VisualAnalysis>["marcacoesManuals"];
+                    estruturas_manuais?: ComponentProps<typeof VisualAnalysis>["estruturasManuais"];
+                    prosthetics?: ComponentProps<typeof VisualAnalysis>["prostheticItems"];
+                    drawing_strokes?: ComponentProps<typeof VisualAnalysis>["freeStrokes"];
+                  } | undefined;
+                  return (
+                    <VisualAnalysis
+                      imageUrl={selectedCase.visual_analysis.image_url}
+                      editable={false}
+                      analiseCompleta={visualData as ComponentProps<typeof VisualAnalysis>["analiseCompleta"]}
+                      analiseSimplificada={visualData as ComponentProps<typeof VisualAnalysis>["analiseSimplificada"]}
+                      marcacoesManuals={annotations?.marcacoes_manuais || []}
+                      estruturasManuais={annotations?.estruturas_manuais || []}
+                      prostheticItems={annotations?.prosthetics || []}
+                      freeStrokes={annotations?.drawing_strokes || []}
+                    />
+                  );
+                })()}
+
+                {isCephalometryCase(selectedCase) && selectedCase.analysis?.analyses && (
+                  <div className="space-y-4">
+                    {selectedCase.analysis.analyses.map((analysis, idx) => (
+                      <Card key={`${analysis.analysis_type || idx}-${idx}`}>
+                        <CardContent className="pt-4 space-y-3">
+                          <h4 className="font-semibold">Análise — {analysis.analysis_name || analysis.analysis_type || "Cefalometria"}</h4>
+                          {!!analysis.measurements?.length && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-2 text-muted-foreground">Medidas</h5>
+                              <ul className="space-y-1">
+                                {analysis.measurements.map((item, i) => (
+                                  <li key={i} className="flex items-start gap-2 text-sm">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />{item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {analysis.interpretation && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-1 text-muted-foreground">Interpretação Clínica</h5>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{analysis.interpretation}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {selectedCase.analysis.checklist_clinico && (
+                      <div>
+                        <h4 className="font-semibold mb-2">Checklist Clínico</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                          {Object.entries(selectedCase.analysis.checklist_clinico).map(([key, value]) => (
+                            value === undefined || value === null || value === "" || value === false ? null : (
+                              <div key={key} className="rounded-md bg-muted/40 p-2">
+                                <span className="font-medium">{checklistLabels[key] || key}: </span>
+                                <span className="text-muted-foreground">{typeof value === "boolean" ? "Sim" : String(value).replace(/_/g, " ")}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedCase.analysis.planejamento_ortodontico && (
+                      <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <h4 className="font-semibold">Planejamento Ortodôntico</h4>
+                        {selectedCase.analysis.planejamento_ortodontico.summary && <p className="text-sm leading-relaxed">{selectedCase.analysis.planejamento_ortodontico.summary}</p>}
+                        {selectedCase.analysis.planejamento_ortodontico.final_text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedCase.analysis.planejamento_ortodontico.final_text}</p>}
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                {selectedCase.analysis && (() => {
+                {!isCephalometryCase(selectedCase) && selectedCase.analysis && (() => {
                   const a = selectedCase.analysis;
                   const isNewFormat = !!a.achados_radiograficos;
                   return (

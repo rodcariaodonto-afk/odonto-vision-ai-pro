@@ -40,6 +40,8 @@ interface ResultState {
   landmarks: Landmark[];
   selectedTypes: AnalysisType[];
   results: Partial<Record<AnalysisType, { measurements: Measurements; interpretation: string }>>;
+  imageUrl?: string;
+  imageStoragePath?: string;
 }
 
 const DRAFT_KEY = "cephalo_draft_v2";
@@ -75,6 +77,7 @@ export default function Cephalometry() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [savingCase, setSavingCase] = useState(false);
   const [caseSaved, setCaseSaved] = useState(false);
+  const [savedCaseId, setSavedCaseId] = useState<string | null>(null);
   const [savingLandmarks, setSavingLandmarks] = useState(false);
   const landmarkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,6 +96,9 @@ export default function Cephalometry() {
     setResult(null);
     setSavingCase(false);
     setCaseSaved(false);
+    setSavedCaseId(null);
+    setPlanningContext({});
+    setPlanningSuggestion(null);
   };
 
   // ── Gate de assinatura: Cefalometria exige plano de 50 exames ou superior ──
@@ -175,7 +181,7 @@ export default function Cephalometry() {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast.error("Imagem maior que 10MB"); return; }
     setSelectedFile(file);
-    setResult(null); setCaseSaved(false);
+    setResult(null); setCaseSaved(false); setSavedCaseId(null); setPlanningSuggestion(null);
     const reader = new FileReader();
     reader.onload = (ev) => setImagePreview(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -219,6 +225,8 @@ export default function Cephalometry() {
         landmarks: scaledLandmarks,
         selectedTypes: (data.analysisTypes ?? selectedTypes) as AnalysisType[],
         results: data.results ?? {},
+        imageUrl: urlData.publicUrl,
+        imageStoragePath: fileName,
       });
       toast.success(`Análise concluída em ${selectedTypes.length} método(s)!`);
       loadHistory();
@@ -283,7 +291,7 @@ export default function Cephalometry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result?.analysisId]);
 
-  async function handleSaveToCases() {
+  async function handleSaveToCases(silent = false) {
     if (!result || !user) return;
     setSavingCase(true);
     try {
@@ -313,46 +321,71 @@ export default function Cephalometry() {
         }
       });
 
-      const { error } = await supabase.from("cases").insert({
+      const analysisPayload = {
+        identificacao_paciente: {
+          nome: patientName.trim() || patientId.trim(),
+          id: patientId.trim(),
+          data_analise: new Date().toLocaleDateString("pt-BR"),
+        },
+        tipo_exame: `Telerradiografia / Cefalometria (${names})`,
+        analyses,
+        analysis_types: result.selectedTypes,
+        checklist_clinico: Object.keys(checklistFilled).length > 0 ? checklistFilled : null,
+        planejamento_ortodontico: planningSuggestion ? {
+          summary: (planningSuggestion as Record<string, unknown>).summary,
+          prioritized_problems: (planningSuggestion as Record<string, unknown>).prioritizedProblems,
+          therapeutic_objectives: (planningSuggestion as Record<string, unknown>).therapeuticObjectives,
+          treatment_alternatives: (planningSuggestion as Record<string, unknown>).treatmentAlternatives,
+          alerts: (planningSuggestion as Record<string, unknown>).alertsAndLimitations,
+          patient_friendly_explanation: (planningSuggestion as Record<string, unknown>).patientFriendlyExplanation,
+          final_text: (planningSuggestion as Record<string, unknown>).approvedFinalText
+            || (planningSuggestion as Record<string, unknown>).clinicianEditedText
+            || (planningSuggestion as Record<string, unknown>).aiOriginalText,
+          status: (planningSuggestion as Record<string, unknown>).status,
+          confidence: (planningSuggestion as Record<string, unknown>).confidenceLevel,
+        } : null,
+      };
+
+      const casePayload = {
         user_id: user.id, name: caseName,
         exam_type: "cefalometria",
         file_name: selectedFile?.name ?? null,
         file_type: selectedFile?.type ?? "image/jpeg",
         status: "completed",
-        analysis: {
-          identificacao_paciente: {
-            nome: patientName.trim() || patientId.trim(),
-            data_analise: new Date().toLocaleDateString("pt-BR"),
-          },
-          tipo_exame: `Telerradiografia / Cefalometria (${names})`,
-          analyses,
-          analysis_types: result.selectedTypes,
-          // Checklist clínico A009 (apenas campos preenchidos)
-          checklist_clinico: Object.keys(checklistFilled).length > 0 ? checklistFilled : null,
-          // Planejamento gerado pela IA (se existir)
-          planejamento_ortodontico: planningSuggestion ? {
-            summary: (planningSuggestion as Record<string, unknown>).summary,
-            prioritized_problems: (planningSuggestion as Record<string, unknown>).prioritizedProblems,
-            therapeutic_objectives: (planningSuggestion as Record<string, unknown>).therapeuticObjectives,
-            treatment_alternatives: (planningSuggestion as Record<string, unknown>).treatmentAlternatives,
-            alerts: (planningSuggestion as Record<string, unknown>).alertsAndLimitations,
-            final_text: (planningSuggestion as Record<string, unknown>).approvedFinalText
-              || (planningSuggestion as Record<string, unknown>).clinicianEditedText
-              || (planningSuggestion as Record<string, unknown>).aiOriginalText,
-            status: (planningSuggestion as Record<string, unknown>).status,
-            confidence: (planningSuggestion as Record<string, unknown>).confidenceLevel,
-          } : null,
+        analysis: analysisPayload,
+        raw_content: JSON.stringify(analysisPayload),
+        visual_analysis: {
+          kind: "cephalometry",
+          image_url: result.imageUrl || imagePreview,
+          image_storage_path: result.imageStoragePath || null,
+          analysis_id: result.analysisId,
+          landmarks: result.landmarks,
+          selected_types: result.selectedTypes,
+          results: result.results,
         },
-      } as any);
+      };
+
+      const request = savedCaseId
+        ? supabase.from("cases").update({ ...casePayload, updated_at: new Date().toISOString() } as any).eq("id", savedCaseId).eq("user_id", user.id).select("id").single()
+        : supabase.from("cases").insert(casePayload as any).select("id").single();
+      const { data, error } = await request;
       if (error) throw error;
+      if (data?.id) setSavedCaseId(data.id);
       setCaseSaved(true);
-      toast.success("Caso salvo em Meus Casos!");
+      if (!silent) toast.success(savedCaseId ? "Caso atualizado em Meus Casos!" : "Caso salvo em Meus Casos!");
     } catch (err: any) {
-      toast.error("Erro ao salvar caso: " + err.message);
+      if (!silent) toast.error("Erro ao salvar caso: " + err.message);
     } finally {
       setSavingCase(false);
     }
   }
+
+  useEffect(() => {
+    if (result && savedCaseId && caseSaved && planningSuggestion && !savingCase) {
+      handleSaveToCases(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planningSuggestion]);
 
   function handleExportPDF() {
     if (!result) return;
@@ -756,11 +789,11 @@ export default function Cephalometry() {
                     )}
                   </span>
                   <div className="flex gap-2 flex-wrap justify-end">
-                    <Button size="sm" variant="outline" onClick={handleSaveToCases} disabled={savingCase || caseSaved}>
+                    <Button size="sm" variant="outline" onClick={() => handleSaveToCases()} disabled={savingCase}>
                       {savingCase
                         ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
-                        : caseSaved
-                          ? <><CheckCircle className="w-4 h-4 mr-2 text-green-600" />Salvo</>
+                        : caseSaved || savedCaseId
+                          ? <><CheckCircle className="w-4 h-4 mr-2 text-green-600" />Atualizar Caso</>
                           : <><FileText className="w-4 h-4 mr-2" />Salvar Caso</>}
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleExportPDF}>

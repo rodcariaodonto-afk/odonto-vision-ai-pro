@@ -284,6 +284,12 @@ export function useCephalometricPlanning() {
           };
         }
 
+        const { data: existing } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .select('cephalometric_analysis_id')
+          .eq('id', planningSuggestionId)
+          .maybeSingle();
+
         const now = new Date().toISOString();
         const { error } = await supabase
           .from('cephalometric_planning_suggestions')
@@ -297,13 +303,15 @@ export function useCephalometricPlanning() {
 
         if (error) return { success: false, error: error.message };
 
-        await supabase.from('cephalometric_planning_audit_log').insert({
-          planning_suggestion_id: planningSuggestionId,
-          cephalometric_analysis_id: '',
-          user_id: userId,
-          event_type: 'approved',
-          content_after: finalText,
-        });
+        if (existing?.cephalometric_analysis_id) {
+          await supabase.from('cephalometric_planning_audit_log').insert({
+            planning_suggestion_id: planningSuggestionId,
+            cephalometric_analysis_id: existing.cephalometric_analysis_id,
+            user_id: userId,
+            event_type: 'approved',
+            content_after: finalText,
+          });
+        }
 
         return { success: true };
       } catch (err) {
@@ -326,6 +334,12 @@ export function useCephalometricPlanning() {
       setIsUpdating(true);
       try {
         const now = new Date().toISOString();
+        const { data: existing } = await supabase
+          .from('cephalometric_planning_suggestions')
+          .select('cephalometric_analysis_id')
+          .eq('id', planningSuggestionId)
+          .maybeSingle();
+
         const { error } = await supabase
           .from('cephalometric_planning_suggestions')
           .update({
@@ -338,13 +352,15 @@ export function useCephalometricPlanning() {
 
         if (error) return { success: false, error: error.message };
 
-        await supabase.from('cephalometric_planning_audit_log').insert({
-          planning_suggestion_id: planningSuggestionId,
-          cephalometric_analysis_id: '',
-          user_id: userId,
-          event_type: 'rejected',
-          reason,
-        });
+        if (existing?.cephalometric_analysis_id) {
+          await supabase.from('cephalometric_planning_audit_log').insert({
+            planning_suggestion_id: planningSuggestionId,
+            cephalometric_analysis_id: existing.cephalometric_analysis_id,
+            user_id: userId,
+            event_type: 'rejected',
+            reason,
+          });
+        }
 
         return { success: true };
       } catch (err) {
