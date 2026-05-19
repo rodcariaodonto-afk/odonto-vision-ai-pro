@@ -85,6 +85,29 @@ const extractPatientName = (caseName: string): string => {
   return parts.length > 1 ? parts.slice(0, -1).join(" - ") : caseName;
 };
 
+const isCephalometryCase = (caseData: Case) =>
+  caseData.exam_type.toLowerCase().includes("cefalometria") ||
+  caseData.visual_analysis?.kind === "cephalometry" ||
+  Array.isArray(caseData.analysis?.analyses);
+
+const addWrappedText = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight = 5) => {
+  const lines = doc.splitTextToSize(text, maxWidth);
+  doc.text(lines, x, y);
+  return y + lines.length * lineHeight;
+};
+
+const checklistLabels: Record<string, string> = {
+  patientAge: "Idade", patientSex: "Sexo", padraoFacial: "Padrão Facial", indiceVert: "Índice de Vert",
+  assimetriaFacial: "Assimetria Facial", linhaDeSorriso: "Linha de Sorriso", vedamentoLabial: "Vedamento Labial Passivo",
+  corredorBucalAumentado: "Corredor Bucal Aumentado", classeDentariaDireita: "Classe Dentária Direita",
+  classeDentariaEsquerda: "Classe Dentária Esquerda", linhaMedia: "Linha Média", mordida: "Mordida Vertical",
+  giroversoes: "Giroversões", classeEsqueletica: "Classe Esquelética", diagnosticoEsqueletico: "Diagnóstico Esquelético",
+  apinhamentoSuperiorAnterior: "Apinhamento Sup. Anterior", apinhamentoSuperiorPosterior: "Apinhamento Sup. Posterior",
+  apinhamentoInferiorAnterior: "Apinhamento Inf. Anterior", apinhamentoInferiorPosterior: "Apinhamento Inf. Posterior",
+  reabsorcaoRadicular: "Reabsorção Radicular", necessidadeExodontia: "Necessidade de Exodontia", faseTratamento: "Fase do Tratamento",
+  queixaPrincipal: "Queixa Principal",
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Cases() {
