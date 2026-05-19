@@ -2034,6 +2034,14 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                   }}
                   analiseCompleta={visualAnalysisResult as any}
                   analiseSimplificada={visualAnalysisResult as any}
+                  marcacoesManuals={manualMarcacoes}
+                  onMarcacoesManualChange={setManualMarcacoes}
+                  estruturasManuais={manualEstruturas}
+                  onEstruturasManuaisChange={setManualEstruturas}
+                  prostheticItems={manualProsthetics}
+                  onProstheticItemsChange={setManualProsthetics}
+                  freeStrokes={drawingStrokes}
+                  onFreeStrokesChange={setDrawingStrokes}
                 />
               )}
             </div>
