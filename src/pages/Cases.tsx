@@ -675,8 +675,22 @@ export default function Cases() {
               </DialogHeader>
 
               <div className="space-y-4 mt-4">
+                {/* Caso cefalométrico salvo: imagem original + pontos + medidas */}
+                {isCephalometryCase(selectedCase) && selectedCase.visual_analysis?.image_url && (() => {
+                  const selectedTypes = getCephSelectedTypes(selectedCase);
+                  return selectedTypes.length > 0 ? (
+                    <AnalysisResultTabs
+                      imageSrc={selectedCase.visual_analysis.image_url}
+                      landmarks={selectedCase.visual_analysis.landmarks || []}
+                      onLandmarksChange={() => undefined}
+                      results={selectedCase.visual_analysis.results || {}}
+                      selectedTypes={selectedTypes}
+                    />
+                  ) : null;
+                })()}
+
                 {/* Imagem + anotações salvas (desenhos, marcações, próteses) */}
-                {selectedCase.visual_analysis?.image_url && (
+                {!isCephalometryCase(selectedCase) && selectedCase.visual_analysis?.image_url && (
                   <VisualAnalysis
                     imageUrl={selectedCase.visual_analysis.image_url}
                     editable={false}
