@@ -296,6 +296,12 @@ export default function Upload() {
   const [visualAnalysisResult, setVisualAnalysisResult] = useState<VisualAnalysisResult | null>(null);
   const [showVisualAnalysis, setShowVisualAnalysis] = useState(false);
 
+  // Anotações manuais persistidas com o caso
+  const [manualMarcacoes, setManualMarcacoes] = useState<MarcacaoManual[]>([]);
+  const [manualEstruturas, setManualEstruturas] = useState<EstruturaManual[]>([]);
+  const [manualProsthetics, setManualProsthetics] = useState<ProstheticItem[]>([]);
+  const [drawingStrokes, setDrawingStrokes] = useState<FreeStroke[]>([]);
+
   // Estados do revisor (Solução 3)
   const [reviewerFlags, setReviewerFlags] = useState<string[]>([]);
   const [reviewScore, setReviewScore] = useState<number | null>(null);
