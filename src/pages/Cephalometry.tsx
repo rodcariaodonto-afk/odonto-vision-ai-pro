@@ -344,7 +344,7 @@ export default function Cephalometry() {
             confidence: (planningSuggestion as Record<string, unknown>).confidenceLevel,
           } : null,
         },
-      });
+      } as any);
       if (error) throw error;
       setCaseSaved(true);
       toast.success("Caso salvo em Meus Casos!");
