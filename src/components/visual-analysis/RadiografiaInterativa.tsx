@@ -4,13 +4,12 @@ import { TipoMarcacao, MarcacaoManual, TipoEstrutura, EstruturaManual, tipoMarca
 import { ProstheticItem, ProstheticsOverlay } from "./DentalProsthetics";
 import { toast } from "sonner";
 
-// Interface para traço de desenho livre
-interface Stroke {
+// Stroke de desenho livre do dentista (anotação para mostrar ao paciente)
+export interface FreeStroke {
   id: string;
-  tipo: TipoEstrutura;
-  lado: "direito" | "esquerdo";
-  points: Array<[number, number]>;
+  points: Array<[number, number]>; // coords normalizadas 0..1
   color: string;
+  width: number; // em unidades do viewBox (0..100)
 }
 
 interface RadiografiaInterativaProps {
@@ -33,6 +32,12 @@ interface RadiografiaInterativaProps {
   onMoveProsthetic?: (id: string, x: number, y: number) => void;
   selectedProstheticId?: string | null;
   onSelectProsthetic?: (id: string) => void;
+  // Desenho livre (anotações do dentista)
+  freeDrawingMode?: boolean;
+  freeDrawingColor?: string;
+  freeDrawingWidth?: number;
+  freeStrokes?: FreeStroke[];
+  onAddFreeStroke?: (stroke: FreeStroke) => void;
 }
 
 // Tamanhos específicos para cada tipo de marcação (muito menores)
@@ -119,6 +124,11 @@ export function RadiografiaInterativa({
   onMoveProsthetic,
   selectedProstheticId,
   onSelectProsthetic,
+  freeDrawingMode = false,
+  freeDrawingColor = "#EF4444",
+  freeDrawingWidth = 0.6,
+  freeStrokes = [],
+  onAddFreeStroke,
 }: RadiografiaInterativaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -160,6 +170,7 @@ export function RadiografiaInterativa({
   const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (draggingId) return; // Don't add if dragging
     if (estruturaAtiva?.tipo && estruturaAtiva?.lado) return; // Drawing mode, don't add marcacao
+    if (freeDrawingMode) return; // Modo desenho livre cuida do clique
     
     const { x, y } = getCoordinates(e);
     
@@ -177,16 +188,17 @@ export function RadiografiaInterativa({
       // Deselect if clicking empty area
       setSelectedId(null);
     }
-  }, [modoAtivo, estruturaAtiva, getCoordinates, onAddMarcacao, draggingId]);
+  }, [modoAtivo, estruturaAtiva, freeDrawingMode, getCoordinates, onAddMarcacao, draggingId]);
 
   // Freehand drawing handlers
   const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!estruturaAtiva?.tipo || !estruturaAtiva?.lado) return;
-    
+    if (!estruturaAtiva?.tipo && !freeDrawingMode) return;
+    if (estruturaAtiva?.tipo && !estruturaAtiva?.lado) return;
+
     const { x, y } = getCoordinates(e);
     setIsDrawing(true);
     setCurrentStroke([[x, y]]);
-  }, [estruturaAtiva, getCoordinates]);
+  }, [estruturaAtiva, freeDrawingMode, getCoordinates]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     // Handle dragging marcacao
@@ -199,24 +211,34 @@ export function RadiografiaInterativa({
     }
     
     // Handle freehand drawing
-    if (!isDrawing || !estruturaAtiva?.tipo || !estruturaAtiva?.lado) return;
-    
+    if (!isDrawing) return;
+    if (!freeDrawingMode && (!estruturaAtiva?.tipo || !estruturaAtiva?.lado)) return;
+
     const { x, y } = getCoordinates(e);
     setCurrentStroke(prev => [...prev, [x, y]]);
-  }, [isDrawing, estruturaAtiva, getCoordinates, draggingId, dragOffset, onMoveMarcacao]);
+  }, [isDrawing, estruturaAtiva, freeDrawingMode, getCoordinates, draggingId, dragOffset, onMoveMarcacao]);
 
   const handleMouseUp = useCallback(() => {
     if (draggingId) {
       setDraggingId(null);
       return;
     }
-    
-    if (!isDrawing || !estruturaAtiva?.tipo || !estruturaAtiva?.lado) return;
-    
+
+    if (!isDrawing) return;
+
     setIsDrawing(false);
-    
-    // Only save if we have enough points
-    if (currentStroke.length >= 3) {
+
+    // Desenho livre (anotação do dentista)
+    if (freeDrawingMode) {
+      if (currentStroke.length >= 2 && onAddFreeStroke) {
+        onAddFreeStroke({
+          id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          points: currentStroke,
+          color: freeDrawingColor,
+          width: freeDrawingWidth,
+        });
+      }
+    } else if (estruturaAtiva?.tipo && estruturaAtiva?.lado && currentStroke.length >= 3) {
       const newEstrutura: EstruturaManual = {
         id: `estrutura-${estruturaAtiva.tipo}-${estruturaAtiva.lado}-${Date.now()}`,
         tipo: estruturaAtiva.tipo,
@@ -225,15 +247,15 @@ export function RadiografiaInterativa({
       };
       onAddEstruturaManual?.(newEstrutura);
     }
-    
+
     setCurrentStroke([]);
-  }, [isDrawing, estruturaAtiva, currentStroke, onAddEstruturaManual, draggingId]);
+  }, [isDrawing, estruturaAtiva, freeDrawingMode, freeDrawingColor, freeDrawingWidth, currentStroke, onAddEstruturaManual, onAddFreeStroke, draggingId]);
 
   // Reset current stroke when structure mode changes
   useEffect(() => {
     setCurrentStroke([]);
     setIsDrawing(false);
-  }, [estruturaAtiva?.tipo, estruturaAtiva?.lado]);
+  }, [estruturaAtiva?.tipo, estruturaAtiva?.lado, freeDrawingMode]);
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.MouseEvent, marcacao: MarcacaoManual) => {
@@ -306,28 +328,62 @@ export function RadiografiaInterativa({
 
   // Render current stroke being drawn
   const renderCurrentStroke = () => {
-    if (!estruturaAtiva?.tipo || !estruturaAtiva?.lado || currentStroke.length < 2) return null;
-    
-    const config = estruturaConfig[estruturaAtiva.tipo];
-    const pathData = pointsToPath(currentStroke);
-    
-    return (
+    if (currentStroke.length < 2) return null;
+
+    if (freeDrawingMode) {
+      return (
+        <path
+          d={pointsToPath(currentStroke)}
+          fill="none"
+          stroke={freeDrawingColor}
+          strokeWidth={freeDrawingWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.85}
+        />
+      );
+    }
+
+    if (estruturaAtiva?.tipo && estruturaAtiva?.lado) {
+      const config = estruturaConfig[estruturaAtiva.tipo];
+      return (
+        <path
+          d={pointsToPath(currentStroke)}
+          fill="none"
+          stroke={config.cor}
+          strokeWidth={estruturaAtiva.tipo === "seio_maxilar" ? "0.8" : "0.6"}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.7}
+          strokeDasharray="1,1"
+        />
+      );
+    }
+
+    return null;
+  };
+
+  // Render strokes de desenho livre (anotações do dentista)
+  const renderFreeStrokes = () => {
+    if (!freeStrokes.length) return null;
+    return freeStrokes.map((s) => (
       <path
-        d={pathData}
+        key={s.id}
+        d={pointsToPath(s.points)}
         fill="none"
-        stroke={config.cor}
-        strokeWidth={estruturaAtiva.tipo === "seio_maxilar" ? "0.8" : "0.6"}
+        stroke={s.color}
+        strokeWidth={s.width}
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity={0.7}
-        strokeDasharray="1,1"
+        opacity={0.9}
       />
-    );
+    ));
   };
 
   // Cursor style based on mode
   const getCursorStyle = () => {
     if (draggingId) return "grabbing";
+    if (freeDrawingMode) return "crosshair";
     if (estruturaAtiva?.tipo && estruturaAtiva?.lado) return "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 19 7-7 3 3-7 7-3-3z'%3E%3C/path%3E%3Cpath d='m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z'%3E%3C/path%3E%3Cpath d='m2 2 7.586 7.586'%3E%3C/path%3E%3Ccircle cx='11' cy='11' r='2'%3E%3C/circle%3E%3C/svg%3E\") 0 24, crosshair";
     if (modoAtivo.dente && modoAtivo.tipo) return "crosshair";
     return "default";
@@ -395,7 +451,10 @@ export function RadiografiaInterativa({
           >
             {/* Estruturas manuais (desenho livre) */}
             {renderEstruturasManuais()}
-            
+
+            {/* Anotações de desenho livre do dentista */}
+            {renderFreeStrokes()}
+
             {/* Traço atual sendo desenhado */}
             {renderCurrentStroke()}
             

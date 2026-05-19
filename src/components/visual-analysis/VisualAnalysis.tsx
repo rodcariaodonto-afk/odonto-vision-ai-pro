@@ -1,12 +1,13 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { DrawingCanvas } from "./DrawingCanvas";
 import { OdontogramaInterativo, TipoMarcacao, MarcacaoManual, TipoEstrutura, EstruturaManual } from "./OdontogramaInterativo";
-import { RadiografiaInterativa } from "./RadiografiaInterativa";
+import { RadiografiaInterativa, FreeStroke } from "./RadiografiaInterativa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2, Stethoscope } from "lucide-react";
+import { Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Download, ExternalLink, User, Activity, Grid3X3, PenTool, Trash2, Stethoscope, Undo2, Palette } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { DentalProstheticsPanel, ProstheticItem } from "./DentalProsthetics";
 
@@ -122,6 +123,13 @@ interface VisualAnalysisProps {
   marcacoesManuals?: MarcacaoManual[];
   analiseCompleta?: AnaliseVisualCompleta;
   analiseSimplificada?: AnaliseVisualSimplificada;
+  // Anotações persistidas (controladas pelo pai)
+  estruturasManuais?: EstruturaManual[];
+  onEstruturasManuaisChange?: (estruturas: EstruturaManual[]) => void;
+  prostheticItems?: ProstheticItem[];
+  onProstheticItemsChange?: (items: ProstheticItem[]) => void;
+  freeStrokes?: FreeStroke[];
+  onFreeStrokesChange?: (strokes: FreeStroke[]) => void;
 }
 
 export function VisualAnalysis({ 
@@ -134,7 +142,13 @@ export function VisualAnalysis({
   onMarcacoesManualChange,
   marcacoesManuals: externalMarcacoesManuals,
   analiseCompleta,
-  analiseSimplificada
+  analiseSimplificada,
+  estruturasManuais: externalEstruturas,
+  onEstruturasManuaisChange,
+  prostheticItems: externalProsthetics,
+  onProstheticItemsChange,
+  freeStrokes: externalFreeStrokes,
+  onFreeStrokesChange,
 }: VisualAnalysisProps) {
   const [zoom, setZoom] = useState(1);
   const [showAnatomicStructures, setShowAnatomicStructures] = useState(true);
@@ -144,11 +158,38 @@ export function VisualAnalysis({
   const [showDrawingMode, setShowDrawingMode] = useState(false);
   const [showMarcacoes, setShowMarcacoes] = useState(true);
   const [showProsthetics, setShowProsthetics] = useState(false);
-  const [prostheticItems, setProstheticItems] = useState<ProstheticItem[]>([]);
+  const [internalProstheticItems, setInternalProstheticItems] = useState<ProstheticItem[]>([]);
+  const prostheticItems = externalProsthetics ?? internalProstheticItems;
+  const setProstheticItems = useCallback((items: ProstheticItem[] | ((prev: ProstheticItem[]) => ProstheticItem[])) => {
+    const resolved = typeof items === "function" ? items(prostheticItems) : items;
+    if (onProstheticItemsChange) onProstheticItemsChange(resolved);
+    else setInternalProstheticItems(resolved);
+  }, [prostheticItems, onProstheticItemsChange]);
   const [selectedProstheticId, setSelectedProstheticId] = useState<string | null>(null);
   const [modoAtivo, setModoAtivo] = useState<{ dente: string | null; tipo: TipoMarcacao | null }>({ dente: null, tipo: null });
   const [estruturaAtiva, setEstruturaAtiva] = useState<{ tipo: TipoEstrutura | null; lado: "direito" | "esquerdo" | null }>({ tipo: null, lado: null });
-  const [estruturasManuais, setEstruturasManuais] = useState<EstruturaManual[]>([]);
+  const [internalEstruturasManuais, setInternalEstruturasManuais] = useState<EstruturaManual[]>([]);
+  const estruturasManuais = externalEstruturas ?? internalEstruturasManuais;
+  const setEstruturasManuais = useCallback((next: EstruturaManual[] | ((prev: EstruturaManual[]) => EstruturaManual[])) => {
+    const resolved = typeof next === "function" ? next(estruturasManuais) : next;
+    if (onEstruturasManuaisChange) onEstruturasManuaisChange(resolved);
+    else setInternalEstruturasManuais(resolved);
+  }, [estruturasManuais, onEstruturasManuaisChange]);
+
+  // Strokes de desenho livre
+  const [internalFreeStrokes, setInternalFreeStrokes] = useState<FreeStroke[]>([]);
+  const freeStrokes = externalFreeStrokes ?? internalFreeStrokes;
+  const setFreeStrokes = useCallback((next: FreeStroke[] | ((prev: FreeStroke[]) => FreeStroke[])) => {
+    const resolved = typeof next === "function" ? next(freeStrokes) : next;
+    if (onFreeStrokesChange) onFreeStrokesChange(resolved);
+    else setInternalFreeStrokes(resolved);
+  }, [freeStrokes, onFreeStrokesChange]);
+
+  // Configuração da ferramenta de desenho
+  const [drawColor, setDrawColor] = useState("#EF4444");
+  const [drawWidth, setDrawWidth] = useState(0.6);
+  const DRAW_COLORS = ["#EF4444", "#F59E0B", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#14B8A6", "#FFFFFF", "#000000"];
+
   const [internalMarcacoesManuals, setInternalMarcacoesManuals] = useState<MarcacaoManual[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -675,11 +716,83 @@ export function VisualAnalysis({
         }
         selectedProstheticId={selectedProstheticId}
         onSelectProsthetic={setSelectedProstheticId}
+        freeDrawingMode={showDrawingMode && editable}
+        freeDrawingColor={drawColor}
+        freeDrawingWidth={drawWidth}
+        freeStrokes={freeStrokes}
+        onAddFreeStroke={(s) => setFreeStrokes(prev => [...prev, s])}
       />
-      
-      {/* Modo de desenho */}
+
+      {/* Barra de ferramentas do desenho livre — direto na imagem principal */}
       {showDrawingMode && editable && (
-        <DrawingCanvas imageUrl={imageUrl} />
+        <Card className="border-primary/30">
+          <CardContent className="py-3 px-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium flex items-center gap-2">
+              <PenTool className="w-4 h-4 text-primary" />
+              Desenho livre na radiografia
+            </span>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 min-h-[40px]">
+                  <div className="w-5 h-5 rounded-full border border-border" style={{ backgroundColor: drawColor }} />
+                  <Palette className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" align="start">
+                <div className="grid grid-cols-5 gap-2">
+                  {DRAW_COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setDrawColor(c)}
+                      className={cn(
+                        "w-9 h-9 rounded-full border-2 transition-transform hover:scale-110",
+                        drawColor === c ? "border-primary ring-2 ring-primary/30" : "border-border"
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="flex items-center gap-2 min-w-[140px]">
+              <span className="text-xs text-muted-foreground">Traço</span>
+              <Slider
+                value={[drawWidth * 10]}
+                onValueChange={([v]) => setDrawWidth(v / 10)}
+                min={2}
+                max={20}
+                step={1}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground w-6">{Math.round(drawWidth * 10)}</span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[40px]"
+              disabled={!freeStrokes.length}
+              onClick={() => setFreeStrokes(prev => prev.slice(0, -1))}
+            >
+              <Undo2 className="w-4 h-4 mr-1" /> Desfazer
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[40px] text-destructive"
+              disabled={!freeStrokes.length}
+              onClick={() => { setFreeStrokes([]); toast.success("Desenhos apagados"); }}
+            >
+              <Trash2 className="w-4 h-4 mr-1" /> Limpar
+            </Button>
+
+            <Badge variant="secondary" className="ml-auto">
+              {freeStrokes.length} traço{freeStrokes.length !== 1 ? "s" : ""}
+            </Badge>
+          </CardContent>
+        </Card>
       )}
 
       {/* Painel de implantes e coroas */}

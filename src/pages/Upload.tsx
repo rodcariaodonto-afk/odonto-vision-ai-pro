@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload as UploadIcon, FileImage, FileText, X, Loader2, CheckCircle, AlertCircle, Sparkles, Save, Download, FileCheck, User, Copy, Eye } from "lucide-react";
 import { VisualAnalysis, Marcacao } from "@/components/visual-analysis";
+import type { MarcacaoManual, EstruturaManual } from "@/components/visual-analysis/OdontogramaInterativo";
+import type { ProstheticItem } from "@/components/visual-analysis/DentalProsthetics";
+import type { FreeStroke } from "@/components/visual-analysis/RadiografiaInterativa";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -292,6 +295,12 @@ export default function Upload() {
   const [isAnalyzingVisual, setIsAnalyzingVisual] = useState(false);
   const [visualAnalysisResult, setVisualAnalysisResult] = useState<VisualAnalysisResult | null>(null);
   const [showVisualAnalysis, setShowVisualAnalysis] = useState(false);
+
+  // Anotações manuais persistidas com o caso
+  const [manualMarcacoes, setManualMarcacoes] = useState<MarcacaoManual[]>([]);
+  const [manualEstruturas, setManualEstruturas] = useState<EstruturaManual[]>([]);
+  const [manualProsthetics, setManualProsthetics] = useState<ProstheticItem[]>([]);
+  const [drawingStrokes, setDrawingStrokes] = useState<FreeStroke[]>([]);
 
   // Estados do revisor (Solução 3)
   const [reviewerFlags, setReviewerFlags] = useState<string[]>([]);
@@ -936,7 +945,51 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       const fileType = firstFile?.type || "application/octet-stream";
       
       console.log("Saving case with user_id:", user.id);
-      
+
+      // 1) Upload da imagem principal para storage (persiste entre sessões/dispositivos)
+      let storedImageUrl: string | null = null;
+      try {
+        const primary = previewUrls.find(p => p && p !== "pdf" && (p.startsWith("data:image") || p.startsWith("blob:")));
+        if (primary) {
+          // data URL → Blob
+          let blob: Blob;
+          if (primary.startsWith("data:")) {
+            const res = await fetch(primary);
+            blob = await res.blob();
+          } else {
+            const res = await fetch(primary);
+            blob = await res.blob();
+          }
+          const ext = (blob.type.split("/")[1] || "png").split("+")[0];
+          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("case-images")
+            .upload(path, blob, { contentType: blob.type || "image/png", upsert: false });
+          if (!upErr) {
+            const { data: pub } = supabase.storage.from("case-images").getPublicUrl(path);
+            storedImageUrl = pub.publicUrl;
+          } else {
+            console.warn("Falha ao subir imagem:", upErr);
+          }
+        }
+      } catch (e) {
+        console.warn("Erro no upload da imagem:", e);
+      }
+
+      // 2) Empacota a análise visual com a imagem persistida + anotações manuais
+      const visualAnalysisToSave = (visualAnalysisResult || manualMarcacoes.length || manualEstruturas.length || manualProsthetics.length || drawingStrokes.length || storedImageUrl)
+        ? {
+            ...(visualAnalysisResult || {}),
+            image_url: storedImageUrl,
+            user_annotations: {
+              marcacoes_manuais: manualMarcacoes,
+              estruturas_manuais: manualEstruturas,
+              prosthetics: manualProsthetics,
+              drawing_strokes: drawingStrokes,
+            },
+          }
+        : null;
+
       const { data, error } = await supabase.from("cases").insert([{
         user_id: user.id,
         name: `${capitalizeFullName(patientData.nome)} - ${examType}`,
@@ -946,7 +999,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         status: "completed",
         analysis: result as unknown as Json,
         raw_content: rawContent,
-        visual_analysis: visualAnalysisResult as unknown as Json,
+        visual_analysis: visualAnalysisToSave as unknown as Json,
       }]).select();
 
       if (error) {
@@ -1044,6 +1097,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
     setExamCategories([]);
     setVisualAnalysisResult(null);
     setShowVisualAnalysis(false);
+    setManualMarcacoes([]);
+    setManualEstruturas([]);
+    setManualProsthetics([]);
+    setDrawingStrokes([]);
     clearDraft();
     setPatientData({
       nome: "",
@@ -2021,6 +2078,14 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                   }}
                   analiseCompleta={visualAnalysisResult as any}
                   analiseSimplificada={visualAnalysisResult as any}
+                  marcacoesManuals={manualMarcacoes}
+                  onMarcacoesManualChange={setManualMarcacoes}
+                  estruturasManuais={manualEstruturas}
+                  onEstruturasManuaisChange={setManualEstruturas}
+                  prostheticItems={manualProsthetics}
+                  onProstheticItemsChange={setManualProsthetics}
+                  freeStrokes={drawingStrokes}
+                  onFreeStrokesChange={setDrawingStrokes}
                 />
               )}
             </div>
