@@ -945,7 +945,51 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
       const fileType = firstFile?.type || "application/octet-stream";
       
       console.log("Saving case with user_id:", user.id);
-      
+
+      // 1) Upload da imagem principal para storage (persiste entre sessões/dispositivos)
+      let storedImageUrl: string | null = null;
+      try {
+        const primary = previewUrls.find(p => p && p !== "pdf" && (p.startsWith("data:image") || p.startsWith("blob:")));
+        if (primary) {
+          // data URL → Blob
+          let blob: Blob;
+          if (primary.startsWith("data:")) {
+            const res = await fetch(primary);
+            blob = await res.blob();
+          } else {
+            const res = await fetch(primary);
+            blob = await res.blob();
+          }
+          const ext = (blob.type.split("/")[1] || "png").split("+")[0];
+          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("case-images")
+            .upload(path, blob, { contentType: blob.type || "image/png", upsert: false });
+          if (!upErr) {
+            const { data: pub } = supabase.storage.from("case-images").getPublicUrl(path);
+            storedImageUrl = pub.publicUrl;
+          } else {
+            console.warn("Falha ao subir imagem:", upErr);
+          }
+        }
+      } catch (e) {
+        console.warn("Erro no upload da imagem:", e);
+      }
+
+      // 2) Empacota a análise visual com a imagem persistida + anotações manuais
+      const visualAnalysisToSave = (visualAnalysisResult || manualMarcacoes.length || manualEstruturas.length || manualProsthetics.length || drawingStrokes.length || storedImageUrl)
+        ? {
+            ...(visualAnalysisResult || {}),
+            image_url: storedImageUrl,
+            user_annotations: {
+              marcacoes_manuais: manualMarcacoes,
+              estruturas_manuais: manualEstruturas,
+              prosthetics: manualProsthetics,
+              drawing_strokes: drawingStrokes,
+            },
+          }
+        : null;
+
       const { data, error } = await supabase.from("cases").insert([{
         user_id: user.id,
         name: `${capitalizeFullName(patientData.nome)} - ${examType}`,
@@ -955,7 +999,7 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
         status: "completed",
         analysis: result as unknown as Json,
         raw_content: rawContent,
-        visual_analysis: visualAnalysisResult as unknown as Json,
+        visual_analysis: visualAnalysisToSave as unknown as Json,
       }]).select();
 
       if (error) {
