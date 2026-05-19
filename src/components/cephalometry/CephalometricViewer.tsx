@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   ZoomIn, ZoomOut, RotateCcw, Pencil, Eraser, Minus,
   Move, Trash2, Undo2,
-,
   Maximize2, Minimize2} from "lucide-react";
 
 type Tool = "none" | "pen" | "line" | "eraser";
