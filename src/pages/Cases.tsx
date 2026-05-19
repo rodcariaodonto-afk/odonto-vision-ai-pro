@@ -53,6 +53,18 @@ interface SavedPlanning {
   confidence?: string;
 }
 
+interface CephAnalysisLookupRow {
+  id: string;
+  patient_id: string | null;
+  patient_name: string | null;
+  image_url: string;
+  image_storage_path: string;
+  landmarks: unknown;
+  measurements: unknown;
+  interpretation: string | null;
+  analysis_type: string | null;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AnalysisResult {
@@ -198,7 +210,8 @@ export default function Cases() {
   const toggleFolder = (name: string) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
   };
