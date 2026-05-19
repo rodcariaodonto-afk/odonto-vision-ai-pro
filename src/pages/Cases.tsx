@@ -308,7 +308,7 @@ export default function Cases() {
           };
           hydratedCase = { ...caseData, visual_analysis: visualAnalysis as SavedCephVisualAnalysis };
           setCases(prev => prev.map(c => c.id === caseData.id ? hydratedCase : c));
-          await supabase.from("cases").update({ visual_analysis: visualAnalysis as unknown as Record<string, unknown> }).eq("id", caseData.id).eq("user_id", user.id);
+          await supabase.from("cases").update({ visual_analysis: visualAnalysis as any }).eq("id", caseData.id).eq("user_id", user.id);
         }
       } catch (error) {
         console.warn("Falha ao recuperar imagem cefalométrica salva:", error);
