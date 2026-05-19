@@ -19,8 +19,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import { VisualAnalysis } from "@/components/visual-analysis";
+import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
 import {
-  ANALYSES_BY_ID, AnalysisType, getStatus, formatRange,
+  ANALYSES_BY_ID, AnalysisType,
 } from "@/types/cephalometric-analyses";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -90,10 +91,12 @@ const isCephalometryCase = (caseData: Case) =>
   caseData.visual_analysis?.kind === "cephalometry" ||
   Array.isArray(caseData.analysis?.analyses);
 
-const addWrappedText = (doc: jsPDF, text: string, x: number, y: number, maxWidth: number, lineHeight = 5) => {
-  const lines = doc.splitTextToSize(text, maxWidth);
-  doc.text(lines, x, y);
-  return y + lines.length * lineHeight;
+const getCephSelectedTypes = (caseData: Case): AnalysisType[] => {
+  const savedTypes = caseData.visual_analysis?.selected_types || caseData.analysis?.analysis_types;
+  if (Array.isArray(savedTypes) && savedTypes.length) return savedTypes as AnalysisType[];
+  return (caseData.analysis?.analyses || [])
+    .map((a) => a.analysis_type)
+    .filter((t): t is AnalysisType => !!t && !!ANALYSES_BY_ID[t]);
 };
 
 const checklistLabels: Record<string, string> = {
