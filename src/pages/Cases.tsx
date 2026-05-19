@@ -703,7 +703,59 @@ export default function Cases() {
                   />
                 )}
 
-                {selectedCase.analysis && (() => {
+                {isCephalometryCase(selectedCase) && selectedCase.analysis?.analyses && (
+                  <div className="space-y-4">
+                    {selectedCase.analysis.analyses.map((analysis, idx) => (
+                      <Card key={`${analysis.analysis_type || idx}-${idx}`}>
+                        <CardContent className="pt-4 space-y-3">
+                          <h4 className="font-semibold">Análise — {analysis.analysis_name || analysis.analysis_type || "Cefalometria"}</h4>
+                          {!!analysis.measurements?.length && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-2 text-muted-foreground">Medidas</h5>
+                              <ul className="space-y-1">
+                                {analysis.measurements.map((item, i) => (
+                                  <li key={i} className="flex items-start gap-2 text-sm">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />{item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {analysis.interpretation && (
+                            <div>
+                              <h5 className="text-sm font-medium mb-1 text-muted-foreground">Interpretação Clínica</h5>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{analysis.interpretation}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {selectedCase.analysis.checklist_clinico && (
+                      <div>
+                        <h4 className="font-semibold mb-2">Checklist Clínico</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                          {Object.entries(selectedCase.analysis.checklist_clinico).map(([key, value]) => (
+                            value === undefined || value === null || value === "" || value === false ? null : (
+                              <div key={key} className="rounded-md bg-muted/40 p-2">
+                                <span className="font-medium">{checklistLabels[key] || key}: </span>
+                                <span className="text-muted-foreground">{typeof value === "boolean" ? "Sim" : String(value).replace(/_/g, " ")}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedCase.analysis.planejamento_ortodontico && (
+                      <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <h4 className="font-semibold">Planejamento Ortodôntico</h4>
+                        {selectedCase.analysis.planejamento_ortodontico.summary && <p className="text-sm leading-relaxed">{selectedCase.analysis.planejamento_ortodontico.summary}</p>}
+                        {selectedCase.analysis.planejamento_ortodontico.final_text && <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedCase.analysis.planejamento_ortodontico.final_text}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isCephalometryCase(selectedCase) && selectedCase.analysis && (() => {
                   const a = selectedCase.analysis;
                   const isNewFormat = !!a.achados_radiograficos;
                   return (
