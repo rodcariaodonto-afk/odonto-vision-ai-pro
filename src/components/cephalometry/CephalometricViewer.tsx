@@ -101,7 +101,7 @@ export default function CephalometricViewer({
     const lmMap = new Map(landmarks.map((l) => [l.name, l]));
     const used = new Set<string>();
     def.lines.forEach((l) => { used.add(l.point1); used.add(l.point2); });
-    landmarks.forEach((lm) => {
+    landmarks.forEach((lm, idx) => {
       if (!used.has(lm.name)) return;
       const x = lm.x * baseScale, y = lm.y * baseScale;
       // ponto pequeno
