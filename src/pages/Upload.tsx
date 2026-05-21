@@ -1934,7 +1934,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 </CardHeader>
                 <CardContent>
                   <div className="text-foreground leading-relaxed space-y-3">
-                    {result.interpretacao_clinica.split(/\\n\\n|\n\n/).map((paragraph, index) => (
+                    {(typeof result.interpretacao_clinica === "string"
+                      ? result.interpretacao_clinica
+                      : JSON.stringify(result.interpretacao_clinica, null, 2)
+                    ).split(/\\n\\n|\n\n/).map((paragraph, index) => (
                       <p key={index} className="text-justify">
                         {paragraph.split(/\\n|\n/).map((line, lineIndex, arr) => (
                           <span key={lineIndex}>
