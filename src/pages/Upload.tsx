@@ -319,10 +319,11 @@ const loadAnalysisResult = (): {
         // Compatibilidade retroativa: examCategory (string) → examCategories (array)
         const cats: ExamCategory[] = parsed.examCategories ||
           (parsed.examCategory ? [parsed.examCategory] : []);
+        const patient = parsed.patientData || { nome: "", dataNascimento: "", dataLaudo: "" };
         return {
-          result: parsed.result,
+          result: normalizeAnalysisResult(parsed.result, patient),
           rawContent: parsed.rawContent || null,
-          patientData: parsed.patientData || { nome: "", dataNascimento: "", dataLaudo: "" },
+          patientData: patient,
           examCategories: cats,
           visualAnalysis: parsed.visualAnalysis || null,
           previewUrls: parsed.previewUrls || [],
@@ -622,7 +623,13 @@ export default function Upload() {
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
 
-      setResult(data.analysis);
+      const normalizedAnalysis = normalizeAnalysisResult(data.analysis, {
+        nome: formattedName,
+        dataNascimento: patientData.dataNascimento,
+        dataLaudo: patientData.dataLaudo,
+      });
+
+      setResult(normalizedAnalysis);
       setRawContent(data.rawContent);
 
       // Solução 3: capturar dados do revisor
@@ -634,7 +641,7 @@ export default function Upload() {
         setReviewScore(data.reviewScore);
       }
 
-      saveAnalysisResult(data.analysis, data.rawContent, {
+      saveAnalysisResult(normalizedAnalysis, data.rawContent, {
         nome: formattedName,
         dataNascimento: patientData.dataNascimento,
         dataLaudo: patientData.dataLaudo,
