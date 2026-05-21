@@ -2088,20 +2088,39 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </Card>
             )}
 
-            {/* Achados Radiográficos — só mostra quando NÃO é análise mista */}
-            {!result.laudo_imagem && result.achados_radiograficos && result.achados_radiograficos.length > 0 && (
-              <ResultCard
-                title="4) Achados Radiográficos"
-                items={result.achados_radiograficos}
-                icon={<AlertCircle className="w-5 h-5" />}
-                color="text-primary"
-                feedbackMode={feedbackMode}
-                fieldName="achados_radiograficos"
-                onCorrect={(original, corrected, type) =>
-                  handleSaveFeedback("achados_radiograficos", original, corrected, type)
-                }
-              />
-            )}
+            {/* Achados / Parâmetros — apresentação condicional por tipo de exame */}
+            {(() => {
+              const isLabOnly =
+                examCategories.length > 0 && examCategories.every((c) => c === "laboratorial");
+              if (result.laudo_imagem) return null;
+              if (!result.achados_radiograficos || result.achados_radiograficos.length === 0) return null;
+
+              if (isLabOnly) {
+                return (
+                  <LabParametersCard
+                    items={result.achados_radiograficos}
+                    feedbackMode={feedbackMode}
+                    onCorrect={(original, corrected, type) =>
+                      handleSaveFeedback("achados_radiograficos", original, corrected, type)
+                    }
+                  />
+                );
+              }
+
+              return (
+                <ResultCard
+                  title="4) Achados Radiográficos"
+                  items={result.achados_radiograficos}
+                  icon={<AlertCircle className="w-5 h-5" />}
+                  color="text-primary"
+                  feedbackMode={feedbackMode}
+                  fieldName="achados_radiograficos"
+                  onCorrect={(original, corrected, type) =>
+                    handleSaveFeedback("achados_radiograficos", original, corrected, type)
+                  }
+                />
+              );
+            })()}
 
             {/* Interpretação Clínica */}
             {result.interpretacao_clinica && (
@@ -2109,7 +2128,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
-                    5) Interpretação Clínica / Radiológica
+                    {examCategories.length > 0 && examCategories.every((c) => c === "laboratorial")
+                      ? "5) Interpretação Laboratorial"
+                      : "5) Interpretação Clínica / Radiológica"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -2132,25 +2153,43 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </Card>
             )}
 
-            {/* Diagnósticos Diferenciais */}
+            {/* Diagnósticos Diferenciais — parseia JSON cru se presente */}
             {result.diagnosticos_diferenciais && result.diagnosticos_diferenciais.length > 0 && (
-              <ResultCard
-                title="6) Diagnósticos Diferenciais"
-                items={result.diagnosticos_diferenciais}
-                icon={<Sparkles className="w-5 h-5" />}
-                color="text-success"
-                feedbackMode={feedbackMode}
-                fieldName="diagnosticos_diferenciais"
-                onCorrect={(original, corrected, type) =>
-                  handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+              (() => {
+                const hasStructured = result.diagnosticos_diferenciais.some((it) => extractDiagnosis(it) !== null);
+                if (hasStructured) {
+                  return (
+                    <DiagnosesCard
+                      items={result.diagnosticos_diferenciais}
+                      feedbackMode={feedbackMode}
+                      onCorrect={(original, corrected, type) =>
+                        handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+                      }
+                    />
+                  );
                 }
-              />
+                return (
+                  <ResultCard
+                    title="6) Diagnósticos Diferenciais"
+                    items={result.diagnosticos_diferenciais}
+                    icon={<Sparkles className="w-5 h-5" />}
+                    color="text-success"
+                    feedbackMode={feedbackMode}
+                    fieldName="diagnosticos_diferenciais"
+                    onCorrect={(original, corrected, type) =>
+                      handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+                    }
+                  />
+                );
+              })()
             )}
 
             {/* Riscos e Alertas */}
             {result.riscos_alertas && result.riscos_alertas.length > 0 && (
               <ResultCard
-                title="7) Riscos, Alertas e Pontos de Atenção"
+                title={examCategories.length > 0 && examCategories.every((c) => c === "laboratorial")
+                  ? "7) Alterações Laboratoriais Relevantes"
+                  : "7) Riscos, Alertas e Pontos de Atenção"}
                 items={result.riscos_alertas}
                 icon={<AlertCircle className="w-5 h-5" />}
                 color="text-destructive"
@@ -2165,7 +2204,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
             {/* Recomendações Clínicas */}
             {result.recomendacoes_clinicas && result.recomendacoes_clinicas.length > 0 && (
               <ResultCard
-                title="8) Recomendações Clínicas"
+                title={examCategories.length > 0 && examCategories.every((c) => c === "laboratorial")
+                  ? "8) Sugestão de Conduta Clínica"
+                  : "8) Recomendações Clínicas"}
                 items={result.recomendacoes_clinicas}
                 icon={<CheckCircle className="w-5 h-5" />}
                 color="text-primary"
