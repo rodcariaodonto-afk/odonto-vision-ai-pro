@@ -1274,20 +1274,31 @@ Forneça a análise no formato JSON especificado.`
 
 
     // Ensure all required fields exist
+    const toStr = (v: any, fallback: string): string => {
+      if (v === null || v === undefined) return fallback;
+      if (typeof v === "string") return v;
+      try { return JSON.stringify(v, null, 2); } catch { return fallback; }
+    };
+    const toArr = (v: any, fallback: string[]): string[] => {
+      if (Array.isArray(v) && v.length > 0) {
+        return v.map((x) => (typeof x === "string" ? x : (() => { try { return JSON.stringify(x); } catch { return String(x); } })()));
+      }
+      return fallback;
+    };
     analysis = {
       identificacao_paciente: analysis.identificacao_paciente || {
         nome: patient.nome,
         data_nascimento: patient.dataNascimento,
         data_analise: patient.dataLaudo,
       },
-      tipo_exame: analysis.tipo_exame || "Exame Analisado",
-      qualidade_imagem: analysis.qualidade_imagem || "Documento processado",
-      achados_radiograficos: analysis.achados_radiograficos?.length > 0 ? analysis.achados_radiograficos : ["Análise detalhada disponível na interpretação clínica"],
-      interpretacao_clinica: analysis.interpretacao_clinica || content.substring(0, 2000),
-      diagnosticos_diferenciais: analysis.diagnosticos_diferenciais?.length > 0 ? analysis.diagnosticos_diferenciais : ["Ver interpretação clínica"],
-      riscos_alertas: analysis.riscos_alertas?.length > 0 ? analysis.riscos_alertas : ["Avaliação de riscos incluída na análise"],
-      recomendacoes_clinicas: analysis.recomendacoes_clinicas?.length > 0 ? analysis.recomendacoes_clinicas : ["Recomendações clínicas conforme análise"],
-      observacoes: analysis.observacoes || "A interpretação final é responsabilidade do dentista responsável.",
+      tipo_exame: toStr(analysis.tipo_exame, "Exame Analisado"),
+      qualidade_imagem: toStr(analysis.qualidade_imagem, "Documento processado"),
+      achados_radiograficos: toArr(analysis.achados_radiograficos, ["Análise detalhada disponível na interpretação clínica"]),
+      interpretacao_clinica: toStr(analysis.interpretacao_clinica, content.substring(0, 2000)),
+      diagnosticos_diferenciais: toArr(analysis.diagnosticos_diferenciais, ["Ver interpretação clínica"]),
+      riscos_alertas: toArr(analysis.riscos_alertas, ["Avaliação de riscos incluída na análise"]),
+      recomendacoes_clinicas: toArr(analysis.recomendacoes_clinicas, ["Recomendações clínicas conforme análise"]),
+      observacoes: toStr(analysis.observacoes, "A interpretação final é responsabilidade do dentista responsável."),
       // Preservar campos de análise mista se existirem
       ...(analysis.laudo_imagem !== undefined && { laudo_imagem: analysis.laudo_imagem }),
       ...(analysis.laudo_laboratorial !== undefined && { laudo_laboratorial: analysis.laudo_laboratorial }),
