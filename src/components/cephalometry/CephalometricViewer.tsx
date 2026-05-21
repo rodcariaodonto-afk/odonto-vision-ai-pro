@@ -52,6 +52,7 @@ export default function CephalometricViewer({
   const [strokes, setStrokes] = useState<DrawStroke[]>([]);
   const draftStroke = useRef<DrawStroke | null>(null);
   const draggingLm = useRef<number | null>(null);
+  const [hoveredLm, setHoveredLm] = useState<number | null>(null);
   const panning = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
   const baseScaleRef = useRef(1);
 
@@ -104,11 +105,13 @@ export default function CephalometricViewer({
       if (!used.has(lm.name)) return;
       const x = lm.x * baseScale, y = lm.y * baseScale;
       // ponto pequeno
-      ctx.beginPath(); ctx.arc(x, y, 7 / zoom, 0, 2 * Math.PI);
-      ctx.fillStyle = lm.confidence > 0.8 ? "#22C55E" : "#F59E0B";
+      const isHovered = hoveredLm === idx || draggingLm.current === idx;
+      const dotR = isHovered ? 8 / zoom : 5 / zoom;
+      ctx.beginPath(); ctx.arc(x, y, dotR, 0, 2 * Math.PI);
+      ctx.fillStyle = isHovered ? "#FFFFFF" : (lm.confidence > 0.8 ? "#22C55E" : "#F59E0B");
       ctx.fill();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2 / zoom;
+      ctx.strokeStyle = isHovered ? "#3B82F6" : "#fff";
+      ctx.lineWidth = isHovered ? 2.5 / zoom : 2 / zoom;
       ctx.stroke();
     });
 
@@ -169,7 +172,7 @@ export default function CephalometricViewer({
   function findLandmarkAt(p: { x: number; y: number }): number | null {
     const used = new Set<string>();
     def.lines.forEach((l) => { used.add(l.point1); used.add(l.point2); });
-    const r = 12 / (zoom);
+    const r = 18 / (zoom);  // area de toque generosa para facilitar selecao
     for (let i = 0; i < landmarks.length; i++) {
       const lm = landmarks[i];
       if (!used.has(lm.name)) continue;
@@ -205,6 +208,12 @@ export default function CephalometricViewer({
       next[draggingLm.current] = { ...next[draggingLm.current], x: ip.x, y: ip.y };
       onLandmarksChange(next);
       return;
+    }
+
+    // Hover detection para feedback visual (apenas no modo none)
+    if (tool === "none") {
+      const idx = findLandmarkAt(ip);
+      setHoveredLm(idx);
     }
     if (panning.current) {
       setPan({
