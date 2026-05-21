@@ -193,6 +193,100 @@ const normalizeStringArray = (value: unknown, fallback: string[] = []): string[]
   return fallback;
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// Helpers para renderização amigável de exames laboratoriais
+// (a IA às vezes retorna strings contendo JSON cru dentro dos arrays)
+// ──────────────────────────────────────────────────────────────────────────
+const tryParseObject = (value: unknown): Record<string, unknown> | null => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const prettifyStatus = (raw: string): { label: string; tone: "ok" | "warn" | "bad" } => {
+  const s = (raw || "").trim();
+  if (!s) return { label: "Não informado", tone: "ok" };
+  const upper = s.toUpperCase();
+  let tone: "ok" | "warn" | "bad" = "ok";
+  if (upper.includes("GRAVE")) tone = "bad";
+  else if (upper.includes("MODERADO")) tone = "bad";
+  else if (upper.includes("LEVE") || upper.includes("ALTERADO") || upper.includes("ATENÇÃO")) tone = "warn";
+  else if (upper.includes("NORMAL")) tone = "ok";
+
+  // "ALTERADO LEVE - Abaixo do limite inferior" → "Alterado leve, abaixo do limite inferior"
+  const lower = s.toLowerCase().replace(/\s*-\s*/g, ", ");
+  const label = lower.charAt(0).toUpperCase() + lower.slice(1);
+  return { label, tone };
+};
+
+interface LabParam {
+  exame: string;
+  parametro: string;
+  valor: string;
+  unidade: string;
+  referencia: string;
+  status: string;
+}
+
+const extractLabParam = (raw: unknown): LabParam | null => {
+  const obj = tryParseObject(raw);
+  if (!obj) return null;
+  const exame = stringifyValue(obj.exame ?? obj.grupo ?? obj.categoria ?? "");
+  const parametro = stringifyValue(obj.parametro ?? obj.nome ?? obj.analito ?? "");
+  const valor = stringifyValue(obj.valor_encontrado ?? obj.valor ?? obj.resultado ?? "");
+  if (!parametro && !valor) return null;
+  return {
+    exame: exame || "Outros",
+    parametro: parametro || "—",
+    valor,
+    unidade: stringifyValue(obj.unidade ?? obj.unit ?? ""),
+    referencia: stringifyValue(obj.valor_referencia ?? obj.referencia ?? obj.intervalo_referencia ?? ""),
+    status: stringifyValue(obj.status ?? obj.situacao ?? ""),
+  };
+};
+
+interface DiagnosisItem {
+  label: string;
+  diagnostico: string;
+  justificativa: string;
+}
+
+const DIAGNOSIS_LABELS: Record<string, string> = {
+  diagnostico_primario: "Diagnóstico primário",
+  diagnostico_secundario: "Diagnóstico secundário",
+  diagnostico_terciario: "Diagnóstico terciário",
+  diagnostico_quaternario: "Diagnóstico adicional",
+};
+
+const extractDiagnosis = (raw: unknown): DiagnosisItem | null => {
+  const obj = tryParseObject(raw);
+  if (!obj) return null;
+  let diagKey: string | null = null;
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase().startsWith("diagnostico") || k.toLowerCase().startsWith("diagnóstico")) {
+      diagKey = k;
+      break;
+    }
+  }
+  const diagnostico = diagKey ? stringifyValue(obj[diagKey]) : stringifyValue(obj.diagnostico);
+  const justificativa = stringifyValue(obj.justificativa ?? obj.justificacao ?? obj.fundamentacao ?? "");
+  if (!diagnostico && !justificativa) return null;
+  const normalizedKey = (diagKey || "diagnostico").toLowerCase().replace("ó", "o");
+  const label = DIAGNOSIS_LABELS[normalizedKey] || "Diagnóstico";
+  return { label, diagnostico, justificativa };
+};
+
 const normalizeAnalysisResult = (raw: unknown, patientFallback?: PatientData): AnalysisResult => {
   const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   const id = source.identificacao_paciente && typeof source.identificacao_paciente === "object"
