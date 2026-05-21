@@ -179,6 +179,85 @@ const clearDraft = (): void => {
   }
 };
 
+const stringifyValue = (value: unknown, fallback = ""): string => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try { return JSON.stringify(value, null, 2); } catch { return fallback; }
+};
+
+const normalizeStringArray = (value: unknown, fallback: string[] = []): string[] => {
+  if (Array.isArray(value)) return value.map((item) => stringifyValue(item)).filter(Boolean);
+  if (typeof value === "string") return value.trim() ? [value] : fallback;
+  if (value && typeof value === "object") return Object.values(value).map((item) => stringifyValue(item)).filter(Boolean);
+  return fallback;
+};
+
+const normalizeAnalysisResult = (raw: unknown, patientFallback?: PatientData): AnalysisResult => {
+  const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const id = source.identificacao_paciente && typeof source.identificacao_paciente === "object"
+    ? source.identificacao_paciente as Record<string, unknown>
+    : {};
+  const lab = source.laudo_laboratorial && typeof source.laudo_laboratorial === "object"
+    ? source.laudo_laboratorial as Record<string, unknown>
+    : null;
+  const img = source.laudo_imagem && typeof source.laudo_imagem === "object"
+    ? source.laudo_imagem as Record<string, unknown>
+    : null;
+  const corr = source.correlacao_integrada && typeof source.correlacao_integrada === "object"
+    ? source.correlacao_integrada as Record<string, unknown>
+    : null;
+
+  return {
+    identificacao_paciente: {
+      nome: stringifyValue(id.nome, patientFallback?.nome || ""),
+      data_nascimento: stringifyValue(id.data_nascimento, patientFallback?.dataNascimento || ""),
+      data_analise: stringifyValue(id.data_analise, patientFallback?.dataLaudo || getTodayFormatted()),
+    },
+    tipo_exame: stringifyValue(source.tipo_exame, "Exame analisado"),
+    qualidade_imagem: stringifyValue(source.qualidade_imagem, "Documento processado"),
+    achados_radiograficos: normalizeStringArray(source.achados_radiograficos),
+    interpretacao_clinica: stringifyValue(source.interpretacao_clinica),
+    diagnosticos_diferenciais: normalizeStringArray(source.diagnosticos_diferenciais),
+    riscos_alertas: normalizeStringArray(source.riscos_alertas),
+    recomendacoes_clinicas: normalizeStringArray(source.recomendacoes_clinicas),
+    observacoes: stringifyValue(source.observacoes),
+    laudo_imagem: img ? {
+      tipo_imagem: stringifyValue(img.tipo_imagem),
+      achados: normalizeStringArray(img.achados),
+      diagnosticos_diferenciais: normalizeStringArray(img.diagnosticos_diferenciais),
+      riscos_alertas_imagem: normalizeStringArray(img.riscos_alertas_imagem),
+      recomendacoes_imagem: normalizeStringArray(img.recomendacoes_imagem),
+    } : null,
+    laudo_laboratorial: lab ? {
+      exames: Array.isArray(lab.exames) ? lab.exames.map((item) => {
+        const exame = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return {
+          nome: stringifyValue(exame.nome, stringifyValue(item, "Exame")),
+          valor: stringifyValue(exame.valor, "Não informado"),
+          referencia: stringifyValue(exame.referencia, "Não informado"),
+          status: ["NORMAL", "ALTERADO LEVE", "ALTERADO MODERADO", "ALTERADO GRAVE"].includes(stringifyValue(exame.status))
+            ? stringifyValue(exame.status) as ExameLab["status"]
+            : "NORMAL",
+          relevancia_odontologica: stringifyValue(exame.relevancia_odontologica),
+        };
+      }) : [],
+      classificacao_cirurgica: stringifyValue(lab.classificacao_cirurgica),
+      justificativa_classificacao: stringifyValue(lab.justificativa_classificacao),
+      riscos_alertas_lab: normalizeStringArray(lab.riscos_alertas_lab),
+      recomendacoes_lab: normalizeStringArray(lab.recomendacoes_lab),
+    } : null,
+    correlacao_integrada: corr ? {
+      correlacoes: normalizeStringArray(corr.correlacoes),
+      diagnostico_consolidado: stringifyValue(corr.diagnostico_consolidado),
+      urgencia: ["ROTINA", "PRIORITÁRIO", "URGENTE"].includes(stringifyValue(corr.urgencia))
+        ? stringifyValue(corr.urgencia) as CorrelacaoIntegrada["urgencia"]
+        : undefined,
+      conduta_recomendada: stringifyValue(corr.conduta_recomendada),
+    } : null,
+  };
+};
+
 // Save analysis result to localStorage
 const saveAnalysisResult = (
   result: AnalysisResult,
