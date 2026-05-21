@@ -24,6 +24,7 @@ import {
 } from "@/lib/cephalometric-math";
 import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
 import { CephalometricPlanningPanel } from "@/components/cephalometric-planning";
+import IntraoralPhotosSection from "@/components/cephalometry/intraoral/IntraoralPhotosSection";
 import type { AnalysisResultsMap } from "@/lib/cephalometric-planning";
 
 interface HistoryItem {
@@ -816,6 +817,11 @@ export default function Cephalometry() {
                 />
               </CardContent>
             </Card>
+          )}
+
+          {/* Fotos Intrabucais (documentação clínica complementar) */}
+          {result?.analysisId && user && (
+            <IntraoralPhotosSection analysisId={result.analysisId} userId={user.id} />
           )}
 
           {/* Sugestão de Planeamento Clínico (apoio à decisão) */}
