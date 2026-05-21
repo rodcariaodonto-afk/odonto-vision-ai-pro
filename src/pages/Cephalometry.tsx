@@ -25,6 +25,7 @@ import {
 import AnalysisResultTabs from "@/components/cephalometry/AnalysisResultTabs";
 import { CephalometricPlanningPanel } from "@/components/cephalometric-planning";
 import IntraoralPhotosSection from "@/components/cephalometry/intraoral/IntraoralPhotosSection";
+import { fetchPhotosForPdf } from "@/lib/cephalometric-intraoral";
 import type { AnalysisResultsMap } from "@/lib/cephalometric-planning";
 
 interface HistoryItem {
@@ -388,7 +389,7 @@ export default function Cephalometry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planningSuggestion]);
 
-  function handleExportPDF() {
+  async function handleExportPDF() {
     if (!result) return;
     try {
       const doc = new jsPDF();
@@ -544,6 +545,45 @@ export default function Cephalometry() {
         const disclaimer = "AVISO: Esta sugestão é gerada por IA como apoio à decisão clínica. NÃO substitui o julgamento profissional. Requer validação por dentista habilitado.";
         const dls = doc.splitTextToSize(disclaimer, pw - 30);
         doc.text(dls, 15, yp);
+      }
+
+      // Documentacao Fotografica Complementar (fotos intrabucais)
+      if (result?.analysisId) {
+        try {
+          const photos = await fetchPhotosForPdf(result.analysisId);
+          if (photos.length > 0) {
+            doc.addPage();
+            const pwImg = doc.internal.pageSize.getWidth();
+            doc.setFillColor(13, 43, 78);
+            doc.rect(0, 0, pwImg, 25, "F");
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16); doc.setFont("helvetica", "bold");
+            doc.text("DOCUMENTACAO FOTOGRAFICA COMPLEMENTAR", pwImg / 2, 12, { align: "center" });
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text("Fotos intrabucais - documentacao ortodontica", pwImg / 2, 19, { align: "center" });
+            doc.setTextColor(0, 0, 0);
+
+            let yImg = 35;
+            const imgW = 80, imgH = 60, gap = 10;
+            let col = 0;
+            for (const ph of photos) {
+              if (yImg + imgH + 8 > 280) { doc.addPage(); yImg = 15; col = 0; }
+              const xImg = 15 + col * (imgW + gap);
+              doc.setFontSize(9); doc.setFont("helvetica", "bold");
+              doc.text(ph.categoryLabel, xImg, yImg);
+              try {
+                doc.addImage(ph.dataUrl, ph.format, xImg, yImg + 2, imgW, imgH);
+              } catch {
+                doc.setFont("helvetica", "italic"); doc.setFontSize(8);
+                doc.text("(imagem indisponivel)", xImg, yImg + 30);
+              }
+              col += 1;
+              if (col >= 2) { col = 0; yImg += imgH + 14; }
+            }
+          }
+        } catch {
+          // fotos nao bloqueiam a geracao do laudo
+        }
       }
 
       const fileName = `cefalometria-${(patientName.trim() || patientId.trim()).replace(/\s+/g, "_")}-${Date.now()}.pdf`;
