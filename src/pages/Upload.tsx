@@ -1934,7 +1934,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 </CardHeader>
                 <CardContent>
                   <div className="text-foreground leading-relaxed space-y-3">
-                    {result.interpretacao_clinica.split(/\\n\\n|\n\n/).map((paragraph, index) => (
+                    {(typeof result.interpretacao_clinica === "string"
+                      ? result.interpretacao_clinica
+                      : JSON.stringify(result.interpretacao_clinica, null, 2)
+                    ).split(/\\n\\n|\n\n/).map((paragraph, index) => (
                       <p key={index} className="text-justify">
                         {paragraph.split(/\\n|\n/).map((line, lineIndex, arr) => (
                           <span key={lineIndex}>
@@ -2002,7 +2005,10 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 </CardHeader>
                 <CardContent>
                   <div className="text-muted-foreground leading-relaxed italic space-y-3">
-                    {result.observacoes.split(/\\n\\n|\n\n/).map((paragraph, index) => (
+                    {(typeof result.observacoes === "string"
+                      ? result.observacoes
+                      : JSON.stringify(result.observacoes, null, 2)
+                    ).split(/\\n\\n|\n\n/).map((paragraph, index) => (
                       <p key={index} className="text-justify">
                         {paragraph.split(/\\n|\n/).map((line, lineIndex, arr) => (
                           <span key={lineIndex}>
