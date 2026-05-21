@@ -193,6 +193,100 @@ const normalizeStringArray = (value: unknown, fallback: string[] = []): string[]
   return fallback;
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// Helpers para renderização amigável de exames laboratoriais
+// (a IA às vezes retorna strings contendo JSON cru dentro dos arrays)
+// ──────────────────────────────────────────────────────────────────────────
+const tryParseObject = (value: unknown): Record<string, unknown> | null => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const prettifyStatus = (raw: string): { label: string; tone: "ok" | "warn" | "bad" } => {
+  const s = (raw || "").trim();
+  if (!s) return { label: "Não informado", tone: "ok" };
+  const upper = s.toUpperCase();
+  let tone: "ok" | "warn" | "bad" = "ok";
+  if (upper.includes("GRAVE")) tone = "bad";
+  else if (upper.includes("MODERADO")) tone = "bad";
+  else if (upper.includes("LEVE") || upper.includes("ALTERADO") || upper.includes("ATENÇÃO")) tone = "warn";
+  else if (upper.includes("NORMAL")) tone = "ok";
+
+  // "ALTERADO LEVE - Abaixo do limite inferior" → "Alterado leve, abaixo do limite inferior"
+  const lower = s.toLowerCase().replace(/\s*-\s*/g, ", ");
+  const label = lower.charAt(0).toUpperCase() + lower.slice(1);
+  return { label, tone };
+};
+
+interface LabParam {
+  exame: string;
+  parametro: string;
+  valor: string;
+  unidade: string;
+  referencia: string;
+  status: string;
+}
+
+const extractLabParam = (raw: unknown): LabParam | null => {
+  const obj = tryParseObject(raw);
+  if (!obj) return null;
+  const exame = stringifyValue(obj.exame ?? obj.grupo ?? obj.categoria ?? "");
+  const parametro = stringifyValue(obj.parametro ?? obj.nome ?? obj.analito ?? "");
+  const valor = stringifyValue(obj.valor_encontrado ?? obj.valor ?? obj.resultado ?? "");
+  if (!parametro && !valor) return null;
+  return {
+    exame: exame || "Outros",
+    parametro: parametro || "—",
+    valor,
+    unidade: stringifyValue(obj.unidade ?? obj.unit ?? ""),
+    referencia: stringifyValue(obj.valor_referencia ?? obj.referencia ?? obj.intervalo_referencia ?? ""),
+    status: stringifyValue(obj.status ?? obj.situacao ?? ""),
+  };
+};
+
+interface DiagnosisItem {
+  label: string;
+  diagnostico: string;
+  justificativa: string;
+}
+
+const DIAGNOSIS_LABELS: Record<string, string> = {
+  diagnostico_primario: "Diagnóstico primário",
+  diagnostico_secundario: "Diagnóstico secundário",
+  diagnostico_terciario: "Diagnóstico terciário",
+  diagnostico_quaternario: "Diagnóstico adicional",
+};
+
+const extractDiagnosis = (raw: unknown): DiagnosisItem | null => {
+  const obj = tryParseObject(raw);
+  if (!obj) return null;
+  let diagKey: string | null = null;
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase().startsWith("diagnostico") || k.toLowerCase().startsWith("diagnóstico")) {
+      diagKey = k;
+      break;
+    }
+  }
+  const diagnostico = diagKey ? stringifyValue(obj[diagKey]) : stringifyValue(obj.diagnostico);
+  const justificativa = stringifyValue(obj.justificativa ?? obj.justificacao ?? obj.fundamentacao ?? "");
+  if (!diagnostico && !justificativa) return null;
+  const normalizedKey = (diagKey || "diagnostico").toLowerCase().replace("ó", "o");
+  const label = DIAGNOSIS_LABELS[normalizedKey] || "Diagnóstico";
+  return { label, diagnostico, justificativa };
+};
+
 const normalizeAnalysisResult = (raw: unknown, patientFallback?: PatientData): AnalysisResult => {
   const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   const id = source.identificacao_paciente && typeof source.identificacao_paciente === "object"
@@ -1994,20 +2088,39 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </Card>
             )}
 
-            {/* Achados Radiográficos — só mostra quando NÃO é análise mista */}
-            {!result.laudo_imagem && result.achados_radiograficos && result.achados_radiograficos.length > 0 && (
-              <ResultCard
-                title="4) Achados Radiográficos"
-                items={result.achados_radiograficos}
-                icon={<AlertCircle className="w-5 h-5" />}
-                color="text-primary"
-                feedbackMode={feedbackMode}
-                fieldName="achados_radiograficos"
-                onCorrect={(original, corrected, type) =>
-                  handleSaveFeedback("achados_radiograficos", original, corrected, type)
-                }
-              />
-            )}
+            {/* Achados / Parâmetros — apresentação condicional por tipo de exame */}
+            {(() => {
+              const isLabOnly =
+                examCategories.length > 0 && examCategories.every((c) => c === "laboratorial");
+              if (result.laudo_imagem) return null;
+              if (!result.achados_radiograficos || result.achados_radiograficos.length === 0) return null;
+
+              if (isLabOnly) {
+                return (
+                  <LabParametersCard
+                    items={result.achados_radiograficos}
+                    feedbackMode={feedbackMode}
+                    onCorrect={(original, corrected, type) =>
+                      handleSaveFeedback("achados_radiograficos", original, corrected, type)
+                    }
+                  />
+                );
+              }
+
+              return (
+                <ResultCard
+                  title="4) Achados Radiográficos"
+                  items={result.achados_radiograficos}
+                  icon={<AlertCircle className="w-5 h-5" />}
+                  color="text-primary"
+                  feedbackMode={feedbackMode}
+                  fieldName="achados_radiograficos"
+                  onCorrect={(original, corrected, type) =>
+                    handleSaveFeedback("achados_radiograficos", original, corrected, type)
+                  }
+                />
+              );
+            })()}
 
             {/* Interpretação Clínica */}
             {result.interpretacao_clinica && (
@@ -2015,7 +2128,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
-                    5) Interpretação Clínica / Radiológica
+                    {examCategories.length > 0 && examCategories.every((c) => c === "laboratorial")
+                      ? "5) Interpretação Laboratorial"
+                      : "5) Interpretação Clínica / Radiológica"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -2038,25 +2153,43 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
               </Card>
             )}
 
-            {/* Diagnósticos Diferenciais */}
+            {/* Diagnósticos Diferenciais — parseia JSON cru se presente */}
             {result.diagnosticos_diferenciais && result.diagnosticos_diferenciais.length > 0 && (
-              <ResultCard
-                title="6) Diagnósticos Diferenciais"
-                items={result.diagnosticos_diferenciais}
-                icon={<Sparkles className="w-5 h-5" />}
-                color="text-success"
-                feedbackMode={feedbackMode}
-                fieldName="diagnosticos_diferenciais"
-                onCorrect={(original, corrected, type) =>
-                  handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+              (() => {
+                const hasStructured = result.diagnosticos_diferenciais.some((it) => extractDiagnosis(it) !== null);
+                if (hasStructured) {
+                  return (
+                    <DiagnosesCard
+                      items={result.diagnosticos_diferenciais}
+                      feedbackMode={feedbackMode}
+                      onCorrect={(original, corrected, type) =>
+                        handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+                      }
+                    />
+                  );
                 }
-              />
+                return (
+                  <ResultCard
+                    title="6) Diagnósticos Diferenciais"
+                    items={result.diagnosticos_diferenciais}
+                    icon={<Sparkles className="w-5 h-5" />}
+                    color="text-success"
+                    feedbackMode={feedbackMode}
+                    fieldName="diagnosticos_diferenciais"
+                    onCorrect={(original, corrected, type) =>
+                      handleSaveFeedback("diagnosticos_diferenciais", original, corrected, type)
+                    }
+                  />
+                );
+              })()
             )}
 
             {/* Riscos e Alertas */}
             {result.riscos_alertas && result.riscos_alertas.length > 0 && (
               <ResultCard
-                title="7) Riscos, Alertas e Pontos de Atenção"
+                title={examCategories.length > 0 && examCategories.every((c) => c === "laboratorial")
+                  ? "7) Alterações Laboratoriais Relevantes"
+                  : "7) Riscos, Alertas e Pontos de Atenção"}
                 items={result.riscos_alertas}
                 icon={<AlertCircle className="w-5 h-5" />}
                 color="text-destructive"
@@ -2071,7 +2204,9 @@ Este laudo é gerado automaticamente por inteligência artificial como ferrament
             {/* Recomendações Clínicas */}
             {result.recomendacoes_clinicas && result.recomendacoes_clinicas.length > 0 && (
               <ResultCard
-                title="8) Recomendações Clínicas"
+                title={examCategories.length > 0 && examCategories.every((c) => c === "laboratorial")
+                  ? "8) Sugestão de Conduta Clínica"
+                  : "8) Recomendações Clínicas"}
                 items={result.recomendacoes_clinicas}
                 icon={<CheckCircle className="w-5 h-5" />}
                 color="text-primary"
@@ -2386,5 +2521,141 @@ function AddFeedbackItem({ fieldName, onAdd }: { fieldName: string; onAdd: (val:
       className="mt-2 w-full text-xs text-green-600 border border-dashed border-green-500/40 rounded-lg py-2 hover:bg-green-500/5 transition-colors">
       + Adicionar achado que a IA não identificou
     </button>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// LabParametersCard — agrupa parâmetros laboratoriais por exame
+// ──────────────────────────────────────────────────────────────────────────
+function LabParametersCard({
+  items,
+  feedbackMode,
+  onCorrect,
+}: {
+  items: string[];
+  feedbackMode?: boolean;
+  onCorrect?: (original: string, corrected: string, type: "correction" | "addition" | "removal") => void;
+}) {
+  const parsed: Array<{ raw: string; param: LabParam | null }> = items.map((it) => ({
+    raw: it,
+    param: extractLabParam(it),
+  }));
+
+  // Agrupa por exame
+  const groups = new Map<string, Array<{ raw: string; param: LabParam }>>();
+  const unparsed: string[] = [];
+  for (const entry of parsed) {
+    if (entry.param) {
+      const key = entry.param.exame;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push({ raw: entry.raw, param: entry.param });
+    } else {
+      unparsed.push(entry.raw);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2 text-primary">
+          <AlertCircle className="w-5 h-5" />
+          4) Parâmetros Laboratoriais Analisados
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {Array.from(groups.entries()).map(([exame, rows]) => (
+          <div key={exame} className="space-y-2">
+            <h4 className="text-sm font-semibold text-primary uppercase tracking-wide">
+              {exame.charAt(0).toUpperCase() + exame.slice(1).toLowerCase()}
+            </h4>
+            <ul className="space-y-1.5">
+              {rows.map(({ param }, i) => {
+                const status = prettifyStatus(param.status);
+                const toneClass =
+                  status.tone === "bad" ? "text-destructive font-medium"
+                  : status.tone === "warn" ? "text-amber-600 font-medium"
+                  : "text-green-700";
+                return (
+                  <li key={i} className="text-sm leading-relaxed border-l-2 border-muted pl-3">
+                    <div className="text-foreground">
+                      <span className="font-medium">{param.parametro}:</span>{" "}
+                      <span>{param.valor}{param.unidade ? ` ${param.unidade}` : ""}</span>
+                      {param.referencia && (
+                        <span className="text-muted-foreground"> — Referência: {param.referencia}</span>
+                      )}
+                    </div>
+                    {param.status && (
+                      <div className={cn("text-xs mt-0.5", toneClass)}>
+                        Status: {status.label}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        {unparsed.length > 0 && (
+          <ul className="space-y-1.5 text-sm text-foreground">
+            {unparsed.map((it, i) => (
+              <li key={`u-${i}`} className="flex items-start gap-2">
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                <span>{it}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// DiagnosesCard — renderiza diagnósticos diferenciais com label + justificativa
+// ──────────────────────────────────────────────────────────────────────────
+function DiagnosesCard({
+  items,
+  feedbackMode,
+  onCorrect,
+}: {
+  items: string[];
+  feedbackMode?: boolean;
+  onCorrect?: (original: string, corrected: string, type: "correction" | "addition" | "removal") => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2 text-success">
+          <Sparkles className="w-5 h-5" />
+          6) Diagnósticos Diferenciais
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {items.map((raw, i) => {
+          const d = extractDiagnosis(raw);
+          if (!d) {
+            return (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-success flex-shrink-0" />
+                <span className="text-foreground leading-relaxed">{raw}</span>
+              </div>
+            );
+          }
+          return (
+            <div key={i} className="border-l-2 border-success/40 pl-3 space-y-1">
+              <p className="text-sm">
+                <span className="font-semibold text-foreground">{d.label}:</span>{" "}
+                <span className="text-foreground">{d.diagnostico}</span>
+              </p>
+              {d.justificativa && (
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="font-medium text-foreground">Justificativa:</span> {d.justificativa}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
