@@ -2523,3 +2523,139 @@ function AddFeedbackItem({ fieldName, onAdd }: { fieldName: string; onAdd: (val:
     </button>
   );
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// LabParametersCard — agrupa parâmetros laboratoriais por exame
+// ──────────────────────────────────────────────────────────────────────────
+function LabParametersCard({
+  items,
+  feedbackMode,
+  onCorrect,
+}: {
+  items: string[];
+  feedbackMode?: boolean;
+  onCorrect?: (original: string, corrected: string, type: "correction" | "addition" | "removal") => void;
+}) {
+  const parsed: Array<{ raw: string; param: LabParam | null }> = items.map((it) => ({
+    raw: it,
+    param: extractLabParam(it),
+  }));
+
+  // Agrupa por exame
+  const groups = new Map<string, Array<{ raw: string; param: LabParam }>>();
+  const unparsed: string[] = [];
+  for (const entry of parsed) {
+    if (entry.param) {
+      const key = entry.param.exame;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push({ raw: entry.raw, param: entry.param });
+    } else {
+      unparsed.push(entry.raw);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2 text-primary">
+          <AlertCircle className="w-5 h-5" />
+          4) Parâmetros Laboratoriais Analisados
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {Array.from(groups.entries()).map(([exame, rows]) => (
+          <div key={exame} className="space-y-2">
+            <h4 className="text-sm font-semibold text-primary uppercase tracking-wide">
+              {exame.charAt(0).toUpperCase() + exame.slice(1).toLowerCase()}
+            </h4>
+            <ul className="space-y-1.5">
+              {rows.map(({ param }, i) => {
+                const status = prettifyStatus(param.status);
+                const toneClass =
+                  status.tone === "bad" ? "text-destructive font-medium"
+                  : status.tone === "warn" ? "text-amber-600 font-medium"
+                  : "text-green-700";
+                return (
+                  <li key={i} className="text-sm leading-relaxed border-l-2 border-muted pl-3">
+                    <div className="text-foreground">
+                      <span className="font-medium">{param.parametro}:</span>{" "}
+                      <span>{param.valor}{param.unidade ? ` ${param.unidade}` : ""}</span>
+                      {param.referencia && (
+                        <span className="text-muted-foreground"> — Referência: {param.referencia}</span>
+                      )}
+                    </div>
+                    {param.status && (
+                      <div className={cn("text-xs mt-0.5", toneClass)}>
+                        Status: {status.label}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        {unparsed.length > 0 && (
+          <ul className="space-y-1.5 text-sm text-foreground">
+            {unparsed.map((it, i) => (
+              <li key={`u-${i}`} className="flex items-start gap-2">
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                <span>{it}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// DiagnosesCard — renderiza diagnósticos diferenciais com label + justificativa
+// ──────────────────────────────────────────────────────────────────────────
+function DiagnosesCard({
+  items,
+  feedbackMode,
+  onCorrect,
+}: {
+  items: string[];
+  feedbackMode?: boolean;
+  onCorrect?: (original: string, corrected: string, type: "correction" | "addition" | "removal") => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2 text-success">
+          <Sparkles className="w-5 h-5" />
+          6) Diagnósticos Diferenciais
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {items.map((raw, i) => {
+          const d = extractDiagnosis(raw);
+          if (!d) {
+            return (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-success flex-shrink-0" />
+                <span className="text-foreground leading-relaxed">{raw}</span>
+              </div>
+            );
+          }
+          return (
+            <div key={i} className="border-l-2 border-success/40 pl-3 space-y-1">
+              <p className="text-sm">
+                <span className="font-semibold text-foreground">{d.label}:</span>{" "}
+                <span className="text-foreground">{d.diagnostico}</span>
+              </p>
+              {d.justificativa && (
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="font-medium text-foreground">Justificativa:</span> {d.justificativa}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
