@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ImagePlus, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { ImagePlus, Trash2, Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   INTRAORAL_CATEGORIES,
   categoryLabel,
@@ -46,6 +47,8 @@ export default function IntraoralPhotosSection({ analysisId, userId }: Props) {
   const [photos, setPhotos] = useState<IntraoralPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Carrega fotos existentes ao montar (reabertura do histórico)
@@ -132,6 +135,46 @@ export default function IntraoralPhotosSection({ analysisId, userId }: Props) {
   }
 
   // Agrupa por categoria, na ordem canônica
+  // Carrega analise de IA existente ao montar (reabertura do historico)
+  useEffect(() => {
+    if (!analysisId) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("ceph_intraoral_ai_analysis")
+          .select("result_text")
+          .eq("analysis_id", analysisId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data?.result_text) setAiResult(data.result_text);
+      } catch { /* sem analise previa */ }
+    })();
+  }, [analysisId]);
+
+  async function handleAnalyze() {
+    if (photos.length === 0) return;
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-intraoral-photos", {
+        body: { analysisId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const text = data?.analysis?.result_text as string | undefined;
+      if (text) {
+        setAiResult(text);
+        toast.success("Análise concluída");
+      } else {
+        throw new Error("Resposta sem conteúdo");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha na análise por IA");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   const grouped = INTRAORAL_CATEGORIES.map((cat) => ({
     ...cat,
     items: photos.filter((p) => p.category === cat.value),
@@ -258,6 +301,29 @@ export default function IntraoralPhotosSection({ analysisId, userId }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {photos.length > 0 && (
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+              <p className="text-sm font-medium">Análise assistiva por IA</p>
+              <Button size="sm" variant="outline" onClick={handleAnalyze} disabled={analyzing}>
+                {analyzing ? (
+                  <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Analisando…</>
+                ) : (
+                  <><Sparkles className="h-4 w-4 mr-1.5" />Analisar fotos com IA</>
+                )}
+              </Button>
+            </div>
+            {aiResult && (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                  Observação assistiva por IA · requer validação profissional
+                </p>
+                <p className="text-sm whitespace-pre-wrap leading-snug">{aiResult}</p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
