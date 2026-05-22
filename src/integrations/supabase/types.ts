@@ -273,6 +273,91 @@ export type Database = {
         }
         Relationships: []
       }
+      ceph_intraoral_ai_analysis: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          id: string
+          model_used: string | null
+          photos_count: number | null
+          result_text: string
+          safety_filter_version: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          id?: string
+          model_used?: string | null
+          photos_count?: number | null
+          result_text: string
+          safety_filter_version?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          model_used?: string | null
+          photos_count?: number | null
+          result_text?: string
+          safety_filter_version?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceph_intraoral_ai_analysis_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "cephalometric_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ceph_intraoral_photos: {
+        Row: {
+          analysis_id: string
+          category: string
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          analysis_id: string
+          category: string
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          analysis_id?: string
+          category?: string
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ceph_intraoral_photos_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "cephalometric_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cephalometric_analyses: {
         Row: {
           analysis_type: string
