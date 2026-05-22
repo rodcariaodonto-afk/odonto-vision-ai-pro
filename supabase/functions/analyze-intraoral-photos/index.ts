@@ -20,7 +20,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   corsHeaders,
   serviceClient,
-  getUserFromRequest,
   jsonResponse,
   logAudit,
 } from "../_shared/governance.ts";
@@ -112,10 +111,18 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Auth
-    const user = await getUserFromRequest(req);
-    if (!user?.id) {
-      return jsonResponse({ error: "Não autenticado" }, 401);
+    // 1. Auth — valida o JWT via service client (SUPABASE_SERVICE_ROLE_KEY,
+    // que existe no ambiente). Evita dependencia de SUPABASE_ANON_KEY ausente.
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) {
+      return jsonResponse({ error: "Não autenticado: token ausente" }, 401);
+    }
+    const authClient = serviceClient();
+    const { data: authData, error: authError } = await authClient.auth.getUser(token);
+    const user = authData?.user;
+    if (authError || !user?.id) {
+      return jsonResponse({ error: "Não autenticado: token inválido" }, 401);
     }
 
     // 2. Input
