@@ -230,10 +230,13 @@ serve(async (req) => {
     // 8. Auditoria (nao bloqueia em caso de falha)
     try {
       await logAudit({
-        userId: user.id,
-        action: "intraoral_ai_analysis",
-        detail: { analysisId, photosCount: usable, modelUsed },
-      } as any);
+        actor_id: user.id,
+        event_type: "intraoral_ai_analysis",
+        resource_type: "cephalometric_analyses",
+        resource_id: analysisId,
+        severity: "info",
+        metadata: { photos_count: usable, model_used: modelUsed },
+      });
     } catch (_) { /* auditoria nao bloqueia resposta */ }
 
     return jsonResponse({
