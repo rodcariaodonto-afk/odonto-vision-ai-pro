@@ -54,6 +54,8 @@ export default function CephalometricViewer({
   const draggingLm = useRef<number | null>(null);
   const [hoveredLm, setHoveredLm] = useState<number | null>(null);
   const [selectedLm, setSelectedLm] = useState<number | null>(null);
+  const [magnifier, setMagnifier] = useState<{ imgX: number; imgY: number } | null>(null);
+  const magCanvasRef = useRef<HTMLCanvasElement>(null);
   const panning = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
   const baseScaleRef = useRef(1);
 
@@ -234,6 +236,7 @@ export default function CephalometricViewer({
       const next = landmarks.slice();
       next[draggingLm.current] = { ...next[draggingLm.current], x: ip.x, y: ip.y };
       onLandmarksChange(next);
+      setMagnifier({ imgX: ip.x, imgY: ip.y });
       return;
     }
 
@@ -266,6 +269,7 @@ export default function CephalometricViewer({
   function onPointerUp() {
     draggingLm.current = null;
     panning.current = null;
+    setMagnifier(null);
     if (draftStroke.current) {
       const ds = draftStroke.current;
       // Eraser nao precisa ser salvo; demais precisam de >=2 pontos
@@ -276,6 +280,35 @@ export default function CephalometricViewer({
       redraw();
     }
   }
+
+  // Lupa de precisao: recorte ampliado da imagem ao redor do ponto arrastado
+  useEffect(() => {
+    const mc = magCanvasRef.current;
+    const img = imgRef.current;
+    if (!mc || !img || !magnifier) return;
+    const mctx = mc.getContext("2d");
+    if (!mctx) return;
+    const MAG = 4;            // fator de ampliacao
+    const SIZE = 150;         // tamanho da lupa em px
+    const srcSize = SIZE / MAG;
+    const sx = magnifier.imgX - srcSize / 2;
+    const sy = magnifier.imgY - srcSize / 2;
+    mctx.clearRect(0, 0, SIZE, SIZE);
+    mctx.imageSmoothingEnabled = false;
+    try {
+      mctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, SIZE, SIZE);
+    } catch { /* recorte fora dos limites */ }
+    // mira central
+    mctx.strokeStyle = "#3B82F6";
+    mctx.lineWidth = 1;
+    mctx.beginPath();
+    mctx.moveTo(SIZE / 2, 0); mctx.lineTo(SIZE / 2, SIZE);
+    mctx.moveTo(0, SIZE / 2); mctx.lineTo(SIZE, SIZE / 2);
+    mctx.stroke();
+    // ponto central
+    mctx.fillStyle = "#3B82F6";
+    mctx.beginPath(); mctx.arc(SIZE / 2, SIZE / 2, 2, 0, 2 * Math.PI); mctx.fill();
+  }, [magnifier]);
 
   function onWheel(ev: React.WheelEvent) {
     if (!ev.ctrlKey && !ev.metaKey && Math.abs(ev.deltaY) < 30) return;
@@ -342,6 +375,14 @@ export default function CephalometricViewer({
           onPointerCancel={onPointerUp}
           onWheel={onWheel}
         />
+        {magnifier && (
+          <canvas
+            ref={magCanvasRef}
+            width={150}
+            height={150}
+            className="absolute top-2 left-2 z-10 rounded-lg border-2 border-blue-500 shadow-lg pointer-events-none bg-black"
+          />
+        )}
       </div>
 
       {/* Dica */}
