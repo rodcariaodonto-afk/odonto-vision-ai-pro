@@ -53,6 +53,7 @@ export default function CephalometricViewer({
   const draftStroke = useRef<DrawStroke | null>(null);
   const draggingLm = useRef<number | null>(null);
   const [hoveredLm, setHoveredLm] = useState<number | null>(null);
+  const [selectedLm, setSelectedLm] = useState<number | null>(null);
   const panning = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
   const baseScaleRef = useRef(1);
 
@@ -105,7 +106,8 @@ export default function CephalometricViewer({
       if (!used.has(lm.name)) return;
       const x = lm.x * baseScale, y = lm.y * baseScale;
       // ponto pequeno
-      const isHovered = hoveredLm === idx || draggingLm.current === idx;
+      const isSelected = selectedLm === idx;
+      const isHovered = hoveredLm === idx || draggingLm.current === idx || isSelected;
       const dotR = isHovered ? 8 / zoom : 5 / zoom;
       ctx.beginPath(); ctx.arc(x, y, dotR, 0, 2 * Math.PI);
       ctx.fillStyle = isHovered ? "#FFFFFF" : (lm.confidence > 0.8 ? "#22C55E" : "#F59E0B");
@@ -125,7 +127,7 @@ export default function CephalometricViewer({
     } catch (err) {
       console.error("[CephalometricViewer] redraw error:", err);
     }
-  }, [landmarks, def, measurements, strokes, pan, zoom]);
+  }, [landmarks, def, measurements, strokes, pan, zoom, hoveredLm, selectedLm]);
 
   function drawStroke(ctx: CanvasRenderingContext2D, s: DrawStroke, baseScale: number) {
     if (!s.points || s.points.length < 1) return;
@@ -181,6 +183,31 @@ export default function CephalometricViewer({
     return null;
   }
 
+  // Ajuste fino por teclado: setas movem o landmark selecionado (1px; Shift=5px)
+  useEffect(() => {
+    if (selectedLm === null || tool !== "none") return;
+    function onKey(e: KeyboardEvent) {
+      const step = e.shiftKey ? 5 : 1;
+      let dx = 0, dy = 0;
+      if (e.key === "ArrowLeft") dx = -step;
+      else if (e.key === "ArrowRight") dx = step;
+      else if (e.key === "ArrowUp") dy = -step;
+      else if (e.key === "ArrowDown") dy = step;
+      else return;
+      e.preventDefault();
+      if (!onLandmarksChange || selectedLm === null) return;
+      const img = imgRef.current;
+      const next = landmarks.slice();
+      const cur = next[selectedLm];
+      let nx = cur.x + dx, ny = cur.y + dy;
+      if (img) { nx = Math.max(0, Math.min(img.width, nx)); ny = Math.max(0, Math.min(img.height, ny)); }
+      next[selectedLm] = { ...cur, x: nx, y: ny };
+      onLandmarksChange(next);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedLm, tool, landmarks, onLandmarksChange]);
+
   function onPointerDown(ev: React.PointerEvent) {
     (ev.target as Element).setPointerCapture(ev.pointerId);
     const ip = toImageCoords(ev);
@@ -188,7 +215,7 @@ export default function CephalometricViewer({
     if (tool === "none") {
       // Try landmark drag first
       const idx = findLandmarkAt(ip);
-      if (idx !== null) { draggingLm.current = idx; return; }
+      if (idx !== null) { draggingLm.current = idx; setSelectedLm(idx); return; }
       // else pan if zoomed
       if (zoom > 1) {
         panning.current = { sx: ev.clientX, sy: ev.clientY, px: pan.x, py: pan.y };
