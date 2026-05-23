@@ -487,7 +487,16 @@ export function VisualAnalysis({
   const handleOpenInNewWindow = useCallback(() => {
     // Usar achados modificados (que inclui marcações manuais)
     const achados = achadosModificados || analise?.achados_clinicos;
-    
+
+    // HTML-escape any dynamic strings to prevent XSS via injected markup
+    const esc = (s: unknown): string =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -517,39 +526,39 @@ export function VisualAnalysis({
           <h1>Análise Visual - OdontoVision AI Pro</h1>
           <div class="content">
             <div class="image-container">
-              <img src="${imageUrl}" alt="Radiografia" />
+              <img src="${esc(imageUrl)}" alt="Radiografia" />
             </div>
             <div class="findings">
               ${achados ? `
                 <div class="section">
                   <h3>Dentes Presentes (${achados.dentes_presentes?.length || 0})</h3>
-                  <p>${achados.dentes_presentes?.join(", ") || "Nenhum identificado"}</p>
+                  <p>${esc(achados.dentes_presentes?.join(", ") || "Nenhum identificado")}</p>
                 </div>
                 <div class="section">
                   <h3>Dentes Ausentes</h3>
-                  <ul>${(achados.dentes_ausentes || []).map((d: string) => `<li><span class="badge badge-red">Ausente</span> ${d}</li>`).join("") || "<li>Nenhum</li>"}</ul>
+                  <ul>${(achados.dentes_ausentes || []).map((d: string) => `<li><span class="badge badge-red">Ausente</span> ${esc(d)}</li>`).join("") || "<li>Nenhum</li>"}</ul>
                 </div>
                 <div class="section">
                   <h3>Cáries Suspeitas</h3>
-                  <ul>${(achados.caries_suspeitas || []).map((c: string) => `<li><span class="badge badge-red">Cárie</span> ${c}</li>`).join("") || "<li>Nenhuma identificada</li>"}</ul>
+                  <ul>${(achados.caries_suspeitas || []).map((c: string) => `<li><span class="badge badge-red">Cárie</span> ${esc(c)}</li>`).join("") || "<li>Nenhuma identificada</li>"}</ul>
                 </div>
                 <div class="section">
                   <h3>Lesões Suspeitas</h3>
-                  <ul>${(achados.lesoes_suspeitas || []).map((l: string) => `<li><span class="badge badge-yellow">Lesão</span> ${l}</li>`).join("") || "<li>Nenhuma identificada</li>"}</ul>
+                  <ul>${(achados.lesoes_suspeitas || []).map((l: string) => `<li><span class="badge badge-yellow">Lesão</span> ${esc(l)}</li>`).join("") || "<li>Nenhuma identificada</li>"}</ul>
                 </div>
                 <div class="section">
                   <h3>Implantes</h3>
-                  <ul>${(achados.implantes || []).map((i: string) => `<li><span class="badge badge-blue">Implante</span> ${i}</li>`).join("") || "<li>Nenhum identificado</li>"}</ul>
+                  <ul>${(achados.implantes || []).map((i: string) => `<li><span class="badge badge-blue">Implante</span> ${esc(i)}</li>`).join("") || "<li>Nenhum identificado</li>"}</ul>
                 </div>
                 <div class="section">
                   <h3>Restaurações</h3>
-                  <ul>${(achados.restauracoes || []).map((r: string) => `<li><span class="badge badge-green">Restauração</span> ${r}</li>`).join("") || "<li>Nenhuma identificada</li>"}</ul>
+                  <ul>${(achados.restauracoes || []).map((r: string) => `<li><span class="badge badge-green">Restauração</span> ${esc(r)}</li>`).join("") || "<li>Nenhuma identificada</li>"}</ul>
                 </div>
                 <div class="section">
                   <h3>Tratamentos Endodônticos</h3>
-                  <ul>${(achados.tratamentos_endodonticos || []).map((t: string) => `<li><span class="badge badge-blue">Endo</span> ${t}</li>`).join("") || "<li>Nenhum identificado</li>"}</ul>
+                  <ul>${(achados.tratamentos_endodonticos || []).map((t: string) => `<li><span class="badge badge-blue">Endo</span> ${esc(t)}</li>`).join("") || "<li>Nenhum identificado</li>"}</ul>
                 </div>
-                ${achados.observacoes ? `<div class="section"><h3>Observações</h3><p>${achados.observacoes}</p></div>` : ""}
+                ${achados.observacoes ? `<div class="section"><h3>Observações</h3><p>${esc(achados.observacoes)}</p></div>` : ""}
               ` : "<p>Nenhum achado disponível</p>"}
             </div>
           </div>
