@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,26 @@ serve(async (req) => {
 
   try {
     logStep("Function started");
+
+    // Require authenticated user
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (!token) {
+      return new Response(JSON.stringify({ error: "unauthorized", verified: false }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    );
+    const { data: userData, error: userErr } = await supabaseAuth.auth.getUser(token);
+    if (userErr || !userData.user?.email) {
+      return new Response(JSON.stringify({ error: "unauthorized", verified: false }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const authedEmail = userData.user.email.toLowerCase();
 
     const { sessionId } = await req.json();
     if (!sessionId) {
@@ -44,6 +65,14 @@ serve(async (req) => {
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
+      });
+    }
+
+    // Ensure the session belongs to the authenticated user
+    const sessionEmail = (session.customer_email || session.customer_details?.email || "").toLowerCase();
+    if (!sessionEmail || sessionEmail !== authedEmail) {
+      return new Response(JSON.stringify({ verified: false, error: "forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
