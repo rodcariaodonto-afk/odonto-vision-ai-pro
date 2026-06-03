@@ -16,8 +16,16 @@ import {
   Star,
   Users,
   ChevronRight,
+  MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
+
+const WHATSAPP_NUMBER = "5511939171383";
+const WHATSAPP_MESSAGE =
+  "Olá, gostaria de saber mais sobre o OdontoVision Pró. Poderia me falar sobre a plataforma?";
+const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+  WHATSAPP_MESSAGE
+)}`;
 
 // 🔗 Links de assinatura recorrente do Mercado Pago — 5 planos
 const CHECKOUT_LINKS: Record<string, string> = {
@@ -61,6 +69,15 @@ export default function Welcome() {
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
+            <a
+              href={WHATSAPP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600 hover:text-green-700 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp
+            </a>
             <Button variant="ghost" className="text-[hsl(var(--landing-navy))]" onClick={() => navigate("/login")}>
               Entrar
             </Button>
@@ -86,6 +103,14 @@ export default function Welcome() {
             <button onClick={() => scrollTo("how")} className="block w-full text-left py-2 text-gray-700">Como Funciona</button>
             <button onClick={() => scrollTo("pricing")} className="block w-full text-left py-2 text-gray-700">Planos</button>
             <hr className="border-gray-100" />
+            <a
+              href={WHATSAPP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-left py-2 text-green-600 font-medium"
+            >
+              WhatsApp
+            </a>
             <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileMenu(false); navigate("/login"); }}>Entrar</Button>
             <Button className="w-full bg-[hsl(var(--landing-teal))] text-white" onClick={() => { setMobileMenu(false); scrollTo("pricing"); }}>Assinar Agora</Button>
           </div>
